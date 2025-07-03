@@ -14,6 +14,7 @@ import useAIResponseStream from './useAIResponseStream'
 import { ToolCall } from '@/types/playground'
 import { useQueryState } from 'nuqs'
 import { getJsonMarkdown } from '@/lib/utils'
+import { useAuthContext } from '@/components/AuthProvider'
 
 /**
  * useAIChatStreamHandler is responsible for making API calls and handling the stream response.
@@ -32,6 +33,7 @@ const useAIChatStreamHandler = () => {
   const setSessionsData = usePlaygroundStore((state) => state.setSessionsData)
   const hasStorage = usePlaygroundStore((state) => state.hasStorage)
   const { streamResponse } = useAIResponseStream()
+  const { user } = useAuthContext()
 
   const updateMessagesWithErrorState = useCallback(() => {
     setMessages((prevMessages) => {
@@ -156,6 +158,10 @@ const useAIChatStreamHandler = () => {
 
         formData.append('stream', 'true')
         formData.append('session_id', sessionId ?? '')
+        // Добавляем user_id если пользователь аутентифицирован
+        if (user?.id) {
+          formData.append('user_id', user.id)
+        }
 
         await streamResponse({
           apiUrl: playgroundRunUrl,

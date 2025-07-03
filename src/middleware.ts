@@ -47,7 +47,7 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession()
 
   // Список защищенных роутов - требуют авторизации
-  const protectedRoutes = ['/', '/playground', '/api']
+  const protectedRoutes = ['/playground', '/api']
   const authRoutes = ['/auth']
 
   const { pathname } = req.nextUrl
@@ -60,7 +60,13 @@ export async function middleware(req: NextRequest) {
 
   // Если пользователь авторизован и пытается зайти на страницу авторизации
   if (session && authRoutes.some(route => pathname.startsWith(route))) {
-    const redirectUrl = new URL('/', req.url)
+    const redirectUrl = new URL('/playground', req.url)
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  // Если пользователь авторизован и находится на главной странице, перенаправляем в playground
+  if (session && pathname === '/') {
+    const redirectUrl = new URL('/playground', req.url)
     return NextResponse.redirect(redirectUrl)
   }
 

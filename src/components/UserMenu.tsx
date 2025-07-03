@@ -17,7 +17,8 @@ export function UserMenu() {
     try {
       await signOut()
       toast.success('Вы успешно вышли из системы')
-      router.push('/auth')
+      // Используем replace для полного перенаправления
+      router.replace('/auth')
     } catch (error) {
       toast.error('Ошибка при выходе из системы')
     }

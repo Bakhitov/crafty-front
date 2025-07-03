@@ -21,10 +21,10 @@ export default function AuthPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Если пользователь уже авторизован, перенаправляем на главную
+  // Если пользователь уже авторизован, перенаправляем на playground
   useEffect(() => {
     if (user && !loading) {
-      router.push('/')
+      router.replace('/playground')
     }
   }, [user, loading, router])
 
@@ -54,6 +54,8 @@ export default function AuthPage() {
           toast.error(error)
         } else {
           toast.success('Successfully logged in')
+          // Принудительно перенаправляем после успешного входа
+          router.replace('/playground')
         }
       } else {
         if (formData.password !== formData.confirmPassword) {
@@ -65,8 +67,15 @@ export default function AuthPage() {
         if (error) {
           toast.error(error)
         } else {
-          toast.success('Account created! Check your email for confirmation')
+          toast.success('Account created! Please check your email to confirm your account')
+          // Если пользователь создан успешно, переключаемся на форму входа
           setIsLogin(true)
+          setFormData({
+            name: '',
+            email: formData.email, // Оставляем email для удобства
+            password: '',
+            confirmPassword: ''
+          })
         }
       }
     } catch (error) {

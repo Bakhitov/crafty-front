@@ -6,9 +6,11 @@ import { usePlaygroundStore } from '../store'
 import { ComboboxAgent, type PlaygroundChatMessage } from '@/types/playground'
 import {
   getPlaygroundAgentsAPI,
+  getUserAgentsAPI,
   getPlaygroundStatusAPI
 } from '@/api/playground'
 import { useQueryState } from 'nuqs'
+import { useAuth } from './useAuth'
 
 const useChatActions = () => {
   const { chatInputRef } = usePlaygroundStore()
@@ -24,6 +26,7 @@ const useChatActions = () => {
   const setAgents = usePlaygroundStore((state) => state.setAgents)
   const setSelectedModel = usePlaygroundStore((state) => state.setSelectedModel)
   const [agentId, setAgentId] = useQueryState('agent')
+  const { user } = useAuth()
 
   const getStatus = useCallback(async () => {
     try {
@@ -36,13 +39,20 @@ const useChatActions = () => {
 
   const getAgents = useCallback(async () => {
     try {
-      const agents = await getPlaygroundAgentsAPI(selectedEndpoint)
-      return agents
+      // Если пользователь авторизован, получаем его агентов из БД
+      if (user?.id) {
+        const agents = await getUserAgentsAPI(user.id, selectedEndpoint)
+        return agents
+      } else {
+        // Если не авторизован, возвращаем всех агентов из Agno
+        const agents = await getPlaygroundAgentsAPI(selectedEndpoint)
+        return agents
+      }
     } catch {
       toast.error('Error fetching agents')
       return []
     }
-  }, [selectedEndpoint])
+  }, [selectedEndpoint, user?.id])
 
   const clearChat = useCallback(() => {
     setMessages([])

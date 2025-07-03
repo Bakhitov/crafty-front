@@ -1,6 +1,8 @@
 export const APIRoutes = {
   GetPlaygroundAgents: (PlaygroundApiUrl: string) =>
     `${PlaygroundApiUrl}/v1/playground/agents`,
+  GetUserAgents: (userId: string, endpoint: string) =>
+    `/api/v1/agents?user_id=${userId}&endpoint=${encodeURIComponent(endpoint)}`,
   AgentRun: (PlaygroundApiUrl: string) =>
     `${PlaygroundApiUrl}/v1/playground/agents/{agent_id}/runs`,
   PlaygroundStatus: (PlaygroundApiUrl: string) =>

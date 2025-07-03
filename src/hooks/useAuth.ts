@@ -84,6 +84,8 @@ export function useAuth(): UseAuthReturn {
   const signOut = async () => {
     setLoading(true)
     await supabase.auth.signOut()
+    // Сразу очищаем пользователя для мгновенного обновления UI
+    setUser(null)
     setLoading(false)
   }
 
