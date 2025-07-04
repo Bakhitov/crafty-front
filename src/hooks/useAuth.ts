@@ -6,7 +6,11 @@ export interface UseAuthReturn {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
-  signUp: (email: string, password: string, name?: string) => Promise<{ error: string | null }>
+  signUp: (
+    email: string,
+    password: string,
+    name?: string
+  ) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: string | null }>
 }
@@ -18,7 +22,9 @@ export function useAuth(): UseAuthReturn {
   useEffect(() => {
     // Получаем текущую сессию
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session }
+      } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
       setLoading(false)
     }
@@ -26,12 +32,12 @@ export function useAuth(): UseAuthReturn {
     getSession()
 
     // Слушаем изменения аутентификации
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null)
-        setLoading(false)
-      }
-    )
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
 
     return () => subscription.unsubscribe()
   }, [])
@@ -41,7 +47,7 @@ export function useAuth(): UseAuthReturn {
       setLoading(true)
       const { error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       })
 
       if (error) {
@@ -64,9 +70,9 @@ export function useAuth(): UseAuthReturn {
         password,
         options: {
           data: {
-            full_name: name,
-          },
-        },
+            full_name: name
+          }
+        }
       })
 
       if (error) {
@@ -83,16 +89,29 @@ export function useAuth(): UseAuthReturn {
 
   const signOut = async () => {
     setLoading(true)
-    await supabase.auth.signOut()
-    // Сразу очищаем пользователя для мгновенного обновления UI
-    setUser(null)
-    setLoading(false)
+    try {
+      // Очищаем пользователя сразу для мгновенного обновления UI
+      setUser(null)
+
+      // Выходим из Supabase Auth
+      await supabase.auth.signOut()
+
+      // Очищаем все локальные данные браузера связанные с сессией
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        sessionStorage.clear()
+      }
+    } catch (error) {
+      console.error('Error during sign out:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const resetPassword = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}/auth/reset-password`
       })
 
       if (error) {
@@ -111,6 +130,6 @@ export function useAuth(): UseAuthReturn {
     signIn,
     signUp,
     signOut,
-    resetPassword,
+    resetPassword
   }
-} 
+}

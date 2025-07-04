@@ -64,15 +64,20 @@ export const getPlaygroundStatusAPI = async (base: string): Promise<number> => {
 
 export const getAllPlaygroundSessionsAPI = async (
   base: string,
-  agentId: string
+  agentId: string,
+  userId?: string
 ): Promise<SessionEntry[]> => {
   try {
-    const response = await fetch(
-      APIRoutes.GetPlaygroundSessions(base, agentId),
-      {
-        method: 'GET'
-      }
-    )
+    const url = new URL(APIRoutes.GetPlaygroundSessions(base, agentId))
+
+    // Добавляем user_id как query параметр если передан
+    if (userId) {
+      url.searchParams.append('user_id', userId)
+    }
+
+    const response = await fetch(url.toString(), {
+      method: 'GET'
+    })
     if (!response.ok) {
       if (response.status === 404) {
         // Return empty array when storage is not enabled
@@ -89,27 +94,39 @@ export const getAllPlaygroundSessionsAPI = async (
 export const getPlaygroundSessionAPI = async (
   base: string,
   agentId: string,
-  sessionId: string
+  sessionId: string,
+  userId?: string
 ) => {
-  const response = await fetch(
-    APIRoutes.GetPlaygroundSession(base, agentId, sessionId),
-    {
-      method: 'GET'
-    }
-  )
+  const url = new URL(APIRoutes.GetPlaygroundSession(base, agentId, sessionId))
+
+  // Добавляем user_id как query параметр если передан
+  if (userId) {
+    url.searchParams.append('user_id', userId)
+  }
+
+  const response = await fetch(url.toString(), {
+    method: 'GET'
+  })
   return response.json()
 }
 
 export const deletePlaygroundSessionAPI = async (
   base: string,
   agentId: string,
-  sessionId: string
+  sessionId: string,
+  userId?: string
 ) => {
-  const response = await fetch(
-    APIRoutes.DeletePlaygroundSession(base, agentId, sessionId),
-    {
-      method: 'DELETE'
-    }
+  const url = new URL(
+    APIRoutes.DeletePlaygroundSession(base, agentId, sessionId)
   )
+
+  // Добавляем user_id как query параметр если передан
+  if (userId) {
+    url.searchParams.append('user_id', userId)
+  }
+
+  const response = await fetch(url.toString(), {
+    method: 'DELETE'
+  })
   return response
 }

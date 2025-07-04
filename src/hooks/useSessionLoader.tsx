@@ -12,6 +12,7 @@ import {
   ChatEntry
 } from '@/types/playground'
 import { getJsonMarkdown } from '@/lib/utils'
+import { useAuthContext } from '@/components/AuthProvider'
 
 interface SessionResponse {
   session_id: string
@@ -32,6 +33,7 @@ const useSessionLoader = () => {
     (state) => state.setIsSessionsLoading
   )
   const setSessionsData = usePlaygroundStore((state) => state.setSessionsData)
+  const { user } = useAuthContext()
 
   const getSessions = useCallback(
     async (agentId: string) => {
@@ -40,7 +42,8 @@ const useSessionLoader = () => {
         setIsSessionsLoading(true)
         const sessions = await getAllPlaygroundSessionsAPI(
           selectedEndpoint,
-          agentId
+          agentId,
+          user?.id
         )
         setSessionsData(sessions)
       } catch {
@@ -49,7 +52,7 @@ const useSessionLoader = () => {
         setIsSessionsLoading(false)
       }
     },
-    [selectedEndpoint, setSessionsData, setIsSessionsLoading]
+    [selectedEndpoint, setSessionsData, setIsSessionsLoading, user?.id]
   )
 
   const getSession = useCallback(
@@ -62,7 +65,8 @@ const useSessionLoader = () => {
         const response = (await getPlaygroundSessionAPI(
           selectedEndpoint,
           agentId,
-          sessionId
+          sessionId,
+          user?.id // Передаем user_id для фильтрации
         )) as SessionResponse
 
         if (response && response.memory) {

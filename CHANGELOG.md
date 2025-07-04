@@ -141,6 +141,9 @@
 - **src/components/ui/typography/MarkdownRenderer/styles.tsx**: Исправлена типизация компонента InlineCode - children теперь необязательное свойство
 - **src/components/ui/typography/MarkdownRenderer/inlineStyles.tsx**: Исправлена типизация компонента InlineCode - children теперь необязательное свойство
 - **src/components/magicui/icon-cloud.tsx**: Удален неиспользуемый state
+- **src/api/playground.ts**: Исправлена фильтрация сессий по user_id - теперь getAllPlaygroundSessionsAPI, getPlaygroundSessionAPI и deletePlaygroundSessionAPI принимают параметр userId для корректной фильтрации по пользователю
+- **src/hooks/useSessionLoader.tsx**: Добавлена передача user_id при загрузке сессий для фильтрации по авторизованному пользователю
+- **src/components/playground/Sidebar/Sessions/SessionItem.tsx**: Добавлена передача user_id при удалении сессии для проверки прав доступа
 
 ### Removed
 

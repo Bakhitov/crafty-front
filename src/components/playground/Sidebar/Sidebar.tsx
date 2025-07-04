@@ -13,20 +13,43 @@ import { toast } from 'sonner'
 import { useQueryState } from 'nuqs'
 import { truncateText } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 const ENDPOINT_PLACEHOLDER = 'NO ENDPOINT ADDED'
 
 const SidebarHeader = () => {
-  const { signOut } = useAuth()
   const router = useRouter()
+  const {
+    setMessages,
+    setSessionsData,
+    setAgents,
+    setHasStorage,
+    setSelectedModel
+  } = usePlaygroundStore()
 
   const handleLogout = async () => {
     try {
-      await signOut()
+      // Очищаем весь стейт плейграунда перед выходом
+      setMessages([])
+      setSessionsData(() => null)
+      setAgents([])
+      setHasStorage(false)
+      setSelectedModel('')
+
+      // Выходим из Supabase Auth
+      await supabase.auth.signOut()
+
+      // Очищаем все локальные данные браузера связанные с сессией
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        sessionStorage.clear()
+      }
+
       toast.success('Вы успешно вышли из системы')
-      router.push('/auth')
+
+      // Очищаем URL от query параметров и перенаправляем
+      router.replace('/auth')
     } catch {
       toast.error('Ошибка при выходе из системы')
     }
@@ -34,11 +57,11 @@ const SidebarHeader = () => {
 
   return (
     <div className="flex items-center justify-between">
-      <h1 className="text-lg font-bold text-primary">CRAFTY</h1>
+      <h1 className="text-primary text-lg font-bold">CRAFTY</h1>
       <div className="mr-8">
-        <button 
+        <button
           onClick={handleLogout}
-          className="text-xs text-muted-foreground hover:text-primary transition-colors border border-border/20 rounded-lg px-2 py-1 hover:border-primary/20"
+          className="text-muted-foreground hover:text-primary border-border/20 hover:border-primary/20 rounded-lg border px-2 py-1 text-xs transition-colors"
         >
           Logout
         </button>
@@ -58,7 +81,7 @@ const NewChatButton = ({
     onClick={onClick}
     disabled={disabled}
     size="lg"
-    className="h-9 w-full rounded-xl bg-primary text-xs font-medium text-background hover:bg-primary/80"
+    className="bg-primary text-background hover:bg-primary/80 h-9 w-full rounded-xl text-xs font-medium"
   >
     <Icon type="plus-icon" size="xs" className="text-background" />
     <span className="uppercase">New Chat</span>
@@ -66,7 +89,7 @@ const NewChatButton = ({
 )
 
 const ModelDisplay = ({ model }: { model: string }) => (
-  <div className="flex h-9 w-full items-center gap-3 rounded-xl border border-primary/15 bg-accent p-3 text-xs font-medium uppercase text-muted">
+  <div className="border-primary/15 bg-accent text-muted flex h-9 w-full items-center gap-3 rounded-xl border p-3 text-xs font-medium uppercase">
     {(() => {
       const icon = getProviderIcon(model)
       return icon ? <Icon type={icon} className="shrink-0" size="xs" /> : null
@@ -139,7 +162,7 @@ const Endpoint = () => {
 
   return (
     <div className="flex flex-col items-start gap-2">
-      <div className="text-xs font-medium uppercase text-primary">Endpoint</div>
+      <div className="text-primary text-xs font-medium uppercase">Endpoint</div>
       {isEditing ? (
         <div className="flex w-full items-center gap-1">
           <input
@@ -147,7 +170,7 @@ const Endpoint = () => {
             value={endpointValue}
             onChange={(e) => setEndpointValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex h-9 w-full items-center text-ellipsis rounded-xl border border-primary/15 bg-accent p-3 text-xs font-medium text-muted"
+            className="border-primary/15 bg-accent text-muted flex h-9 w-full items-center text-ellipsis rounded-xl border p-3 text-xs font-medium"
             autoFocus
           />
           <Button
@@ -162,7 +185,7 @@ const Endpoint = () => {
       ) : (
         <div className="flex w-full items-center gap-1">
           <motion.div
-            className="relative flex h-9 w-full cursor-pointer items-center justify-between rounded-xl border border-primary/15 bg-accent p-3 uppercase"
+            className="border-primary/15 bg-accent relative flex h-9 w-full cursor-pointer items-center justify-between rounded-xl border p-3 uppercase"
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
             onClick={() => setIsEditing(true)}
@@ -178,7 +201,7 @@ const Endpoint = () => {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <p className="flex items-center gap-2 whitespace-nowrap text-xs font-medium text-primary">
+                  <p className="text-primary flex items-center gap-2 whitespace-nowrap text-xs font-medium">
                     <Icon type="edit" size="xxs" /> EDIT ENDPOINT
                   </p>
                 </motion.div>
@@ -191,11 +214,11 @@ const Endpoint = () => {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <p className="text-xs font-medium text-muted">
+                  <p className="text-muted text-xs font-medium">
                     {isMounted
                       ? truncateText(selectedEndpoint, 21) ||
                         ENDPOINT_PLACEHOLDER
-                      : 'http://localhost:7777'}
+                      : 'https://crafty-v0-0-1.onrender.com'}
                   </p>
                   <div
                     className={`size-2 shrink-0 rounded-full ${getStatusColor(isEndpointActive)}`}
@@ -247,7 +270,7 @@ const Sidebar = () => {
   }
   return (
     <motion.aside
-      className="relative flex h-screen shrink-0 grow-0 flex-col overflow-hidden px-2 py-3 font-dmmono"
+      className="font-dmmono relative flex h-screen shrink-0 grow-0 flex-col overflow-hidden px-2 py-3"
       initial={{ width: '16rem' }}
       animate={{ width: isCollapsed ? '2.5rem' : '16rem' }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
@@ -290,7 +313,7 @@ const Sidebar = () => {
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5, ease: 'easeInOut' }}
                 >
-                  <div className="text-xs font-medium uppercase text-primary">
+                  <div className="text-primary text-xs font-medium uppercase">
                     Agent
                   </div>
                   {isEndpointLoading ? (

@@ -10,6 +10,7 @@ import { useState } from 'react'
 import DeleteSessionModal from './DeleteSessionModal'
 import useChatActions from '@/hooks/useChatActions'
 import { truncateText, cn } from '@/lib/utils'
+import { useAuthContext } from '@/components/AuthProvider'
 
 type SessionItemProps = SessionEntry & {
   isSelected: boolean
@@ -28,6 +29,7 @@ const SessionItem = ({
     usePlaygroundStore()
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const { clearChat } = useChatActions()
+  const { user } = useAuthContext()
 
   const handleGetSession = async () => {
     if (agentId) {
@@ -43,7 +45,8 @@ const SessionItem = ({
         const response = await deletePlaygroundSessionAPI(
           selectedEndpoint,
           agentId,
-          session_id
+          session_id,
+          user?.id
         )
         if (response.status === 200 && sessionsData) {
           setSessionsData(
@@ -67,7 +70,7 @@ const SessionItem = ({
         className={cn(
           'group flex h-11 w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors duration-200',
           isSelected
-            ? 'cursor-default bg-primary/10'
+            ? 'bg-primary/10 cursor-default'
             : 'bg-background-secondary hover:bg-background-secondary/80'
         )}
         onClick={handleGetSession}
