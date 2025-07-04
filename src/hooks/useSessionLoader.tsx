@@ -156,7 +156,7 @@ const useSessionLoader = () => {
         return null
       }
     },
-    [selectedEndpoint, setMessages]
+    [selectedEndpoint, setMessages, user?.id]
   )
 
   return { getSession, getSessions }
