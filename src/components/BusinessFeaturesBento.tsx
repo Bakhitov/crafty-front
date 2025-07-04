@@ -187,9 +187,7 @@ export default function BusinessFeaturesBento() {
           <BentoCard
             name="Корпоративная безопасность"
             className="col-span-4 lg:col-span-1"
-            background={
-              <div className="grid h-full grid-cols-1 gap-2 p-4"></div>
-            }
+            background={<div className="grid grid-cols-1 gap-2 p-4"></div>}
             Icon={
               <div className="bg-accent text-primary flex h-12 w-12 items-center justify-center rounded-xl">
                 <Shield className="h-6 w-6" />
@@ -201,7 +199,7 @@ export default function BusinessFeaturesBento() {
           {/* Третий ряд: Три карточки в строчку */}
           <BentoCard
             name="Запуск за 5 минут"
-            className="col-span-2 lg:col-span-1"
+            className="h-30 col-span-2 lg:col-span-1"
             background={
               <div className="bg-accent/5 dark:bg-accent/10 absolute inset-0"></div>
             }
@@ -215,7 +213,7 @@ export default function BusinessFeaturesBento() {
 
           <BentoCard
             name="Работа без сбоев - 99.9% uptime"
-            className="col-span-3 lg:col-span-1"
+            className="h-30 col-span-3 lg:col-span-1"
             background={
               <div className="bg-accent/5 dark:bg-accent/10 absolute inset-0"></div>
             }
