@@ -181,7 +181,7 @@ const Img = ({ src, alt }: ImgProps) => {
   )
 }
 
-const InlineCode = ({ children }: any) => {
+const InlineCode = ({ children }: { children?: React.ReactNode }) => {
   return (
     <code className="relative whitespace-pre-wrap rounded-md bg-background-secondary/60 px-1.5 py-0.5 text-xs font-medium text-foreground border border-border/10">
       {children}

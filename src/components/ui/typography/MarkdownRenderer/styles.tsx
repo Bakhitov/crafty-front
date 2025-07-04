@@ -1,8 +1,8 @@
 'use client'
 
-import { FC, useState } from 'react'
+import React, { FC, useState } from 'react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus, atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 import Image from 'next/image'
 import Link from 'next/link'
@@ -29,7 +29,7 @@ import type {
   TableBodyProps,
   TableRowProps,
   TableCellProps,
-  PreparedTextProps
+
 } from './types'
 
 import { HEADING_SIZES } from '../Heading/constants'
@@ -123,7 +123,7 @@ const HorizontalRule = ({ className, ...props }: HorizontalRuleProps) => (
   />
 )
 
-const InlineCode: FC<any> = ({ children }) => {
+const InlineCode: FC<{ children?: React.ReactNode }> = ({ children }) => {
   return (
     <code className="relative whitespace-pre-wrap rounded-md bg-background-secondary/60 px-2 py-1 text-sm font-medium text-foreground border border-border/10">
       {children}
@@ -131,15 +131,16 @@ const InlineCode: FC<any> = ({ children }) => {
   )
 }
 
-const CodeBlock: FC<{ children?: any; className?: string }> = ({ children, className }) => {
+const CodeBlock: FC<{ children?: React.ReactNode; className?: string }> = ({ children, className }) => {
   const language = className?.replace('language-', '') || 'text'
   
   // Extract text content from children
   let code = ''
   if (typeof children === 'string') {
     code = children
-  } else if (children?.props?.children) {
-    code = typeof children.props.children === 'string' ? children.props.children : ''
+  } else if (React.isValidElement(children)) {
+    const element = children as React.ReactElement<{ children?: string }>
+    code = typeof element.props.children === 'string' ? element.props.children : ''
   }
   
   return (

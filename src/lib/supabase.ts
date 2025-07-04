@@ -11,14 +11,14 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 export function createServerSupabaseClient() {
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get(name: string) {
+      get() {
         // В серверном контексте используем cookies из headers
         return ''
       },
-      set(name: string, value: string, options: any) {
+      set() {
         // Будет реализовано в серверных компонентах
       },
-      remove(name: string, options: any) {
+      remove() {
         // Будет реализовано в серверных компонентах
       },
     },

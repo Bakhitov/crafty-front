@@ -72,6 +72,8 @@
 - **src/hooks/useAuth.ts**: Улучшена логика signOut - пользователь сразу очищается для мгновенного обновления UI
 - **src/middleware.ts**: Добавлено автоматическое перенаправление с главной страницы на /playground для авторизованных пользователей
 - **src/app/auth/page.tsx**: Упрощена логика useEffect для перенаправления авторизованных пользователей
+- **src/components/ui/typography/MarkdownRenderer/styles.tsx**: Исправлена типизация компонента InlineCode - children теперь необязательное свойство
+- **src/components/ui/typography/MarkdownRenderer/inlineStyles.tsx**: Исправлена типизация компонента InlineCode - children теперь необязательное свойство
 
 ### Удалено
 - **src/app/auth/login/page.tsx**: Удалена отдельная страница входа (заменена единой страницей аутентификации)

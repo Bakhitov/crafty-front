@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import Icon from '@/components/ui/icon'
 import { useAuth } from '@/hooks/useAuth'
@@ -78,7 +77,7 @@ export default function AuthPage() {
           })
         }
       }
-    } catch (error) {
+    } catch {
       toast.error('An unexpected error occurred')
     } finally {
       setIsSubmitting(false)

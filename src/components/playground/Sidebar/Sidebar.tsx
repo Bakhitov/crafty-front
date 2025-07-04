@@ -13,7 +13,6 @@ import { toast } from 'sonner'
 import { useQueryState } from 'nuqs'
 import { truncateText } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
-import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 
@@ -28,7 +27,7 @@ const SidebarHeader = () => {
       await signOut()
       toast.success('Вы успешно вышли из системы')
       router.push('/auth')
-    } catch (error) {
+    } catch {
       toast.error('Ошибка при выходе из системы')
     }
   }

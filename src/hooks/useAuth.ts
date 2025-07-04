@@ -49,7 +49,7 @@ export function useAuth(): UseAuthReturn {
       }
 
       return { error: null }
-    } catch (error) {
+    } catch {
       return { error: 'Произошла ошибка при входе' }
     } finally {
       setLoading(false)
@@ -74,7 +74,7 @@ export function useAuth(): UseAuthReturn {
       }
 
       return { error: null }
-    } catch (error) {
+    } catch {
       return { error: 'Произошла ошибка при регистрации' }
     } finally {
       setLoading(false)
@@ -100,7 +100,7 @@ export function useAuth(): UseAuthReturn {
       }
 
       return { error: null }
-    } catch (error) {
+    } catch {
       return { error: 'Произошла ошибка при сбросе пароля' }
     }
   }

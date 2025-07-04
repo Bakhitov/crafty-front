@@ -19,7 +19,7 @@ export function UserMenu() {
       toast.success('Вы успешно вышли из системы')
       // Используем replace для полного перенаправления
       router.replace('/auth')
-    } catch (error) {
+    } catch {
       toast.error('Ошибка при выходе из системы')
     }
   }

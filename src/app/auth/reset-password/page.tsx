@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import Icon from '@/components/ui/icon'
 import { motion } from 'framer-motion'
@@ -10,7 +10,6 @@ import { toast } from 'sonner'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -57,7 +56,7 @@ export default function ResetPasswordPage() {
         toast.success('Пароль успешно обновлен')
         router.push('/')
       }
-    } catch (error) {
+    } catch {
       toast.error('Произошла ошибка при обновлении пароля')
     } finally {
       setIsLoading(false)
