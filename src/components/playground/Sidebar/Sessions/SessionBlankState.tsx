@@ -19,7 +19,7 @@ const HistoryBlankStateIcon = () => (
     />
     <path
       d="M52.6787 34.7885C53.9351 28.225 60.2744 23.9228 66.8378 25.1792V25.1792C73.4013 26.4355 77.7036 32.7748 76.4472 39.3383V39.3383C75.1908 45.9017 68.8516 50.204 62.2881 48.9476V48.9476C55.7246 47.6913 51.4224 41.352 52.6787 34.7885V34.7885Z"
-      fill="#FF4017"
+      fill="gray"
     />
     <g clipPath="url(#clip1_9008_17675)">
       <path
@@ -119,12 +119,12 @@ const SessionBlankState = () => {
   })()
 
   return (
-    <div className="mt-1 flex items-center justify-center rounded-lg bg-background-secondary/50 pb-6 pt-4">
+    <div className="bg-background-secondary/50 mt-1 flex items-center justify-center rounded-lg pb-6 pt-4">
       <div className="flex flex-col items-center gap-1">
         <HistoryBlankStateIcon />
         <div className="flex flex-col items-center gap-2">
-          <h3 className="text-sm font-medium text-primary">No Session found</h3>
-          <p className="max-w-[210px] text-center text-sm text-muted">
+          <h3 className="text-primary text-sm font-medium">No Session found</h3>
+          <p className="text-muted max-w-[210px] text-center text-sm">
             {errorMessage}
           </p>
         </div>
