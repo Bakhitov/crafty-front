@@ -1,7 +1,7 @@
 'use client'
 
 import { usePlaygroundStore } from '@/store'
-import Messages from './Messages'
+import { Messages } from './Messages'
 import ScrollToBottom from '@/components/playground/ChatArea/ScrollToBottom'
 import { StickToBottom } from 'use-stick-to-bottom'
 

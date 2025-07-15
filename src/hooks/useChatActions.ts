@@ -4,13 +4,9 @@ import { toast } from 'sonner'
 import { usePlaygroundStore } from '../store'
 
 import { ComboboxAgent, type PlaygroundChatMessage } from '@/types/playground'
-import {
-  getPlaygroundAgentsAPI,
-  getUserAgentsAPI,
-  getPlaygroundStatusAPI
-} from '@/api/playground'
+import { getPlaygroundStatusAPI } from '@/api/playground'
+import { supabase } from '@/lib/supabase'
 import { useQueryState } from 'nuqs'
-import { useAuth } from './useAuth'
 
 const useChatActions = () => {
   const { chatInputRef } = usePlaygroundStore()
@@ -25,8 +21,8 @@ const useChatActions = () => {
   )
   const setAgents = usePlaygroundStore((state) => state.setAgents)
   const setSelectedModel = usePlaygroundStore((state) => state.setSelectedModel)
+  const setSelectedAgent = usePlaygroundStore((state) => state.setSelectedAgent)
   const [agentId, setAgentId] = useQueryState('agent')
-  const { user } = useAuth()
 
   const getStatus = useCallback(async () => {
     try {
@@ -39,20 +35,75 @@ const useChatActions = () => {
 
   const getAgents = useCallback(async () => {
     try {
-      // Если пользователь авторизован, получаем его агентов из БД
-      if (user?.id) {
-        const agents = await getUserAgentsAPI(user.id, selectedEndpoint)
-        return agents
-      } else {
-        // Если не авторизован, возвращаем всех агентов из Agno
-        const agents = await getPlaygroundAgentsAPI(selectedEndpoint)
-        return agents
+      // Используем view public.dynamic_agents (созданную поверх ai.dynamic_agents)
+      const { data, error } = await supabase
+        .from('dynamic_agents')
+        .select(
+          'agent_id, name, model_configuration, storage_config, is_active'
+        )
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Supabase error fetching agents:', error)
+        toast.error('Ошибка получения агентов из базы')
+        return []
       }
-    } catch {
-      toast.error('Error fetching agents')
+
+      if (!data) return []
+
+      // Преобразуем ответ в ComboboxAgent
+      const agents: ComboboxAgent[] = data.map((item) => {
+        // Извлекаем provider, если он есть в конфигурации модели
+        let provider = ''
+        try {
+          if (
+            item.model_configuration &&
+            typeof item.model_configuration === 'object'
+          ) {
+            const cfg = item.model_configuration as { provider?: string }
+            provider = cfg.provider ?? ''
+          } else if (typeof item.model_configuration === 'string') {
+            const cfg = JSON.parse(item.model_configuration) as {
+              provider?: string
+            }
+            provider = cfg.provider ?? ''
+          }
+        } catch {
+          provider = ''
+        }
+
+        // Определяем наличие storage
+        let storageEnabled = false
+        try {
+          if (item.storage_config && typeof item.storage_config === 'object') {
+            const cfg = item.storage_config as { enabled?: boolean }
+            storageEnabled = cfg.enabled ?? false
+          } else if (typeof item.storage_config === 'string') {
+            const cfg = JSON.parse(item.storage_config) as {
+              enabled?: boolean
+            }
+            storageEnabled = cfg.enabled ?? false
+          }
+        } catch {
+          storageEnabled = false
+        }
+
+        return {
+          value: item.agent_id,
+          label: item.name || item.agent_id,
+          model: { provider },
+          storage: storageEnabled
+        }
+      })
+
+      return agents
+    } catch (err) {
+      console.error('Unknown error fetching agents:', err)
+      toast.error('Ошибка получения агентов')
       return []
     }
-  }, [selectedEndpoint, user?.id])
+  }, [])
 
   const clearChat = useCallback(() => {
     setMessages([])
@@ -75,6 +126,12 @@ const useChatActions = () => {
   )
 
   const initializePlayground = useCallback(async () => {
+    if (agentId === 'new') {
+      setIsEndpointActive(true)
+      setAgents([])
+      setIsEndpointLoading(false)
+      return
+    }
     setIsEndpointLoading(true)
     try {
       const status = await getStatus()
@@ -82,10 +139,19 @@ const useChatActions = () => {
       if (status === 200) {
         setIsEndpointActive(true)
         agents = await getAgents()
-        if (agents.length > 0 && !agentId) {
-          const firstAgent = agents[0]
-          setAgentId(firstAgent.value)
-          setSelectedModel(firstAgent.model.provider || '')
+        if (agents.length > 0) {
+          if (!agentId) {
+            const firstAgent = agents[0]
+            setAgentId(firstAgent.value)
+            setSelectedModel(firstAgent.model.provider || '')
+            setSelectedAgent(firstAgent)
+          } else {
+            const currentAgent = agents.find((a) => a.value === agentId)
+            if (currentAgent) {
+              setSelectedAgent(currentAgent)
+              setSelectedModel(currentAgent.model.provider || '')
+            }
+          }
         }
       } else {
         setIsEndpointActive(false)
@@ -105,6 +171,7 @@ const useChatActions = () => {
     setAgents,
     setAgentId,
     setSelectedModel,
+    setSelectedAgent,
     agentId
   ])
 

@@ -1,7 +1,7 @@
 import { type FC } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
-import rehypeSanitize from 'rehype-sanitize'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 
 import { cn } from '@/lib/utils'
@@ -22,7 +22,19 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({
     )}
     components={{ ...(inline ? inlineComponents : components) }}
     remarkPlugins={[remarkGfm]}
-    rehypePlugins={[rehypeRaw, rehypeSanitize]}
+    rehypePlugins={[
+      rehypeRaw,
+      [
+        rehypeSanitize,
+        {
+          ...defaultSchema,
+          attributes: {
+            ...defaultSchema.attributes,
+            '*': [...(defaultSchema.attributes?.['*'] || []), 'style', 'class']
+          }
+        }
+      ]
+    ]}
   >
     {children}
   </ReactMarkdown>

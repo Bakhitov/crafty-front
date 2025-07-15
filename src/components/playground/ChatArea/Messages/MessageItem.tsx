@@ -7,6 +7,7 @@ import Images from './Multimedia/Images'
 import Audios from './Multimedia/Audios'
 import { memo } from 'react'
 import AgentThinkingLoader from './AgentThinkingLoader'
+import { ReasoningSteps } from './ReasoningSteps'
 
 interface MessageProps {
   message: PlaygroundChatMessage
@@ -30,6 +31,9 @@ const AgentMessage = ({ message }: MessageProps) => {
     messageContent = (
       <div className="flex w-full flex-col gap-4">
         <MarkdownRenderer>{message.content}</MarkdownRenderer>
+        {message.extra_data?.reasoning_steps && (
+          <ReasoningSteps steps={message.extra_data.reasoning_steps} />
+        )}
         {message.videos && message.videos.length > 0 && (
           <Videos videos={message.videos} />
         )}
@@ -69,7 +73,7 @@ const AgentMessage = ({ message }: MessageProps) => {
   }
 
   return (
-    <div className="flex flex-row items-start gap-4 font-geist">
+    <div className="font-geist flex flex-row items-start gap-4">
       <div className="flex-shrink-0">
         <Icon type="agent" size="sm" />
       </div>
@@ -81,12 +85,25 @@ const AgentMessage = ({ message }: MessageProps) => {
 const UserMessage = memo(({ message }: MessageProps) => {
   return (
     <div className="flex items-start justify-end pt-4 text-start max-md:break-words">
-      <div className="flex flex-row-reverse gap-x-3 max-w-[80%]">
-        <p className="flex items-center gap-x-2 text-sm font-medium text-muted">
+      <div className="flex max-w-[80%] flex-row-reverse gap-x-3">
+        <p className="text-muted flex items-center gap-x-2 text-sm font-medium">
           <Icon type="user" size="sm" />
         </p>
-        <div className="rounded-lg bg-accent/60 px-4 py-3 font-geist text-secondary border border-accent">
+        <div className="bg-accent/60 font-geist text-secondary border-accent rounded-lg border px-4 py-3">
           <MarkdownRenderer inline>{message.content}</MarkdownRenderer>
+          {message.files && message.files.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {message.files.map((file, index) => (
+                <div
+                  key={index}
+                  className="bg-primary/10 text-primary flex items-center gap-2 rounded-lg px-2 py-1"
+                >
+                  <Icon type="paperclip" size="xs" />
+                  <span className="text-xs font-medium">{file}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

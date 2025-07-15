@@ -3,7 +3,11 @@ export const constructEndpointUrl = (
 ): string => {
   if (!value) return ''
 
-  if (value.startsWith('http://') || value.startsWith('https://')) {
+  if (
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('/')
+  ) {
     return decodeURIComponent(value)
   }
 

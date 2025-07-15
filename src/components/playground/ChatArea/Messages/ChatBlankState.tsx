@@ -2,7 +2,11 @@
 
 import { motion } from 'framer-motion'
 
-const ChatBlankState = () => {
+interface ChatBlankStateProps {
+  agentName?: string
+}
+
+const ChatBlankState = ({ agentName }: ChatBlankStateProps) => {
   return (
     <section
       className="font-geist flex flex-col items-center text-center"
@@ -18,7 +22,7 @@ const ChatBlankState = () => {
           <div className="flex items-center justify-center gap-x-2 whitespace-nowrap">
             <span className="flex items-center">Start chat!</span>
           </div>
-          <p>with Crafty agents</p>
+          <p>with {agentName || 'Crafty agents'}</p>
         </motion.h1>
       </div>
     </section>

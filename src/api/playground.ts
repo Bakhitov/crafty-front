@@ -16,41 +16,17 @@ export const getPlaygroundAgentsAPI = async (
     }
     const data = await response.json()
     // Transform the API response into the expected shape.
-    const agents: ComboboxAgent[] = data.map((item: Agent) => ({
-      value: item.agent_id || '',
-      label: item.name || '',
-      model: item.model || '',
-      storage: item.storage || false
-    }))
+    const agents: ComboboxAgent[] = (data as Agent[]).map(
+      (item: Agent, idx: number) => ({
+        value: item.agent_id || `agent-${idx}`,
+        label: item.name || item.agent_id || `Agent ${idx}`,
+        model: item.model || '',
+        storage: item.storage || false
+      })
+    )
     return agents
   } catch {
     toast.error('Error fetching playground agents')
-    return []
-  }
-}
-
-export const getUserAgentsAPI = async (
-  userId: string,
-  endpoint: string
-): Promise<ComboboxAgent[]> => {
-  const url = APIRoutes.GetUserAgents(userId, endpoint)
-  try {
-    const response = await fetch(url, { method: 'GET' })
-    if (!response.ok) {
-      toast.error(`Failed to fetch user agents: ${response.statusText}`)
-      return []
-    }
-    const data = await response.json()
-    // Transform the API response into the expected shape.
-    const agents: ComboboxAgent[] = data.map((item: Agent) => ({
-      value: item.agent_id || '',
-      label: item.name || '',
-      model: item.model || '',
-      storage: item.storage || false
-    }))
-    return agents
-  } catch {
-    toast.error('Error fetching user agents')
     return []
   }
 }
@@ -129,4 +105,19 @@ export const deletePlaygroundSessionAPI = async (
     method: 'DELETE'
   })
   return response
+}
+
+export const getAgents = async (url: string): Promise<Agent[]> => {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error('Failed to fetch agents')
+    }
+    const agents = (await response.json()) as Agent[]
+    return agents
+  } catch (error) {
+    console.error('Error fetching agents:', error)
+    toast.error('Could not fetch agents from the specified endpoint.')
+    return []
+  }
 }

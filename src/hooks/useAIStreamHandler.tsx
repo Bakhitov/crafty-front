@@ -116,6 +116,33 @@ const useAIChatStreamHandler = () => {
         formData.append('message', input)
       }
 
+      // Generate a new session_id if one doesn't exist (New Chat case)
+      if (!sessionId && agentId && user?.id) {
+        // Генерируем строку на основе user_id + agent_id + времени
+        const newSessionId = `${user.id}-${agentId}-${Date.now()}`
+        await setSessionId(newSessionId, {
+          history: 'push',
+          scroll: false,
+          shallow: true
+        })
+        // Обновляем список сессий сразу после создания новой
+        if (hasStorage) {
+          const sessionEntry = {
+            session_id: newSessionId,
+            title: formData.get('message') as string,
+            created_at: Math.floor(Date.now() / 1000)
+          }
+          setSessionsData((prev) => {
+            const exists = prev?.some((s) => s.session_id === newSessionId)
+            if (exists) return prev
+            return [sessionEntry, ...(prev ?? [])]
+          })
+        }
+        formData.append('session_id', newSessionId)
+      } else {
+        formData.append('session_id', sessionId ?? '')
+      }
+
       setMessages((prevMessages) => {
         if (prevMessages.length >= 2) {
           const lastMessage = prevMessages[prevMessages.length - 1]
@@ -157,7 +184,6 @@ const useAIChatStreamHandler = () => {
         )
 
         formData.append('stream', 'true')
-        formData.append('session_id', sessionId ?? '')
         // Добавляем user_id если пользователь аутентифицирован
         if (user?.id) {
           formData.append('user_id', user.id)
@@ -209,6 +235,11 @@ const useAIChatStreamHandler = () => {
               chunk.event === RunEvent.RunResponse ||
               chunk.event === RunEvent.RunResponseContent
             ) {
+              if (typeof chunk.content === 'string') {
+                lastContent += chunk.content
+              } else {
+                lastContent += getJsonMarkdown(chunk.content)
+              }
               setMessages((prevMessages) => {
                 const newMessages = [...prevMessages]
                 const lastMessage = newMessages[newMessages.length - 1]
@@ -217,9 +248,7 @@ const useAIChatStreamHandler = () => {
                   lastMessage.role === 'agent' &&
                   typeof chunk.content === 'string'
                 ) {
-                  const uniqueContent = chunk.content.replace(lastContent, '')
-                  lastMessage.content += uniqueContent
-                  lastContent = chunk.content
+                  lastMessage.content = lastContent
 
                   // Handle tool calls streaming
                   lastMessage.tool_calls = processChunkToolCalls(

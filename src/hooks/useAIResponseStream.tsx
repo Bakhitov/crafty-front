@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { type RunResponse } from '@/types/playground'
+import { type RunResponse, type RunEvent } from '@/types/playground'
 
 /**
  * Processes a single JSON chunk by passing it to the provided callback.
@@ -28,60 +28,62 @@ function processChunk(
  * - It allows partial JSON objects to accumulate across chunks.
  * - It ensures real-time streaming updates.
  */
+function parseEventString(eventString: string): RunResponse | null {
+  const match = eventString.match(/\s*RunResponseContentEvent\((.*)\)/)
+  if (!match) {
+    return null
+  }
+
+  const propsString = match[1]
+  const props = propsString.split(/,(?=\s*\w+=)/)
+
+  const eventData: Partial<RunResponse> = {}
+  props.forEach((prop) => {
+    const [key, ...valueParts] = prop.trim().split('=')
+    let value: string | number | null = valueParts.join('=')
+
+    if (value === 'None') {
+      value = null
+    } else if (value.startsWith("'") && value.endsWith("'")) {
+      value = value.substring(1, value.length - 1).replace(/\\n/g, '\n')
+    } else if (!isNaN(Number(value))) {
+      value = Number(value)
+    }
+    ;(eventData as Record<string, unknown>)[key] = value
+  })
+
+  return {
+    event: (eventData.event || 'RunResponseContent') as RunEvent,
+    content: eventData.content,
+    content_type: eventData.content_type || 'str',
+    run_id: eventData.run_id,
+    agent_id: eventData.agent_id,
+    session_id: eventData.session_id,
+    created_at: eventData.created_at || Date.now()
+    // Add other fields from RunResponse that might be in the event
+  } as RunResponse
+}
+
 function parseBuffer(
   buffer: string,
   onChunk: (chunk: RunResponse) => void
 ): string {
-  let jsonStartIndex = buffer.indexOf('{')
-  let jsonEndIndex = -1
+  const lines = buffer.split('\n')
+  const incomplete = lines.pop() || ''
 
-  while (jsonStartIndex !== -1) {
-    let braceCount = 0
-    let inString = false
-
-    // Iterate through the buffer to find the end of the JSON object
-    for (let i = jsonStartIndex; i < buffer.length; i++) {
-      const char = buffer[i]
-
-      // Check if the character is a double quote and the previous character is not a backslash
-      // This is to handle escaped quotes in JSON strings
-      if (char === '"' && buffer[i - 1] !== '\\') {
-        inString = !inString
+  for (const line of lines) {
+    if (line.startsWith('data:')) {
+      const eventString = line.substring(5)
+      if (eventString) {
+        const parsedChunk = parseEventString(eventString)
+        if (parsedChunk) {
+          processChunk(parsedChunk, onChunk)
+        }
       }
-
-      // If the character is not inside a string, count the braces
-      if (!inString) {
-        if (char === '{') braceCount++
-        if (char === '}') braceCount--
-      }
-
-      // If the brace count is 0, we have found the end of the JSON object
-      if (braceCount === 0) {
-        jsonEndIndex = i
-        break
-      }
-    }
-
-    // If we found a complete JSON object, process it
-    if (jsonEndIndex !== -1) {
-      const jsonString = buffer.slice(jsonStartIndex, jsonEndIndex + 1)
-      try {
-        const parsed = JSON.parse(jsonString) as RunResponse
-        processChunk(parsed, onChunk)
-      } catch {
-        // Skip invalid JSON, continue accumulating
-        break
-      }
-      buffer = buffer.slice(jsonEndIndex + 1).trim()
-      jsonStartIndex = buffer.indexOf('{')
-      jsonEndIndex = -1
-    } else {
-      // No complete JSON found, wait for the next chunk
-      break
     }
   }
 
-  return buffer
+  return incomplete
 }
 
 /**
@@ -148,8 +150,9 @@ export default function useAIResponseStream() {
         const processStream = async (): Promise<void> => {
           const { done, value } = await reader.read()
           if (done) {
-            // Process any final data in the buffer.
-            buffer = parseBuffer(buffer, onChunk)
+            // End of stream. Process the entire buffer.
+            // Add a newline to make sure the last line is processed by parseBuffer.
+            parseBuffer(buffer + '\n', onChunk)
             onComplete()
             return
           }

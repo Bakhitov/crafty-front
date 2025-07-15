@@ -28,6 +28,7 @@ const SessionItem = ({
   const { selectedEndpoint, sessionsData, setSessionsData } =
     usePlaygroundStore()
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { clearChat } = useChatActions()
   const { user } = useAuthContext()
 
@@ -41,6 +42,7 @@ const SessionItem = ({
 
   const handleDeleteSession = async () => {
     if (agentId) {
+      setIsDeleting(true)
       try {
         const response = await deletePlaygroundSessionAPI(
           selectedEndpoint,
@@ -61,6 +63,7 @@ const SessionItem = ({
         toast.error('Failed to delete session')
       } finally {
         setIsDeleteModalOpen(false)
+        setIsDeleting(false)
       }
     }
   }
@@ -70,7 +73,7 @@ const SessionItem = ({
         className={cn(
           'group flex h-11 w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors duration-200',
           isSelected
-            ? 'bg-primary/10 cursor-default'
+            ? 'bg-primary/20 cursor-default'
             : 'bg-background-secondary hover:bg-background-secondary/80'
         )}
         onClick={handleGetSession}
@@ -98,7 +101,7 @@ const SessionItem = ({
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onDelete={handleDeleteSession}
-        isDeleting={false}
+        isDeleting={isDeleting}
       />
     </>
   )

@@ -59,6 +59,8 @@ interface PlaygroundStore {
   ) => void
   isSessionsLoading: boolean
   setIsSessionsLoading: (isSessionsLoading: boolean) => void
+  selectedAgent: Agent | null
+  setSelectedAgent: (agent: Agent | null) => void
 }
 
 export const usePlaygroundStore = create<PlaygroundStore>()(
@@ -105,7 +107,9 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
         })),
       isSessionsLoading: false,
       setIsSessionsLoading: (isSessionsLoading) =>
-        set(() => ({ isSessionsLoading }))
+        set(() => ({ isSessionsLoading })),
+      selectedAgent: null,
+      setSelectedAgent: (agent) => set({ selectedAgent: agent })
     }),
     {
       name: 'endpoint-storage',

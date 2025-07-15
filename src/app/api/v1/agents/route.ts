@@ -1,41 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { APIRoutes } from '@/api/routes'
 
-// Создаем Supabase клиент для работы с базой данных
-async function createSupabaseServerClient() {
-  const cookieStore = await cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-        set(name: string, value: string, options: Record<string, unknown>) {
-          cookieStore.set({ name, value, ...options })
-        },
-        remove(name: string, options: Record<string, unknown>) {
-          cookieStore.set({ name, value: '', ...options })
-        }
-      }
-    }
-  )
-}
+// NOTE: All user-specific filtering and database look-ups have been removed.
+// We now proxy the request directly to the Playground endpoint and
+// return the full agents list from `${endpoint}/v1/agents/detailed`.
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('user_id')
     const endpoint = searchParams.get('endpoint')
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'user_id is required' },
-        { status: 400 }
-      )
-    }
 
     if (!endpoint) {
       return NextResponse.json(
@@ -43,9 +16,8 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    // 1. Получаем всех агентов из Agno API
-    const agnoResponse = await fetch(`${endpoint}/v1/playground/agents`, {
+    // 1. Получаем всех агентов напрямую из `${endpoint}/v1/agents/detailed`
+    const agnoResponse = await fetch(APIRoutes.GetPlaygroundAgents(endpoint), {
       method: 'GET'
     })
 
@@ -57,37 +29,8 @@ export async function GET(request: NextRequest) {
     }
 
     const allAgents = await agnoResponse.json()
-
-    // 2. Получаем список ID агентов пользователя из схемы ai напрямую через SQL
-    const supabase = await createSupabaseServerClient()
-    const { data: userAgents, error } = await supabase.rpc(
-      'get_user_agent_ids',
-      {
-        p_user_id: userId
-      }
-    )
-
-    if (error) {
-      console.error('Database error:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch user agents from database' },
-        { status: 500 }
-      )
-    }
-
-    // 3. Создаем Set для быстрого поиска
-    const userAgentIds = new Set(
-      userAgents?.map((agent: { id: string }) => agent.id) || []
-    )
-
-    // 4. Фильтруем агентов из Agno API только для тех, что есть у пользователя в БД
-    // Исключение: demo_agent доступен всем пользователям без проверки принадлежности
-    const filteredAgents = allAgents.filter(
-      (agent: { agent_id: string }) =>
-        userAgentIds.has(agent.agent_id) || agent.agent_id === 'demo_agent'
-    )
-
-    return NextResponse.json(filteredAgents)
+    // 2. Возвращаем полный список агентов без дополнительной фильтрации или обращения к БД
+    return NextResponse.json(allAgents)
   } catch (error) {
     console.error('API error:', error)
     return NextResponse.json(

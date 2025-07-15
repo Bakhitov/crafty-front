@@ -38,6 +38,7 @@ export type IconType =
   | 'references'
   | 'trash'
   | 'log-out'
+  | 'paperclip'
 
 export interface IconProps {
   type: IconType

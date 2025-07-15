@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
-  
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -17,33 +17,33 @@ export async function middleware(req: NextRequest) {
           req.cookies.set({
             name,
             value,
-            ...options,
+            ...options
           })
           res.cookies.set({
             name,
             value,
-            ...options,
+            ...options
           })
         },
         remove(name: string, options: Record<string, unknown>) {
           req.cookies.set({
             name,
             value: '',
-            ...options,
+            ...options
           })
           res.cookies.set({
             name,
             value: '',
-            ...options,
+            ...options
           })
-        },
-      },
+        }
+      }
     }
   )
 
   // Получаем сессию пользователя
   const {
-    data: { session },
+    data: { session }
   } = await supabase.auth.getSession()
 
   // Список защищенных роутов - требуют авторизации
@@ -53,13 +53,18 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // Если пользователь не авторизован и пытается зайти на защищенный роут
-  if (!session && protectedRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
+  if (
+    !session &&
+    protectedRoutes.some(
+      (route) => pathname === route || pathname.startsWith(route + '/')
+    )
+  ) {
     const redirectUrl = new URL('/auth', req.url)
     return NextResponse.redirect(redirectUrl)
   }
 
   // Если пользователь авторизован и пытается зайти на страницу авторизации
-  if (session && authRoutes.some(route => pathname.startsWith(route))) {
+  if (session && authRoutes.some((route) => pathname.startsWith(route))) {
     const redirectUrl = new URL('/playground', req.url)
     return NextResponse.redirect(redirectUrl)
   }
@@ -82,6 +87,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
-} 
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'
+  ]
+}

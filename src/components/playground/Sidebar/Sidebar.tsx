@@ -259,7 +259,7 @@ const Sidebar = () => {
     isEndpointLoading
   } = usePlaygroundStore()
   const [isMounted, setIsMounted] = useState(false)
-  const [agentId] = useQueryState('agent')
+  const [agentId, setAgentId] = useQueryState('agent')
   useEffect(() => {
     setIsMounted(true)
     if (hydrated) initializePlayground()
@@ -267,6 +267,9 @@ const Sidebar = () => {
   const handleNewChat = () => {
     clearChat()
     focusChatInput()
+  }
+  const handleCreateAgent = () => {
+    setAgentId('new', { shallow: true })
   }
   return (
     <motion.aside
@@ -298,10 +301,6 @@ const Sidebar = () => {
         }}
       >
         <SidebarHeader />
-        <NewChatButton
-          disabled={messages.length === 0}
-          onClick={handleNewChat}
-        />
         {isMounted && (
           <>
             <Endpoint />
@@ -325,16 +324,32 @@ const Sidebar = () => {
                         />
                       ))}
                     </div>
-                  ) : (
+                  ) : agentId !== 'new' ? (
                     <>
-                      <AgentSelector />
+                      <div className="flex w-full items-center gap-1">
+                        <div className="flex-grow">
+                          <AgentSelector />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleCreateAgent}
+                          className="hover:cursor-pointer hover:bg-transparent"
+                        >
+                          <Icon type="plus-icon" size="md" />
+                        </Button>
+                      </div>
                       {selectedModel && agentId && (
                         <ModelDisplay model={selectedModel} />
                       )}
                     </>
-                  )}
+                  ) : null}
                 </motion.div>
-                <Sessions />
+                <NewChatButton
+                  disabled={messages.length === 0}
+                  onClick={handleNewChat}
+                />
+                {agentId !== 'new' && <Sessions />}
               </>
             )}
           </>

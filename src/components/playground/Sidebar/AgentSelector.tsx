@@ -15,18 +15,21 @@ import { useEffect } from 'react'
 import useChatActions from '@/hooks/useChatActions'
 
 export function AgentSelector() {
-  const { agents, setMessages, setSelectedModel, setHasStorage } =
-    usePlaygroundStore()
-  const { focusChatInput } = useChatActions()
+  const { agents, setSelectedModel, setHasStorage } = usePlaygroundStore()
+  const { focusChatInput, clearChat } = useChatActions()
   const [agentId, setAgentId] = useQueryState('agent', {
     parse: (value) => value || undefined,
     history: 'push'
   })
-  const [, setSessionId] = useQueryState('session')
+  useQueryState('session')
 
   // Set the model when the component mounts if an agent is already selected
   useEffect(() => {
     if (agentId && agents.length > 0) {
+      if (agentId === 'new') {
+        setHasStorage(false)
+        return
+      }
       const agent = agents.find((agent) => agent.value === agentId)
       if (agent) {
         setSelectedModel(agent.model.provider || '')
@@ -47,8 +50,7 @@ export function AgentSelector() {
     setSelectedModel(selectedAgent?.model.provider || '')
     setHasStorage(!!selectedAgent?.storage)
     setAgentId(newAgent)
-    setMessages([])
-    setSessionId(null)
+    clearChat()
     if (selectedAgent?.model.provider) {
       focusChatInput()
     }
@@ -59,10 +61,10 @@ export function AgentSelector() {
       value={agentId || ''}
       onValueChange={(value) => handleOnValueChange(value)}
     >
-      <SelectTrigger className="h-9 w-full rounded-xl border border-primary/15 bg-primaryAccent text-xs font-medium uppercase">
+      <SelectTrigger className="border-primary/15 bg-primaryAccent h-9 w-full rounded-xl border text-xs font-medium uppercase">
         <SelectValue placeholder="Select Agent" />
       </SelectTrigger>
-      <SelectContent className="border-none bg-primaryAccent font-dmmono shadow-lg">
+      <SelectContent className="bg-primaryAccent font-dmmono border-none shadow-lg">
         {agents.map((agent, index) => (
           <SelectItem
             className="cursor-pointer"
