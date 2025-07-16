@@ -24,7 +24,7 @@ export interface ReasoningStepProps {
   stepTitle: string
 }
 export interface ReasoningProps {
-  reasoning: ReasoningSteps[]
+  reasoning: ReasoningSteps[] | ReasoningSteps
 }
 
 export type ToolCallProps = {
@@ -146,7 +146,7 @@ export interface RunResponse {
 }
 
 export interface AgentExtraData {
-  reasoning_steps?: ReasoningSteps[]
+  reasoning_steps?: ReasoningSteps[] | ReasoningSteps
   reasoning_messages?: ReasoningMessage[]
   references?: ReferenceData[]
 }
@@ -175,7 +175,7 @@ export interface PlaygroundChatMessage {
   created_at: number
   tool_calls?: ToolCall[]
   extra_data?: {
-    reasoning_steps?: ReasoningSteps[]
+    reasoning_steps?: ReasoningSteps[] | ReasoningSteps
     reasoning_messages?: ReasoningMessage[]
     references?: ReferenceData[]
   }
@@ -246,7 +246,7 @@ export interface ChatEntry {
     content: string
     tools?: ToolCall[]
     extra_data?: {
-      reasoning_steps?: ReasoningSteps[]
+      reasoning_steps?: ReasoningSteps[] | ReasoningSteps
       reasoning_messages?: ReasoningMessage[]
       references?: ReferenceData[]
     }

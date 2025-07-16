@@ -5,7 +5,6 @@ import Tooltip from '@/components/ui/tooltip'
 import { memo } from 'react'
 import {
   ToolCallProps,
-  ReasoningStepProps,
   ReasoningProps,
   ReferenceData,
   Reference
@@ -14,6 +13,16 @@ import React, { type FC } from 'react'
 import ChatBlankState from './ChatBlankState'
 import Icon from '@/components/ui/icon'
 import { usePlaygroundStore } from '@/store'
+import Heading from '@/components/ui/typography/Heading'
+import { Badge } from '@/components/ui/badge'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from '@/components/ui/accordion'
+import Paragraph from '@/components/ui/typography/Paragraph'
+import { CheckCircle, AlertCircle, HelpCircle } from 'lucide-react'
 
 interface MessageListProps {
   messages: PlaygroundChatMessage[]
@@ -61,26 +70,33 @@ const References: FC<ReferenceProps> = ({ references }) => (
 
 const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
   return (
-    <div className="flex flex-col gap-y-9">
+    <div className="flex flex-col gap-y-6">
+      <AgentMessage message={message} />
       {message.extra_data?.reasoning_steps &&
-        message.extra_data.reasoning_steps.length > 0 && (
-          <div className="flex items-start gap-4">
-            <Tooltip
-              delayDuration={0}
-              content={<p className="text-accent">Reasoning</p>}
-              side="top"
-            >
-              <Icon type="reasoning" size="sm" />
-            </Tooltip>
-            <div className="flex flex-col gap-3">
-              <p className="text-xs uppercase">Reasoning</p>
-              <Reasonings reasoning={message.extra_data.reasoning_steps} />
-            </div>
-          </div>
+        (Array.isArray(message.extra_data.reasoning_steps)
+          ? message.extra_data.reasoning_steps.length > 0
+          : true) && (
+          <Accordion
+            type="single"
+            collapsible
+            className="w-full rounded-lg border border-neutral-800"
+          >
+            <AccordionItem value="reasoning" className="border-b-0">
+              <AccordionTrigger className="p-3 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <Icon type="reasoning" size="sm" />
+                  <p className="font-geist text-xs uppercase">Reasonings</p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="p-4 pt-0">
+                <Reasonings reasoning={message.extra_data.reasoning_steps} />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         )}
       {message.extra_data?.references &&
         message.extra_data.references.length > 0 && (
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3">
             <Tooltip
               delayDuration={0}
               content={<p className="text-accent">References</p>}
@@ -121,29 +137,116 @@ const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
           </div>
         </div>
       )}
-      <AgentMessage message={message} />
     </div>
   )
 }
-const Reasoning: FC<ReasoningStepProps> = ({ index, stepTitle }) => (
-  <div className="text-secondary flex items-center gap-2">
-    <div className="bg-background-secondary flex h-[20px] items-center rounded-md p-2">
-      <p className="text-xs">STEP {index + 1}</p>
-    </div>
-    <p className="text-xs">{stepTitle}</p>
-  </div>
-)
-const Reasonings: FC<ReasoningProps> = ({ reasoning }) => (
-  <div className="flex flex-col items-start justify-center gap-2">
-    {reasoning.map((title, index) => (
-      <Reasoning
-        key={`${title.title}-${title.action}-${index}`}
-        stepTitle={title.title}
-        index={index}
-      />
-    ))}
-  </div>
-)
+
+const getNextActionIcon = (action: string) => {
+  switch (action) {
+    case 'final_answer':
+      return <CheckCircle className="h-3 w-3 text-green-500" />
+    case 'continue':
+      return <HelpCircle className="h-3 w-3 text-yellow-500" />
+    default:
+      return <AlertCircle className="h-3 w-3 text-red-500" />
+  }
+}
+
+const Reasonings: FC<ReasoningProps> = ({ reasoning }) => {
+  if (!reasoning) {
+    return null
+  }
+
+  // Ensure reasoning is an array
+  const reasoningArray = Array.isArray(reasoning) ? reasoning : [reasoning]
+
+  if (reasoningArray.length === 0) {
+    return null
+  }
+
+  return (
+    <Accordion type="multiple" className="w-full space-y-2">
+      {reasoningArray.map((step, index) => (
+        <AccordionItem
+          key={index}
+          value={`item-${index}`}
+          className="bg-background-secondary/40 rounded-lg border-none"
+        >
+          <AccordionTrigger className="p-2 hover:no-underline">
+            <div className="text-secondary flex w-full items-center gap-3">
+              <div className="flex h-[30px] w-[65px] items-center rounded-md border border-neutral-800 p-2">
+                <p className="text-primary/60 text-xs uppercase">
+                  step {index + 1}
+                </p>
+              </div>
+              <p className="text-xs font-semibold">{step.title}</p>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="p-4 pt-0">
+            <div className="space-y-3 px-1 pb-4">
+              <div>
+                <Heading size={6} className="mb-1 font-mono text-xs uppercase">
+                  Action
+                </Heading>
+                <Paragraph size="sm" className="text-muted">
+                  {step.action}
+                </Paragraph>
+              </div>
+              <div>
+                <Heading size={6} className="mb-1 font-mono text-xs uppercase">
+                  Result
+                </Heading>
+                <Paragraph size="sm" className="text-muted">
+                  {step.result}
+                </Paragraph>
+              </div>
+              <div>
+                <Heading size={6} className="mb-1 font-mono text-xs uppercase">
+                  Reasoning
+                </Heading>
+                <Paragraph size="sm" className="text-muted">
+                  {step.reasoning}
+                </Paragraph>
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                {step.next_action ? (
+                  <div className="flex items-center space-x-2">
+                    <Heading size={6} className="font-mono text-xs uppercase">
+                      Next Action:
+                    </Heading>
+                    <Badge
+                      variant="outline"
+                      className="flex items-center space-x-1"
+                    >
+                      {getNextActionIcon(step.next_action)}
+                      <span>{step.next_action}</span>
+                    </Badge>
+                  </div>
+                ) : (
+                  <div />
+                )}
+                {typeof step.confidence !== 'undefined' ? (
+                  <div className="flex items-center space-x-2">
+                    <Heading size={6} className="font-mono text-xs uppercase">
+                      Confidence:
+                    </Heading>
+                    <Badge
+                      variant={step.confidence > 0.8 ? 'default' : 'secondary'}
+                    >
+                      {(step.confidence * 100).toFixed(0)}%
+                    </Badge>
+                  </div>
+                ) : (
+                  <div />
+                )}
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  )
+}
 
 const ToolComponent = memo(({ tools }: ToolCallProps) => (
   <div className="bg-accent cursor-default rounded-full px-2 py-1.5 text-xs">
@@ -151,6 +254,7 @@ const ToolComponent = memo(({ tools }: ToolCallProps) => (
   </div>
 ))
 ToolComponent.displayName = 'ToolComponent'
+
 const Messages = ({ messages }: MessageListProps) => {
   const { selectedAgent } = usePlaygroundStore()
   if (messages.length === 0) {

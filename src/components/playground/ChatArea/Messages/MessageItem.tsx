@@ -7,7 +7,6 @@ import Images from './Multimedia/Images'
 import Audios from './Multimedia/Audios'
 import { memo } from 'react'
 import AgentThinkingLoader from './AgentThinkingLoader'
-import { ReasoningSteps } from './ReasoningSteps'
 
 interface MessageProps {
   message: PlaygroundChatMessage
@@ -31,9 +30,6 @@ const AgentMessage = ({ message }: MessageProps) => {
     messageContent = (
       <div className="flex w-full flex-col gap-4">
         <MarkdownRenderer>{message.content}</MarkdownRenderer>
-        {message.extra_data?.reasoning_steps && (
-          <ReasoningSteps steps={message.extra_data.reasoning_steps} />
-        )}
         {message.videos && message.videos.length > 0 && (
           <Videos videos={message.videos} />
         )}
@@ -89,7 +85,7 @@ const UserMessage = memo(({ message }: MessageProps) => {
         <p className="text-muted flex items-center gap-x-2 text-sm font-medium">
           <Icon type="user" size="sm" />
         </p>
-        <div className="bg-accent/60 font-geist text-secondary border-accent rounded-lg border px-4 py-3">
+        <div className="bg-accent/60 font-geist text-secondary rounded-lg px-4 py-3">
           <MarkdownRenderer inline>{message.content}</MarkdownRenderer>
           {message.files && message.files.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">

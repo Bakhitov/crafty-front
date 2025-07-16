@@ -28,8 +28,7 @@ import type {
   TableHeaderProps,
   TableBodyProps,
   TableRowProps,
-  TableCellProps,
-
+  TableCellProps
 } from './types'
 
 import { HEADING_SIZES } from '../Heading/constants'
@@ -50,7 +49,7 @@ const UnorderedList = ({ className, ...props }: UnorderedListProps) => (
     className={cn(
       className,
       PARAGRAPH_SIZES.body,
-      'flex list-disc flex-col pl-10 my-1'
+      'my-1 flex list-disc flex-col pl-10'
     )}
     {...filterProps(props)}
   />
@@ -61,7 +60,7 @@ const OrderedList = ({ className, ...props }: OrderedListProps) => (
     className={cn(
       className,
       PARAGRAPH_SIZES.body,
-      'flex list-decimal flex-col pl-10 my-1'
+      'my-1 flex list-decimal flex-col pl-10'
     )}
     {...filterProps(props)}
   />
@@ -118,47 +117,51 @@ const DeletedText = ({ className, ...props }: DeletedTextProps) => (
 
 const HorizontalRule = ({ className, ...props }: HorizontalRuleProps) => (
   <hr
-    className={cn(className, 'mx-auto w-48 border-b border-border')}
+    className={cn(className, 'border-border mx-auto w-48 border-b')}
     {...filterProps(props)}
   />
 )
 
 const InlineCode: FC<{ children?: React.ReactNode }> = ({ children }) => {
   return (
-    <code className="relative whitespace-pre-wrap rounded-md bg-background-secondary/60 px-2 py-1 text-sm font-medium text-foreground border border-border/10">
+    <code className="bg-background-secondary/60 text-foreground border-border/10 relative whitespace-pre-wrap rounded-md border px-2 py-1 text-sm font-medium">
       {children}
     </code>
   )
 }
 
-const CodeBlock: FC<{ children?: React.ReactNode; className?: string }> = ({ children, className }) => {
+const CodeBlock: FC<{ children?: React.ReactNode; className?: string }> = ({
+  children,
+  className
+}) => {
   const language = className?.replace('language-', '') || 'text'
-  
+
   // Extract text content from children
   let code = ''
   if (typeof children === 'string') {
     code = children
   } else if (React.isValidElement(children)) {
     const element = children as React.ReactElement<{ children?: string }>
-    code = typeof element.props.children === 'string' ? element.props.children : ''
+    code =
+      typeof element.props.children === 'string' ? element.props.children : ''
   }
-  
+
   return (
-    <div className="w-full max-w-full overflow-hidden rounded-lg border border-border/10 bg-background-secondary/20 shadow-sm my-3">
+    <div className="border-border/10 bg-background-secondary/20 my-3 w-full max-w-full overflow-hidden rounded-lg border shadow-sm">
       {/* Header with language label */}
       {language && language !== 'text' && (
-        <div className="flex items-center justify-between border-b border-border/10 bg-background-secondary/30 px-4 py-2.5">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <div className="border-border/10 bg-background-secondary/30 flex items-center justify-between border-b px-4 py-2.5">
+          <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
             {language}
           </span>
           <div className="flex space-x-1">
-            <div className="w-2 h-2 rounded-full bg-red-500/40"></div>
-            <div className="w-2 h-2 rounded-full bg-yellow-500/40"></div>
-            <div className="w-2 h-2 rounded-full bg-green-500/40"></div>
+            <div className="h-2 w-2 rounded-full bg-red-500/40"></div>
+            <div className="h-2 w-2 rounded-full bg-yellow-500/40"></div>
+            <div className="h-2 w-2 rounded-full bg-green-500/40"></div>
           </div>
         </div>
       )}
-      
+
       <div className="relative">
         <SyntaxHighlighter
           language={language}
@@ -169,8 +172,9 @@ const CodeBlock: FC<{ children?: React.ReactNode; className?: string }> = ({ chi
             backgroundColor: 'hsl(var(--background))',
             fontSize: '0.875rem',
             lineHeight: '1.6',
-            fontFamily: '"Fira Code", "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace',
-            borderRadius: '0 0 0.5rem 0.5rem',
+            fontFamily:
+              '"Fira Code", "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace',
+            borderRadius: '0 0 0.5rem 0.5rem'
           }}
           showLineNumbers={code.split('\n').length > 3}
           lineNumberStyle={{
@@ -178,7 +182,7 @@ const CodeBlock: FC<{ children?: React.ReactNode; className?: string }> = ({ chi
             fontSize: '0.75rem',
             paddingRight: '1rem',
             userSelect: 'none',
-            opacity: 0.6,
+            opacity: 0.6
           }}
           wrapLines
           wrapLongLines
@@ -193,8 +197,8 @@ const CodeBlock: FC<{ children?: React.ReactNode; className?: string }> = ({ chi
 const Blockquote = ({ className, ...props }: BlockquoteProps) => (
   <blockquote
     className={cn(
-      className, 
-      'border-l-4 border-primary/30 bg-background-secondary/30 pl-4 py-2 my-2 italic text-muted-foreground rounded-r-md',
+      className,
+      'border-primary/30 bg-background-secondary/30 text-muted-foreground my-2 rounded-r-md border-l-4 py-2 pl-4 italic',
       PARAGRAPH_SIZES.body
     )}
     {...filterProps(props)}
@@ -211,31 +215,43 @@ const AnchorLink = ({ className, ...props }: AnchorLinkProps) => (
 )
 
 const Heading1 = ({ className, ...props }: HeadingProps) => (
-  <h1 className={cn(className, HEADING_SIZES[3], 'mt-6 mb-2 first:mt-0')} {...filterProps(props)} />
+  <h1
+    className={cn(className, HEADING_SIZES[3], 'mb-2 mt-6 first:mt-0')}
+    {...filterProps(props)}
+  />
 )
 
 const Heading2 = ({ className, ...props }: HeadingProps) => (
-  <h2 className={cn(className, HEADING_SIZES[3], 'mt-6 mb-2 first:mt-0')} {...filterProps(props)} />
+  <h2
+    className={cn(className, HEADING_SIZES[3], 'mb-2 mt-6 first:mt-0')}
+    {...filterProps(props)}
+  />
 )
 
 const Heading3 = ({ className, ...props }: HeadingProps) => (
-  <h3 className={cn(className, PARAGRAPH_SIZES.lead, 'mt-5 mb-1.5 first:mt-0')} {...filterProps(props)} />
+  <h3
+    className={cn(className, PARAGRAPH_SIZES.lead, 'mb-1.5 mt-5 first:mt-0')}
+    {...filterProps(props)}
+  />
 )
 
 const Heading4 = ({ className, ...props }: HeadingProps) => (
-  <h4 className={cn(className, PARAGRAPH_SIZES.lead, 'mt-5 mb-1.5 first:mt-0')} {...filterProps(props)} />
+  <h4
+    className={cn(className, PARAGRAPH_SIZES.lead, 'mb-1.5 mt-5 first:mt-0')}
+    {...filterProps(props)}
+  />
 )
 
 const Heading5 = ({ className, ...props }: HeadingProps) => (
   <h5
-    className={cn(className, PARAGRAPH_SIZES.title, 'mt-4 mb-1 first:mt-0')}
+    className={cn(className, PARAGRAPH_SIZES.title, 'mb-1 mt-4 first:mt-0')}
     {...filterProps(props)}
   />
 )
 
 const Heading6 = ({ className, ...props }: HeadingProps) => (
   <h6
-    className={cn(className, PARAGRAPH_SIZES.title, 'mt-4 mb-1 first:mt-0')}
+    className={cn(className, PARAGRAPH_SIZES.title, 'mb-1 mt-4 first:mt-0')}
     {...filterProps(props)}
   />
 )
@@ -248,7 +264,7 @@ const Img = ({ src, alt }: ImgProps) => {
   return (
     <div className="w-full max-w-xl">
       {error ? (
-        <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-md bg-secondary/50 text-muted">
+        <div className="bg-secondary/50 text-muted flex h-40 flex-col items-center justify-center gap-2 rounded-md">
           <Paragraph className="text-primary">Image unavailable</Paragraph>
           <Link
             href={src}
@@ -274,7 +290,7 @@ const Img = ({ src, alt }: ImgProps) => {
 }
 
 const Table = ({ className, ...props }: TableProps) => (
-  <div className="w-full max-w-[560px] overflow-hidden rounded-md border border-border">
+  <div className="border-border w-full max-w-[560px] overflow-hidden rounded-md border">
     <div className="w-full overflow-x-auto">
       <table className={cn(className, 'w-full')} {...filterProps(props)} />
     </div>
@@ -285,7 +301,7 @@ const TableHead = ({ className, ...props }: TableHeaderProps) => (
   <thead
     className={cn(
       className,
-      'rounded-md border-b border-border bg-transparent p-2 text-left text-sm font-[600]'
+      'border-border rounded-md border-b bg-transparent p-2 text-left text-sm font-[600]'
     )}
     {...filterProps(props)}
   />
@@ -304,7 +320,7 @@ const TableBody = ({ className, ...props }: TableBodyProps) => (
 
 const TableRow = ({ className, ...props }: TableRowProps) => (
   <tr
-    className={cn(className, 'border-b border-border last:border-b-0')}
+    className={cn(className, 'border-border border-b last:border-b-0')}
     {...filterProps(props)}
   />
 )

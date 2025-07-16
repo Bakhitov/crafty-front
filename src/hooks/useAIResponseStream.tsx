@@ -14,54 +14,214 @@ function processChunk(
 }
 
 /**
- * Parses a string buffer to extract complete JSON objects.
- *
- * This function discards any extraneous data before the first '{', then
- * repeatedly finds and processes complete JSON objects.
- *
- * @param text - The accumulated string buffer.
- * @param onChunk - Callback to process each parsed JSON object.
- * @returns Remaining string that did not form a complete JSON object.
+ * Parses a Python-like object representation into JavaScript object
+ * Example: "ReasoningStep(title='...', action='...', ...)" -> { title: '...', action: '...', ... }
  */
+function parsePythonObject(pythonStr: string): unknown {
+  try {
+    // Handle simple types
+    if (pythonStr === 'None') return null
+    if (pythonStr === 'True') return true
+    if (pythonStr === 'False') return false
+    if (!isNaN(Number(pythonStr))) return Number(pythonStr)
+    if (pythonStr.startsWith("'") && pythonStr.endsWith("'")) {
+      return pythonStr
+        .substring(1, pythonStr.length - 1)
+        .replace(/\\'/g, "'")
+        .replace(/\\n/g, '\n')
+    }
+
+    // Handle arrays
+    if (pythonStr.startsWith('[') && pythonStr.endsWith(']')) {
+      const arrayContent = pythonStr.substring(1, pythonStr.length - 1)
+      if (!arrayContent.trim()) return []
+
+      // Simple split by comma won't work for nested structures,
+      // so we need to parse more carefully
+      const items: unknown[] = []
+      let current = ''
+      let depth = 0
+      let inString = false
+
+      for (let i = 0; i < arrayContent.length; i++) {
+        const char = arrayContent[i]
+        if (char === "'" && arrayContent[i - 1] !== '\\') {
+          inString = !inString
+        }
+        if (!inString) {
+          if (char === '(' || char === '[' || char === '{') depth++
+          if (char === ')' || char === ']' || char === '}') depth--
+          if (char === ',' && depth === 0) {
+            items.push(parsePythonObject(current.trim()))
+            current = ''
+            continue
+          }
+        }
+        current += char
+      }
+      if (current.trim()) {
+        items.push(parsePythonObject(current.trim()))
+      }
+      return items
+    }
+
+    // Handle Python objects like ReasoningStep(...) or RunResponseExtraData(...)
+    const objectMatch = pythonStr.match(/^(\w+)\(([\s\S]*)\)$/)
+    if (objectMatch) {
+      const [, , propsStr] = objectMatch
+      const obj: Record<string, unknown> = {}
+
+      // Parse key=value pairs for any class
+      let current = ''
+      let depth = 0
+      let inString = false
+      let key = ''
+      let parsingKey = true
+
+      for (let i = 0; i < propsStr.length; i++) {
+        const char = propsStr[i]
+        if (char === "'" && propsStr[i - 1] !== '\\') {
+          inString = !inString
+        }
+        if (!inString) {
+          if (char === '(' || char === '[' || char === '{') depth++
+          if (char === ')' || char === ']' || char === '}') depth--
+          if (char === '=' && depth === 0 && parsingKey) {
+            key = current.trim()
+            current = ''
+            parsingKey = false
+            continue
+          }
+          if (char === ',' && depth === 0) {
+            if (key) {
+              obj[key] = parsePythonObject(current.trim())
+            }
+            current = ''
+            key = ''
+            parsingKey = true
+            continue
+          }
+        }
+        current += char
+      }
+      if (key && current.trim()) {
+        obj[key] = parsePythonObject(current.trim())
+      }
+
+      return obj
+    }
+
+    // Handle NextAction enum
+    if (pythonStr.includes('<NextAction.')) {
+      const enumMatch = pythonStr.match(/<NextAction\.(\w+):\s*'([^']+)'>/)
+      if (enumMatch) {
+        return enumMatch[2] // Return the string value, not the enum
+      }
+    }
+
+    // If nothing else matches, return the original string
+    return pythonStr
+  } catch (error) {
+    console.error('Error parsing Python object:', error, pythonStr)
+    return pythonStr
+  }
+}
+
 /**
  * Extracts complete JSON objects from a buffer string **incrementally**.
  * - It allows partial JSON objects to accumulate across chunks.
  * - It ensures real-time streaming updates.
  */
 function parseEventString(eventString: string): RunResponse | null {
-  const match = eventString.match(/\s*RunResponseContentEvent\((.*)\)/)
+  const match = eventString.match(/\s*RunResponseContentEvent\(([\s\S]*)\)$/)
   if (!match) {
     return null
   }
 
+  console.log('Parsing event string:', eventString.substring(0, 200) + '...')
+
   const propsString = match[1]
-  const props = propsString.split(/,(?=\s*\w+=)/)
+  const eventData: Record<string, unknown> = {}
 
-  const eventData: Partial<RunResponse> = {}
-  props.forEach((prop) => {
-    const [key, ...valueParts] = prop.trim().split('=')
-    let value: string | number | null = valueParts.join('=')
+  // Parse key=value pairs more carefully to handle nested structures
+  let current = ''
+  let depth = 0
+  let inString = false
+  let key = ''
+  let parsingKey = true
 
-    if (value === 'None') {
-      value = null
-    } else if (value.startsWith("'") && value.endsWith("'")) {
-      value = value.substring(1, value.length - 1).replace(/\\n/g, '\n')
-    } else if (!isNaN(Number(value))) {
-      value = Number(value)
+  for (let i = 0; i < propsString.length; i++) {
+    const char = propsString[i]
+    if (char === "'" && propsString[i - 1] !== '\\') {
+      inString = !inString
     }
-    ;(eventData as Record<string, unknown>)[key] = value
-  })
+    if (!inString) {
+      if (char === '(' || char === '[' || char === '{') depth++
+      if (char === ')' || char === ']' || char === '}') depth--
+      if (char === '=' && depth === 0 && parsingKey) {
+        key = current.trim()
+        current = ''
+        parsingKey = false
+        continue
+      }
+      if (char === ',' && depth === 0) {
+        if (key) {
+          const parsedValue = parsePythonObject(current.trim())
+          eventData[key] = parsedValue
+          if (key === 'extra_data') {
+            console.log(
+              'Parsed extra_data key:',
+              key,
+              'value:',
+              current.trim().substring(0, 100)
+            )
+            console.log('Parsed extra_data object:', parsedValue)
+          }
+        }
+        current = ''
+        key = ''
+        parsingKey = true
+        continue
+      }
+    }
+    current += char
+  }
+  if (key && current.trim()) {
+    const parsedValue = parsePythonObject(current.trim())
+    eventData[key] = parsedValue
+    if (key === 'extra_data') {
+      console.log(
+        'Final extra_data key:',
+        key,
+        'value:',
+        current.trim().substring(0, 100)
+      )
+      console.log('Final extra_data object:', parsedValue)
+    }
+  }
 
-  return {
+  const result = {
     event: (eventData.event || 'RunResponseContent') as RunEvent,
-    content: eventData.content,
-    content_type: eventData.content_type || 'str',
-    run_id: eventData.run_id,
-    agent_id: eventData.agent_id,
-    session_id: eventData.session_id,
-    created_at: eventData.created_at || Date.now()
-    // Add other fields from RunResponse that might be in the event
+    content: eventData.content as string | object | undefined,
+    content_type: (eventData.content_type as string) || 'str',
+    run_id: eventData.run_id as string | undefined,
+    agent_id: eventData.agent_id as string | undefined,
+    session_id: eventData.session_id as string | undefined,
+    created_at: (eventData.created_at as number) || Date.now(),
+    extra_data: eventData.extra_data as RunResponse['extra_data'],
+    thinking: eventData.thinking as string | undefined,
+    citations: eventData.citations,
+    response_audio: eventData.response_audio as RunResponse['response_audio'],
+    image: eventData.image
   } as RunResponse
+
+  // Debug logging для extra_data
+  if (eventData.extra_data) {
+    console.log('Final parsed extra_data:', eventData.extra_data)
+    console.log('Full result:', result)
+  }
+
+  return result
 }
 
 function parseBuffer(

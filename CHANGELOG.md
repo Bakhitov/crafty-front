@@ -2,6 +2,14 @@
 
 ## [Неопубликованные изменения]
 
+### Fixed
+
+- **src/components/playground/ChatArea/Messages/Messages.tsx**: Исправлена ошибка `TypeError: reasoning.map is not a function` в компоненте Reasonings. Добавлена проверка типа данных и преобразование одиночного объекта reasoning в массив
+- **src/types/playground.ts**: Обновлены типы для поддержки reasoning_steps как массива или одиночного объекта (ReasoningSteps[] | ReasoningSteps)
+- **src/hooks/useAIStreamHandler.tsx**: Обновлена проверка длины reasoning_steps для поддержки как массивов, так и одиночных объектов
+- **src/components/playground/Sidebar/Sessions/SessionBlankState.tsx**: Удален неиспользуемый импорт `Link` из `next/link` для исправления ошибки ESLint
+- **src/hooks/useAIResponseStream.tsx**: Заменены флаги регулярных выражений `/s` на `[\s\S]` для совместимости с ES2017 и устранения ошибок компиляции TypeScript
+
 ### Added
 
 - **src/components/magicui/bento-grid.tsx**: Создан компонент bento-grid на основе Magic UI для красивого отображения возможностей продукта
@@ -161,3 +169,16 @@
 ### Changed
 
 - src/components/BusinessFeaturesBento.tsx: Изменена компоновка блока "Передовые AI-технологии под капотом" - иконка и текст теперь располагаются в столбик вместо строки
+
+### Исправлено
+
+- `src/hooks/useAIStreamHandler.tsx` - Исправлена проблема с рендерингом reasoning сообщений во время стриминга:
+
+  - Теперь создаются новые объекты сообщений вместо мутации существующих, что позволяет React правильно обнаруживать изменения
+  - Reasoning больше не попадает в основной content как JSON, а обрабатывается через extra_data
+  - Добавлена проверка на наличие reasoning_steps перед добавлением объекта content в сообщение
+  - Исправлена обработка первого события с пустым content и reasoning_steps
+
+- `src/hooks/useAIResponseStream.tsx` - Добавлен парсер Python-like объектов для правильной обработки extra_data:
+  - Теперь парсер может обрабатывать сложные структуры как RunResponseExtraData с reasoning_steps
+  - Исправлена проблема, когда extra_data терялась при парсинге событий от бэкенда

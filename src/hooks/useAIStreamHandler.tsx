@@ -38,9 +38,14 @@ const useAIChatStreamHandler = () => {
   const updateMessagesWithErrorState = useCallback(() => {
     setMessages((prevMessages) => {
       const newMessages = [...prevMessages]
-      const lastMessage = newMessages[newMessages.length - 1]
+      const lastMessageIndex = newMessages.length - 1
+      const lastMessage = newMessages[lastMessageIndex]
       if (lastMessage && lastMessage.role === 'agent') {
-        lastMessage.streamingError = true
+        // Создаем новый объект сообщения вместо мутации
+        newMessages[lastMessageIndex] = {
+          ...lastMessage,
+          streamingError: true
+        }
       }
       return newMessages
     })
@@ -222,12 +227,17 @@ const useAIChatStreamHandler = () => {
             } else if (chunk.event === RunEvent.ToolCallStarted) {
               setMessages((prevMessages) => {
                 const newMessages = [...prevMessages]
-                const lastMessage = newMessages[newMessages.length - 1]
+                const lastMessageIndex = newMessages.length - 1
+                const lastMessage = newMessages[lastMessageIndex]
                 if (lastMessage && lastMessage.role === 'agent') {
-                  lastMessage.tool_calls = processChunkToolCalls(
-                    chunk,
-                    lastMessage.tool_calls
-                  )
+                  // Создаем новый объект сообщения вместо мутации
+                  newMessages[lastMessageIndex] = {
+                    ...lastMessage,
+                    tool_calls: processChunkToolCalls(
+                      chunk,
+                      lastMessage.tool_calls
+                    )
+                  }
                 }
                 return newMessages
               })
@@ -235,70 +245,121 @@ const useAIChatStreamHandler = () => {
               chunk.event === RunEvent.RunResponse ||
               chunk.event === RunEvent.RunResponseContent
             ) {
+              // Проверяем, есть ли reasoning_steps в первом событии с пустым content
+              const hasReasoningInChunk =
+                chunk.extra_data?.reasoning_steps &&
+                (Array.isArray(chunk.extra_data.reasoning_steps)
+                  ? chunk.extra_data.reasoning_steps.length > 0
+                  : true)
+
               if (typeof chunk.content === 'string') {
                 lastContent += chunk.content
-              } else {
-                lastContent += getJsonMarkdown(chunk.content)
+              } else if (chunk.content && typeof chunk.content === 'object') {
+                // Не добавляем объект content в lastContent, если это может быть reasoning
+                // Reasoning должен обрабатываться через extra_data
+                // Только если это действительно нужно отобразить как JSON (например, structured output)
+                if (!chunk.extra_data?.reasoning_steps) {
+                  lastContent += getJsonMarkdown(chunk.content)
+                }
               }
               setMessages((prevMessages) => {
                 const newMessages = [...prevMessages]
-                const lastMessage = newMessages[newMessages.length - 1]
+                const lastMessageIndex = newMessages.length - 1
+                const lastMessage = newMessages[lastMessageIndex]
                 if (
                   lastMessage &&
                   lastMessage.role === 'agent' &&
-                  typeof chunk.content === 'string'
+                  (typeof chunk.content === 'string' || hasReasoningInChunk)
                 ) {
-                  lastMessage.content = lastContent
-
-                  // Handle tool calls streaming
-                  lastMessage.tool_calls = processChunkToolCalls(
-                    chunk,
-                    lastMessage.tool_calls
-                  )
-                  if (chunk.extra_data?.reasoning_steps) {
-                    lastMessage.extra_data = {
-                      ...lastMessage.extra_data,
-                      reasoning_steps: chunk.extra_data.reasoning_steps
-                    }
-                  }
-
-                  if (chunk.extra_data?.references) {
-                    lastMessage.extra_data = {
-                      ...lastMessage.extra_data,
-                      references: chunk.extra_data.references
-                    }
-                  }
-
-                  lastMessage.created_at =
-                    chunk.created_at ?? lastMessage.created_at
-                  if (chunk.images) {
-                    lastMessage.images = chunk.images
-                  }
-                  if (chunk.videos) {
-                    lastMessage.videos = chunk.videos
-                  }
-                  if (chunk.audio) {
-                    lastMessage.audio = chunk.audio
+                  // Создаем новый объект сообщения вместо мутации
+                  newMessages[lastMessageIndex] = {
+                    ...lastMessage,
+                    content: lastContent,
+                    tool_calls: processChunkToolCalls(
+                      chunk,
+                      lastMessage.tool_calls
+                    ),
+                    extra_data:
+                      chunk.extra_data?.reasoning_steps ||
+                      chunk.extra_data?.references
+                        ? {
+                            ...lastMessage.extra_data,
+                            ...(chunk.extra_data.reasoning_steps && {
+                              reasoning_steps: chunk.extra_data.reasoning_steps
+                            }),
+                            ...(chunk.extra_data.references && {
+                              references: chunk.extra_data.references
+                            })
+                          }
+                        : lastMessage.extra_data,
+                    created_at: chunk.created_at ?? lastMessage.created_at,
+                    ...(chunk.images && { images: chunk.images }),
+                    ...(chunk.videos && { videos: chunk.videos }),
+                    ...(chunk.audio && { audio: chunk.audio })
                   }
                 } else if (
                   lastMessage &&
                   lastMessage.role === 'agent' &&
                   typeof chunk?.content !== 'string' &&
-                  chunk.content !== null
+                  chunk.content !== null &&
+                  !chunk.extra_data?.reasoning_steps // Не добавляем контент, если есть reasoning
                 ) {
                   const jsonBlock = getJsonMarkdown(chunk?.content)
-
-                  lastMessage.content += jsonBlock
-                  lastContent = jsonBlock
+                  // Создаем новый объект сообщения вместо мутации
+                  newMessages[lastMessageIndex] = {
+                    ...lastMessage,
+                    content: lastMessage.content + jsonBlock
+                  }
+                  lastContent = lastMessage.content + jsonBlock
+                } else if (
+                  lastMessage &&
+                  lastMessage.role === 'agent' &&
+                  chunk.extra_data?.reasoning_steps
+                ) {
+                  // Если есть reasoning_steps, просто обновляем extra_data без изменения content
+                  newMessages[lastMessageIndex] = {
+                    ...lastMessage,
+                    extra_data: {
+                      ...lastMessage.extra_data,
+                      reasoning_steps: chunk.extra_data.reasoning_steps,
+                      ...(chunk.extra_data.references && {
+                        references: chunk.extra_data.references
+                      })
+                    }
+                  }
                 } else if (
                   chunk.response_audio?.transcript &&
                   typeof chunk.response_audio?.transcript === 'string'
                 ) {
                   const transcript = chunk.response_audio.transcript
-                  lastMessage.response_audio = {
-                    ...lastMessage.response_audio,
-                    transcript:
-                      lastMessage.response_audio?.transcript + transcript
+                  // Создаем новый объект сообщения вместо мутации
+                  newMessages[lastMessageIndex] = {
+                    ...lastMessage,
+                    response_audio: {
+                      ...lastMessage.response_audio,
+                      transcript:
+                        (lastMessage.response_audio?.transcript || '') +
+                        transcript
+                    }
+                  }
+                }
+                return newMessages
+              })
+            } else if (chunk.event === RunEvent.ReasoningStep) {
+              setMessages((prevMessages) => {
+                const newMessages = [...prevMessages]
+                const lastMessageIndex = newMessages.length - 1
+                const lastMessage = newMessages[lastMessageIndex]
+                if (lastMessage && lastMessage.role === 'agent') {
+                  if (chunk.extra_data?.reasoning_steps) {
+                    // Создаем новый объект сообщения вместо мутации
+                    newMessages[lastMessageIndex] = {
+                      ...lastMessage,
+                      extra_data: {
+                        ...lastMessage.extra_data,
+                        reasoning_steps: chunk.extra_data.reasoning_steps
+                      }
+                    }
                   }
                 }
                 return newMessages
@@ -306,12 +367,17 @@ const useAIChatStreamHandler = () => {
             } else if (chunk.event === RunEvent.ReasoningCompleted) {
               setMessages((prevMessages) => {
                 const newMessages = [...prevMessages]
-                const lastMessage = newMessages[newMessages.length - 1]
+                const lastMessageIndex = newMessages.length - 1
+                const lastMessage = newMessages[lastMessageIndex]
                 if (lastMessage && lastMessage.role === 'agent') {
                   if (chunk.extra_data?.reasoning_steps) {
-                    lastMessage.extra_data = {
-                      ...lastMessage.extra_data,
-                      reasoning_steps: chunk.extra_data.reasoning_steps
+                    // Создаем новый объект сообщения вместо мутации
+                    newMessages[lastMessageIndex] = {
+                      ...lastMessage,
+                      extra_data: {
+                        ...lastMessage.extra_data,
+                        reasoning_steps: chunk.extra_data.reasoning_steps
+                      }
                     }
                   }
                 }
@@ -337,14 +403,16 @@ const useAIChatStreamHandler = () => {
                     message.role === 'agent'
                   ) {
                     let updatedContent: string
-                    if (typeof chunk.content === 'string') {
+                    // Если content уже есть в сообщении, используем его
+                    // Иначе проверяем chunk.content
+                    if (message.content) {
+                      updatedContent = message.content
+                    } else if (typeof chunk.content === 'string') {
                       updatedContent = chunk.content
                     } else {
-                      try {
-                        updatedContent = JSON.stringify(chunk.content)
-                      } catch {
-                        updatedContent = 'Error parsing response'
-                      }
+                      // Если content не строка, но сообщение уже имеет контент из стриминга,
+                      // не перезаписываем его JSON представлением
+                      updatedContent = message.content || ''
                     }
                     return {
                       ...message,

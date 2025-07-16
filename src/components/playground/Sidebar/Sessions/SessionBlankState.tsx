@@ -1,7 +1,6 @@
 import React from 'react'
 import { usePlaygroundStore } from '@/store'
 import { useQueryState } from 'nuqs'
-import Link from 'next/link'
 
 const HistoryBlankStateIcon = () => (
   <svg
