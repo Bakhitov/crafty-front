@@ -5,7 +5,6 @@ import { usePlaygroundStore } from '../store'
 
 import { ComboboxAgent, type PlaygroundChatMessage } from '@/types/playground'
 import { getPlaygroundStatusAPI } from '@/api/playground'
-import { supabase } from '@/lib/supabase'
 import { useQueryState } from 'nuqs'
 
 const useChatActions = () => {
@@ -23,6 +22,7 @@ const useChatActions = () => {
   const setSelectedModel = usePlaygroundStore((state) => state.setSelectedModel)
   const setSelectedAgent = usePlaygroundStore((state) => state.setSelectedAgent)
   const [agentId, setAgentId] = useQueryState('agent')
+  const setHasStorage = usePlaygroundStore((state) => state.setHasStorage)
 
   const getStatus = useCallback(async () => {
     try {
@@ -35,22 +35,22 @@ const useChatActions = () => {
 
   const getAgents = useCallback(async () => {
     try {
-      // Используем view public.dynamic_agents (созданную поверх ai.dynamic_agents)
-      const { data, error } = await supabase
-        .from('dynamic_agents')
-        .select(
-          'agent_id, name, model_configuration, storage_config, is_active'
-        )
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
+      // Получаем агентов напрямую из Agno API через endpoint
+      const url = `${selectedEndpoint}/v1/agents/detailed`
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
 
-      if (error) {
-        console.error('Supabase error fetching agents:', error)
-        toast.error('Ошибка получения агентов из базы')
-        return []
+      if (!response.ok) {
+        throw new Error('Failed to fetch agents from Agno API')
       }
 
-      if (!data) return []
+      const data = await response.json()
+
+      if (!data || !Array.isArray(data)) {
+        return []
+      }
 
       // Преобразуем ответ в ComboboxAgent
       const agents: ComboboxAgent[] = data.map((item) => {
@@ -93,17 +93,29 @@ const useChatActions = () => {
           value: item.agent_id,
           label: item.name || item.agent_id,
           model: { provider },
-          storage: storageEnabled
+          storage: storageEnabled,
+          storage_config: { enabled: storageEnabled }
         }
       })
 
       return agents
     } catch (err) {
-      console.error('Unknown error fetching agents:', err)
-      toast.error('Ошибка получения агентов')
+      console.error('Error fetching agents from Agno API:', err)
+      toast.error('Ошибка получения агентов от Agno API')
       return []
     }
-  }, [])
+  }, [selectedEndpoint])
+
+  const refreshAgentsList = useCallback(async () => {
+    try {
+      const agents = await getAgents()
+      setAgents(agents)
+      return agents
+    } catch (error) {
+      console.error('Error refreshing agents list:', error)
+      return []
+    }
+  }, [getAgents, setAgents])
 
   const clearChat = useCallback(() => {
     setMessages([])
@@ -126,12 +138,6 @@ const useChatActions = () => {
   )
 
   const initializePlayground = useCallback(async () => {
-    if (agentId === 'new') {
-      setIsEndpointActive(true)
-      setAgents([])
-      setIsEndpointLoading(false)
-      return
-    }
     setIsEndpointLoading(true)
     try {
       const status = await getStatus()
@@ -139,17 +145,25 @@ const useChatActions = () => {
       if (status === 200) {
         setIsEndpointActive(true)
         agents = await getAgents()
-        if (agents.length > 0) {
+
+        // Только устанавливаем агента если НЕ в режиме создания нового
+        if (agentId !== 'new' && agents.length > 0) {
           if (!agentId) {
             const firstAgent = agents[0]
             setAgentId(firstAgent.value)
             setSelectedModel(firstAgent.model.provider || '')
             setSelectedAgent(firstAgent)
+            setHasStorage(
+              !!(firstAgent.storage || firstAgent.storage_config?.enabled)
+            )
           } else {
             const currentAgent = agents.find((a) => a.value === agentId)
             if (currentAgent) {
               setSelectedAgent(currentAgent)
               setSelectedModel(currentAgent.model.provider || '')
+              setHasStorage(
+                !!(currentAgent.storage || currentAgent.storage_config?.enabled)
+              )
             }
           }
         }
@@ -172,6 +186,7 @@ const useChatActions = () => {
     setAgentId,
     setSelectedModel,
     setSelectedAgent,
+    setHasStorage,
     agentId
   ])
 
@@ -179,6 +194,7 @@ const useChatActions = () => {
     clearChat,
     addMessage,
     getAgents,
+    refreshAgentsList,
     focusChatInput,
     initializePlayground
   }

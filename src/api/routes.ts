@@ -15,10 +15,17 @@ export const APIRoutes = {
     agentId: string,
     sessionId: string
   ) => `${PlaygroundApiUrl}/v1/agents/${agentId}/sessions/${sessionId}`,
-
   DeletePlaygroundSession: (
     PlaygroundApiUrl: string,
     agentId: string,
     sessionId: string
-  ) => `${PlaygroundApiUrl}/v1/agents/${agentId}/sessions/${sessionId}`
+  ) => `${PlaygroundApiUrl}/v1/agents/${agentId}/sessions/${sessionId}`,
+
+  CreateAgent: (PlaygroundApiUrl: string) => `${PlaygroundApiUrl}/v1/agents`,
+  UpdateAgent: (PlaygroundApiUrl: string, agentId: string) =>
+    `${PlaygroundApiUrl}/v1/agents/${agentId}`,
+  DeleteAgent: (PlaygroundApiUrl: string, agentId: string) =>
+    `${PlaygroundApiUrl}/v1/agents/${agentId}`,
+  GetAgent: (PlaygroundApiUrl: string, agentId: string) =>
+    `${PlaygroundApiUrl}/v1/agents/${agentId}`
 }

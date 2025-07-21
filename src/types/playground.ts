@@ -61,11 +61,188 @@ export interface Model {
   provider: string
 }
 
-export interface Agent {
+// New interfaces for the updated agent structure
+export interface ModelConfiguration {
+  id: string
+  provider: string
+  temperature?: number
+  max_tokens?: number
+  top_p?: number
+  frequency_penalty?: number
+  presence_penalty?: number
+  stop?: string[]
+  timeout?: number
+  max_retries?: number
+  seed?: number
+  user?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ToolsConfiguration {
+  show_tool_calls?: boolean
+  tool_call_limit?: number
+  tool_choice?: string
+  tools?: Array<{
+    type: string
+    function: {
+      name: string
+      description: string
+      parameters: Record<string, unknown>
+    }
+  }>
+  dynamic_tools?: string[]
+  custom_tools?: string[]
+  mcp_servers?: string[]
+  tool_hooks?: Array<{
+    hook_type: string
+    registry_id: string
+  }>
+  function_declarations?: unknown[]
+}
+
+export interface MemoryConfiguration {
+  memory_type?: string
+  enable_agentic_memory?: boolean
+  enable_user_memories?: boolean
+  enable_session_summaries?: boolean
+  add_memory_references?: boolean
+  add_session_summary_references?: boolean
+  memory_filters?: Record<string, unknown>
+  db_url?: string
+  table_name?: string
+  db_schema?: string
+}
+
+export interface KnowledgeConfiguration {
+  add_references?: boolean
+  search_knowledge?: boolean
+  update_knowledge?: boolean
+  max_references?: number
+  similarity_threshold?: number
+  references_format?: string
+  knowledge_filters?: Record<string, unknown>
+  enable_agentic_knowledge_filters?: boolean
+}
+
+export interface StorageConfiguration {
+  storage_type?: string
+  enabled?: boolean
+  db_url?: string
+  table_name?: string
+  db_schema?: string
+  store_events?: boolean
+  extra_data?: Record<string, unknown>
+}
+
+export interface ReasoningConfiguration {
+  reasoning?: boolean
+  reasoning_min_steps?: number
+  reasoning_max_steps?: number
+  goal?: string
+  success_criteria?: string
+  expected_output?: string
+  reasoning_model?: string
+  reasoning_agent?: string
+  reasoning_prompt?: string
+  reasoning_instructions?: string[]
+  stream_reasoning?: boolean
+  save_reasoning_steps?: boolean
+  show_full_reasoning?: boolean
+}
+
+export interface TeamMember {
   agent_id: string
+  role: string
   name: string
+}
+
+export interface TeamConfiguration {
+  team_mode?: string
+  role?: string
+  respond_directly?: boolean
+  add_transfer_instructions?: boolean
+  team_response_separator?: string
+  workflow_id?: string
+  team_id?: string
+  members?: TeamMember[]
+  add_member_tools_to_system_message?: boolean
+  show_members_responses?: boolean
+  stream_member_events?: boolean
+  share_member_interactions?: boolean
+  get_member_information_tool?: boolean
+}
+
+export interface AgentSettings {
+  introduction?: string
+  system_message?: string
+  system_message_role?: string
+  create_default_system_message?: boolean
+  user_message_role?: string
+  create_default_user_message?: boolean
+  add_messages?: Array<{
+    role: string
+    content: string
+  }>
+  context?: Record<string, unknown>
+  add_context?: boolean
+  resolve_context?: boolean
+  additional_context?: string
+  add_state_in_messages?: boolean
+  add_history_to_messages?: boolean
+  num_history_runs?: number
+  search_previous_sessions_history?: boolean
+  num_history_sessions?: number
+  read_chat_history?: boolean
+  read_tool_call_history?: boolean
+  markdown?: boolean
+  add_name_to_instructions?: boolean
+  add_datetime_to_instructions?: boolean
+  add_location_to_instructions?: boolean
+  timezone_identifier?: string
+  stream?: boolean
+  stream_intermediate_steps?: boolean
+  response_model?: Record<string, unknown>
+  parse_response?: boolean
+  use_json_mode?: boolean
+  parser_model?: string
+  parser_model_prompt?: string
+  retries?: number
+  delay_between_retries?: number
+  exponential_backoff?: boolean
+  debug_mode?: boolean
+  monitoring?: boolean
+  telemetry?: boolean
+  store_events?: boolean
+  events_to_skip?: string[]
+  config_version?: string
+  tags?: string[]
+  app_id?: string
+  extra_data?: Record<string, unknown>
+}
+
+// Updated Agent interface with new structure
+export interface Agent {
+  id?: number
+  name: string
+  agent_id: string
   description: string
-  model: Model
+  instructions?: string
+  is_active?: boolean
+  is_active_api?: boolean
+  is_public?: boolean
+  company_id?: string
+  created_at?: string
+  updated_at?: string
+  model_configuration?: ModelConfiguration
+  tools_config?: ToolsConfiguration
+  memory_config?: MemoryConfiguration
+  knowledge_config?: KnowledgeConfiguration
+  storage_config?: StorageConfiguration
+  reasoning_config?: ReasoningConfiguration
+  team_config?: TeamConfiguration
+  settings?: AgentSettings
+  // Legacy fields for backward compatibility
+  model?: Model
   storage?: boolean
 }
 
@@ -193,6 +370,9 @@ export interface ComboboxAgent {
     provider: string
   }
   storage?: boolean
+  storage_config?: {
+    enabled?: boolean
+  }
 }
 export interface ImageData {
   revised_prompt: string

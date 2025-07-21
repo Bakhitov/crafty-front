@@ -70,7 +70,7 @@ const AgentMessage = ({ message }: MessageProps) => {
 
   return (
     <div className="font-geist flex flex-row items-start gap-4">
-      <div className="flex-shrink-0">
+      <div className="border-accent flex-shrink-0 rounded-lg border">
         <Icon type="agent" size="sm" />
       </div>
       {messageContent}
@@ -82,10 +82,14 @@ const UserMessage = memo(({ message }: MessageProps) => {
   return (
     <div className="flex items-start justify-end pt-4 text-start max-md:break-words">
       <div className="flex max-w-[80%] flex-row-reverse gap-x-3">
-        <p className="text-muted flex items-center gap-x-2 text-sm font-medium">
-          <Icon type="user" size="sm" />
+        <p className="text-muted flex items-center text-sm font-medium">
+          <Icon
+            type="user"
+            size="sm"
+            className="border-accent rounded-lg border"
+          />
         </p>
-        <div className="bg-accent/60 font-geist text-secondary rounded-lg px-4 py-3">
+        <div className="bg-accent/60 font-geist text-secondary rounded-lg px-4 py-3 font-bold">
           <MarkdownRenderer inline>{message.content}</MarkdownRenderer>
           {message.files && message.files.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">

@@ -1,25 +1,28 @@
 'use client'
 import { Button } from '@/components/ui/button'
-import { AgentSelector } from '@/components/playground/Sidebar/AgentSelector'
 import useChatActions from '@/hooks/useChatActions'
 import { usePlaygroundStore } from '@/store'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import Icon from '@/components/ui/icon'
-import { getProviderIcon } from '@/lib/modelProvider'
-import Sessions from './Sessions'
-import { isValidUrl } from '@/lib/utils'
+import { isValidUrl, truncateText } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useQueryState } from 'nuqs'
-import { truncateText } from '@/lib/utils'
-import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuthContext } from '@/components/AuthProvider'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import AgentsList from './AgentsList'
+import ToolsList from './ToolsList'
+import { useTheme } from '@/components/ThemeProvider'
+import { Sun, Moon } from 'lucide-react'
 
 const ENDPOINT_PLACEHOLDER = 'NO ENDPOINT ADDED'
 
-const SidebarHeader = () => {
+const UserProfile = () => {
   const router = useRouter()
+  const { user } = useAuthContext()
+  const { theme, toggleTheme } = useTheme()
   const {
     setMessages,
     setSessionsData,
@@ -55,48 +58,63 @@ const SidebarHeader = () => {
     }
   }
 
+  const getInitials = (email: string | undefined) => {
+    if (!email) return 'U'
+    return email.charAt(0).toUpperCase()
+  }
+
   return (
-    <div className="flex items-center justify-between">
-      <h1 className="text-primary text-lg font-bold">CRAFTY</h1>
-      <div className="mr-8">
-        <button
-          onClick={handleLogout}
-          className="text-muted-foreground hover:text-primary border-border/20 hover:border-primary/20 rounded-lg border px-2 py-1 text-xs transition-colors"
+    <div className="border-primary/20 bg-background-secondary flex items-center justify-between rounded-lg border p-3">
+      <div className="flex items-center space-x-3">
+        <div className="bg-primary/20 text-primary flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium">
+          {getInitials(user?.email)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-primary truncate text-sm font-medium">
+            {user?.user_metadata?.full_name || 'User'}
+          </p>
+          <p className="text-muted-foreground truncate text-xs">
+            {user?.email}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleTheme}
+          className="text-muted-foreground hover:text-primary h-8 w-8 p-0"
+          title={
+            theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+          }
         >
-          Logout
-        </button>
+          {theme === 'dark' ? (
+            <Sun className="h-4 w-4" />
+          ) : (
+            <Moon className="h-4 w-4" />
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLogout}
+          className="text-muted-foreground hover:text-primary h-8 w-8 p-0"
+          title="Logout"
+        >
+          <Icon type="log-out" size="xs" />
+        </Button>
       </div>
     </div>
   )
 }
 
-const NewChatButton = ({
-  disabled,
-  onClick
-}: {
-  disabled: boolean
-  onClick: () => void
-}) => (
-  <Button
-    onClick={onClick}
-    disabled={disabled}
-    size="lg"
-    className="bg-primary text-background hover:bg-primary/80 h-9 w-full rounded-xl text-xs font-medium"
-  >
-    <Icon type="plus-icon" size="xs" className="text-background" />
-    <span className="uppercase">New Chat</span>
-  </Button>
-)
-
-const ModelDisplay = ({ model }: { model: string }) => (
-  <div className="border-primary/15 bg-accent text-muted flex h-9 w-full items-center gap-3 rounded-xl border p-3 text-xs font-medium uppercase">
-    {(() => {
-      const icon = getProviderIcon(model)
-      return icon ? <Icon type={icon} className="shrink-0" size="xs" /> : null
-    })()}
-    {model}
-  </div>
-)
+const SidebarHeader = () => {
+  return (
+    <div className="flex items-center justify-center">
+      <h1 className="text-primary text-lg font-bold">CRAFTY</h1>
+    </div>
+  )
+}
 
 const Endpoint = () => {
   const {
@@ -162,7 +180,7 @@ const Endpoint = () => {
 
   return (
     <div className="flex flex-col items-start gap-2">
-      <div className="text-primary text-xs font-medium uppercase">Endpoint</div>
+      <div className="text-primary text-xs font-medium uppercase">Server</div>
       {isEditing ? (
         <div className="flex w-full items-center gap-1">
           <input
@@ -249,33 +267,20 @@ const Endpoint = () => {
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const { clearChat, focusChatInput, initializePlayground } = useChatActions()
-  const {
-    messages,
-    selectedEndpoint,
-    isEndpointActive,
-    selectedModel,
-    hydrated,
-    isEndpointLoading
-  } = usePlaygroundStore()
+  const { initializePlayground } = useChatActions()
+  const { selectedEndpoint, isEndpointActive, hydrated } = usePlaygroundStore()
   const [isMounted, setIsMounted] = useState(false)
-  const [agentId, setAgentId] = useQueryState('agent')
+
   useEffect(() => {
     setIsMounted(true)
     if (hydrated) initializePlayground()
   }, [selectedEndpoint, initializePlayground, hydrated])
-  const handleNewChat = () => {
-    clearChat()
-    focusChatInput()
-  }
-  const handleCreateAgent = () => {
-    setAgentId('new', { shallow: true })
-  }
+
   return (
     <motion.aside
       className="font-dmmono relative flex h-screen shrink-0 grow-0 flex-col overflow-hidden px-2 py-3"
-      initial={{ width: '16rem' }}
-      animate={{ width: isCollapsed ? '2.5rem' : '16rem' }}
+      initial={{ width: '19rem' }}
+      animate={{ width: isCollapsed ? '2.5rem' : '19rem' }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
       <motion.button
@@ -288,11 +293,11 @@ const Sidebar = () => {
         <Icon
           type="sheet"
           size="xs"
-          className={`transform ${isCollapsed ? 'rotate-180' : 'rotate-0'}`}
+          className={`text-primary transform ${isCollapsed ? 'rotate-180' : 'rotate-0'}`}
         />
       </motion.button>
       <motion.div
-        className="w-60 space-y-5"
+        className="flex h-full w-72 flex-col"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: isCollapsed ? 0 : 1, x: isCollapsed ? -20 : 0 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
@@ -300,59 +305,75 @@ const Sidebar = () => {
           pointerEvents: isCollapsed ? 'none' : 'auto'
         }}
       >
-        <SidebarHeader />
-        {isMounted && (
-          <>
-            <Endpoint />
-            {isEndpointActive && (
-              <>
-                <motion.div
-                  className="flex w-full flex-col items-start gap-2"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5, ease: 'easeInOut' }}
-                >
-                  <div className="text-primary text-xs font-medium uppercase">
-                    Agent
+        <div className="space-y-5">
+          <SidebarHeader />
+          {isMounted && <Endpoint />}
+        </div>
+
+        {isMounted && isEndpointActive && (
+          <div className="mt-5 flex min-h-0 flex-1 flex-col">
+            <Tabs defaultValue="agents" className="flex flex-1 flex-col">
+              <TabsList className="bg-background-secondary grid h-8 w-full shrink-0 grid-cols-4">
+                <TabsTrigger value="agents" className="py-1">
+                  <div title="Agents">
+                    <Icon type="agent" size="xs" className="text-primary" />
                   </div>
-                  {isEndpointLoading ? (
-                    <div className="flex w-full flex-col gap-2">
-                      {Array.from({ length: 2 }).map((_, index) => (
-                        <Skeleton
-                          key={index}
-                          className="h-9 w-full rounded-xl"
-                        />
-                      ))}
-                    </div>
-                  ) : agentId !== 'new' ? (
-                    <>
-                      <div className="flex w-full items-center gap-1">
-                        <div className="flex-grow">
-                          <AgentSelector />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleCreateAgent}
-                          className="hover:cursor-pointer hover:bg-transparent"
-                        >
-                          <Icon type="plus-icon" size="md" />
-                        </Button>
-                      </div>
-                      {selectedModel && agentId && (
-                        <ModelDisplay model={selectedModel} />
-                      )}
-                    </>
-                  ) : null}
-                </motion.div>
-                <NewChatButton
-                  disabled={messages.length === 0}
-                  onClick={handleNewChat}
-                />
-                {agentId !== 'new' && <Sessions />}
-              </>
-            )}
-          </>
+                </TabsTrigger>
+                <TabsTrigger value="tools" className="py-1">
+                  <div title="Tools">
+                    <Icon type="hammer" size="xs" className="text-primary" />
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger value="workflows" className="py-1">
+                  <div title="Workflows">
+                    <Icon type="workflow" size="xs" className="text-primary" />
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger value="connections" className="py-1">
+                  <div title="Connections">
+                    <Icon type="link" size="xs" className="text-primary" />
+                  </div>
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="mt-4 flex-1 overflow-hidden">
+                <TabsContent
+                  value="agents"
+                  className="h-full data-[state=active]:flex data-[state=active]:flex-col"
+                >
+                  <AgentsList />
+                </TabsContent>
+                <TabsContent
+                  value="tools"
+                  className="h-full data-[state=active]:flex data-[state=active]:flex-col"
+                >
+                  <ToolsList />
+                </TabsContent>
+                <TabsContent
+                  value="workflows"
+                  className="h-full data-[state=active]:flex data-[state=active]:flex-col"
+                >
+                  <div className="text-muted-foreground py-8 text-center text-sm">
+                    Workflows coming soon
+                  </div>
+                </TabsContent>
+                <TabsContent
+                  value="connections"
+                  className="h-full data-[state=active]:flex data-[state=active]:flex-col"
+                >
+                  <div className="text-muted-foreground py-8 text-center text-sm">
+                    Connections coming soon
+                  </div>
+                </TabsContent>
+              </div>
+            </Tabs>
+          </div>
+        )}
+
+        {isMounted && (
+          <div className="mt-auto pt-4">
+            <UserProfile />
+          </div>
         )}
       </motion.div>
     </motion.aside>

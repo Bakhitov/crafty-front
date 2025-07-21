@@ -40,14 +40,14 @@ const useSessionLoader = () => {
       if (!agentId || !selectedEndpoint) return
       try {
         setIsSessionsLoading(true)
-        console.log('Loading sessions for user:', user?.id)
         const sessions = await getAllPlaygroundSessionsAPI(
           selectedEndpoint,
           agentId,
           user?.id
         )
         setSessionsData(sessions)
-      } catch {
+      } catch (error) {
+        console.error('Error loading sessions:', error)
         toast.error('Error loading sessions')
       } finally {
         setIsSessionsLoading(false)

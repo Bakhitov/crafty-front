@@ -20,8 +20,9 @@ export const getPlaygroundAgentsAPI = async (
       (item: Agent, idx: number) => ({
         value: item.agent_id || `agent-${idx}`,
         label: item.name || item.agent_id || `Agent ${idx}`,
-        model: item.model || '',
-        storage: item.storage || false
+        model: item.model || { provider: '' },
+        storage: item.storage || false,
+        storage_config: item.storage_config
       })
     )
     return agents

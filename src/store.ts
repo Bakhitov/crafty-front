@@ -13,6 +13,52 @@ interface Agent {
     provider: string
   }
   storage?: boolean
+  storage_config?: {
+    enabled?: boolean
+  }
+}
+
+// Типы инструментов для кеширования
+interface DynamicTool {
+  id: number
+  tool_id: string
+  name: string
+  display_name?: string
+  agno_class: string
+  module_path?: string
+  config?: Record<string, unknown>
+  description?: string
+  category?: string
+  icon?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface CustomTool {
+  id: number
+  tool_id: string
+  name: string
+  description?: string
+  source_code: string
+  config: Record<string, unknown>
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface McpServer {
+  id: number
+  server_id: string
+  name: string
+  description?: string
+  command?: string | null
+  url?: string | null
+  transport: string
+  env_config?: Record<string, unknown> | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
 }
 
 interface PlaygroundStore {
@@ -61,6 +107,26 @@ interface PlaygroundStore {
   setIsSessionsLoading: (isSessionsLoading: boolean) => void
   selectedAgent: Agent | null
   setSelectedAgent: (agent: Agent | null) => void
+  isAgentCreationMode: boolean
+  setIsAgentCreationMode: (isAgentCreationMode: boolean) => void
+  editingAgentId: string | null
+  setEditingAgentId: (agentId: string | null) => void
+  // Кеширование инструментов
+  toolsCache: {
+    dynamicTools: DynamicTool[]
+    customTools: CustomTool[]
+    mcpServers: McpServer[]
+    lastFetchTime: number | null
+    isLoading: boolean
+  }
+  setToolsCache: (cache: {
+    dynamicTools: DynamicTool[]
+    customTools: CustomTool[]
+    mcpServers: McpServer[]
+    lastFetchTime: number
+  }) => void
+  setToolsLoading: (isLoading: boolean) => void
+  clearToolsCache: () => void
 }
 
 export const usePlaygroundStore = create<PlaygroundStore>()(
@@ -109,7 +175,45 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
       setIsSessionsLoading: (isSessionsLoading) =>
         set(() => ({ isSessionsLoading })),
       selectedAgent: null,
-      setSelectedAgent: (agent) => set({ selectedAgent: agent })
+      setSelectedAgent: (agent) => set({ selectedAgent: agent }),
+      isAgentCreationMode: false,
+      setIsAgentCreationMode: (isAgentCreationMode) =>
+        set({ isAgentCreationMode }),
+      editingAgentId: null,
+      setEditingAgentId: (agentId) => set({ editingAgentId: agentId }),
+      // Кеширование инструментов
+      toolsCache: {
+        dynamicTools: [],
+        customTools: [],
+        mcpServers: [],
+        lastFetchTime: null,
+        isLoading: false
+      },
+      setToolsCache: (cache) =>
+        set((state) => ({
+          toolsCache: {
+            ...state.toolsCache,
+            ...cache,
+            isLoading: false
+          }
+        })),
+      setToolsLoading: (isLoading) =>
+        set((state) => ({
+          toolsCache: {
+            ...state.toolsCache,
+            isLoading
+          }
+        })),
+      clearToolsCache: () =>
+        set((state) => ({
+          toolsCache: {
+            ...state.toolsCache,
+            dynamicTools: [],
+            customTools: [],
+            mcpServers: [],
+            lastFetchTime: null
+          }
+        }))
     }),
     {
       name: 'endpoint-storage',

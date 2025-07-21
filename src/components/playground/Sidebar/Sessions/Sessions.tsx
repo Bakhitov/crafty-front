@@ -145,17 +145,15 @@ const Sessions = () => {
   if (isSessionsLoading || isEndpointLoading)
     return (
       <div className="w-full">
-        <div className="mb-2 text-xs font-medium uppercase">Chats</div>
-        <div className="mt-4 h-[calc(100vh-325px)] w-full overflow-y-auto">
+        <div className="mt-4 h-full w-full overflow-y-auto">
           <SkeletonList skeletonCount={5} />
         </div>
       </div>
     )
   return (
-    <div className="w-full">
-      <div className="mb-2 w-full text-xs font-medium uppercase">Chats</div>
+    <div className="h-full w-full">
       <div
-        className={`font-geist h-[calc(100vh-345px)] overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar]:transition-opacity [&::-webkit-scrollbar]:duration-300 ${isScrolling ? '[&::-webkit-scrollbar-thumb]:bg-background [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:opacity-0' : '[&::-webkit-scrollbar]:opacity-100'}`}
+        className={`font-geist h-full overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar]:transition-opacity [&::-webkit-scrollbar]:duration-300 ${isScrolling ? '[&::-webkit-scrollbar-thumb]:bg-background [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:opacity-0' : '[&::-webkit-scrollbar]:opacity-100'}`}
         onScroll={handleScroll}
         onMouseOver={() => setIsScrolling(true)}
         onMouseLeave={handleScroll}

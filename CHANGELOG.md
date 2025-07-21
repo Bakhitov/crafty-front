@@ -2,6 +2,237 @@
 
 ## [Неопубликованные изменения]
 
+### Added
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Добавлены главные тумблеры для секций конфигурации:
+  - Тумблер "Enable Tools" в заголовке секции Tools (по умолчанию выключен)
+  - Тумблер "Enable Memory" в заголовке вкладки Memory (по умолчанию выключен)
+  - Тумблер "Enable Storage" в заголовке вкладки Storage (по умолчанию выключен)
+  - Тумблер "Enable Knowledge Base" в заголовке вкладки Knowledge Base (по умолчанию выключен)
+  - При выключенных тумблерах соответствующие конфигурации передаются как пустые объекты `{}`
+  - Функция `loadAgentData()` обновлена для правильной загрузки состояний тумблеров при редактировании
+  - Реструктурированы заголовки во вкладке Memory: убран общий заголовок, добавлены индивидуальные заголовки для каждой вкладки (Memory, Storage, Knowledge Base) с тумблерами на той же строке
+  - Возвращен общий заголовок "Memory & Knowledge & Storage" над внутренними табами
+  - Установлены дефолтные значения модели: OpenAI GPT-4.1 выбран по умолчанию
+  - Уменьшены размеры внутренних заголовков (с `text-sm` на `text-xs`) чтобы они были меньше общего заголовка
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Добавлена полноценная функция удаления агентов:
+  - Реализована функция `handleDelete()` с подтверждением удаления
+  - Добавлена кнопка удаления в превью агента (только в режиме редактирования)
+  - Кнопка удаления расположена в правом верхнем углу карточки превью
+  - После удаления происходит обновление списка агентов и возврат к главному экрану
+  - Использует API маршрут `DELETE /v1/agents/{agent_id}`
+- **Интеграция динамических инструментов из API**:
+  - Заменены статичные массивы инструментов на динамическую загрузку из эндпоинтов
+  - Добавлена функция `fetchToolsFromAPI()` для загрузки:
+    - Dynamic tools: `/v1/tools/`
+    - Custom tools: `/v1/tools/custom`
+    - MCP servers: `/v1/tools/mcp`
+  - Добавлен индикатор загрузки инструментов в интерфейсе
+  - Инструменты теперь соответствуют реальным данным из системы
+
+### Fixed
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлены проблемы с инпутами и навигацией:
+  - Исправлена проблема с фокусом инпутов (фокус слетал после первого символа)
+  - Компонент `FormField` вынесен за пределы основного компонента для предотвращения перерендеринга
+  - Добавлена функция `navigateToAgentChat()` для автоматического перехода к чату с агентом
+  - После сохранения/редактирования агент автоматически выбирается и открывается в playground
+  - После удаления происходит возврат к главному экрану playground
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Оптимизировано обновление превью агента:
+  - Добавлены отдельные состояния `previewAgentName` и `previewAgentDescription` для сайдбара
+  - Превью обновляется с задержкой 300ms (debounce) вместо обновления на каждый символ
+  - Устранены лаги при вводе текста в поля имени и описания агента
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Добавлены значения по умолчанию для конфигурации:
+  - `memory_config.db_url`: добавлено значение по умолчанию для предотвращения ошибок валидации
+  - `storage_config.db_url`: добавлено значение по умолчанию PostgreSQL URL
+  - `memory_config.db_schema` и `storage_config` получили значения по умолчанию
+
+### Fixed
+
+- **src/components/playground/Sidebar/ToolsList.tsx**: Исправлена ESLint ошибка react-hooks/exhaustive-deps:
+  - Добавлены недостающие зависимости в useCallback: `toolsCache.dynamicTools.length`, `toolsCache.customTools.length`, `toolsCache.mcpServers.length`, `CACHE_LIFETIME`
+- **src/components/playground/Sidebar/ToolsList.tsx**: Исправлена проблема со скроллингом списка инструментов:
+  - Добавлены правильные классы для TabsContent: `data-[state=active]:flex data-[state=active]:flex-col`
+  - Изменена структура контейнеров для корректной работы overflow-y-auto
+  - Теперь списки инструментов правильно скроллятся во всех вкладках
+- **src/components/playground/Sidebar/Sidebar.tsx**: Исправлена проблема со скроллингом в основном сайдбаре:
+  - Заменен неправильный расчет высоты `h-[calc(100%-80px)]` на правильную flex структуру
+  - Добавлены классы `h-full data-[state=active]:flex data-[state=active]:flex-col` для всех TabsContent
+  - Теперь списки агентов и инструментов корректно скроллятся в левом сайдбаре
+- **src/components/playground/Sidebar/ToolsList.tsx**: Финальное исправление структуры для скроллинга:
+  - Убран промежуточный `div` с `overflow-hidden` который блокировал скроллинг
+  - Изменена структура: `Tabs` теперь имеет `flex-1 flex-col overflow-hidden`
+  - `TabsContent` теперь имеет `flex-1 overflow-hidden` для правильной работы скролла
+  - Добавлен класс `shrink-0` к `TabsList` для предотвращения сжатия
+- **src/components/playground/Sidebar/ToolsList.tsx**: Исправлена проблема повторной загрузки списка инструментов:
+  - Добавлено кеширование инструментов в глобальном store с временем жизни 5 минут
+  - Инструменты больше не загружаются заново при каждом переключении на таб "Tools"
+  - Кеш автоматически очищается при смене эндпоинта или отключении
+  - Добавлены типы `DynamicTool`, `CustomTool`, `McpServer` в store для кеширования
+  - Реализованы методы `setToolsCache`, `setToolsLoading`, `clearToolsCache` в store
+- **src/store.ts**: Добавлена система кеширования инструментов:
+  - Добавлено состояние `toolsCache` с массивами всех типов инструментов
+  - Добавлено отслеживание времени последней загрузки (`lastFetchTime`)
+  - Добавлен флаг загрузки для состояния UI
+- **src/components/playground/Sidebar/ToolsList.tsx**: Исправлена консистентность стилей списка инструментов:
+  - Возвращены оригинальные стили фона `bg-background-secondary` и `hover:bg-background-secondary/80` как в списке агентов
+  - Обновлены стили скелетонов загрузки и пустых состояний для соответствия дизайн-системе
+  - Обеспечена визуальная консистентность между списками агентов и инструментов
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлена навигация при закрытии AgentCreator:
+  - Теперь при клике на крестик (X) правильно возвращается в playground
+  - Исправлены функции `handleClose()`, `handleSave()` и `handleDelete()` - добавлен сброс `editingAgentId`
+  - Добавлено извлечение `setEditingAgentId` из store для корректной очистки состояния
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Изменена иконка удаления агента:
+  - Заменена иконка `X` на иконку корзины (`trash`) для лучшей UX
+  - Использует компонент `Icon` вместо прямого импорта из `lucide-react`
+- **Переименование табов инструментов для консистентности**:
+  - **src/components/playground/AgentCreator/AgentCreator.tsx**: Упрощены названия табов в секции Tools:
+    - "Native Tools" → "Native"
+    - "MCP Servers" → "MCP"
+    - "Custom Tools" → "Custom"
+  - **src/components/playground/Sidebar/ToolsList.tsx**: Добавлен маппинг для отображения типов инструментов:
+    - `dynamic` → "Native"
+    - `mcp` → "MCP"
+    - `custom` → "Custom"
+  - **src/components/playground/Sidebar/ToolsList.tsx**: Добавлены табы для фильтрации инструментов:
+    - Таб "All" - показывает все инструменты
+    - Таб "Native" - показывает только динамические инструменты
+    - Таб "MCP" - показывает только MCP серверы
+    - Таб "Custom" - показывает только кастомные инструменты
+    - Добавлены пустые состояния для каждого типа инструментов
+- **Завершен полный CRUD функционал для агентов**:
+  - ✅ CREATE: реализовано через `POST /v1/agents`
+  - ✅ READ: реализовано через `GET /v1/agents/detailed`
+  - ✅ UPDATE: реализовано через `PUT /v1/agents/{agent_id}`
+  - ✅ DELETE: теперь полностью реализовано через `DELETE /v1/agents/{agent_id}`
+- **Структура агентов полностью соответствует требованиям бэкенда**:
+  - Все основные поля (`id`, `name`, `agent_id`, `description`, `instructions`, `is_active`, `is_active_api`, `is_public`, `company_id`, `created_at`, `updated_at`)
+  - Все конфигурационные блоки (`model_configuration`, `tools_config`, `memory_config`, `knowledge_config`, `storage_config`, `reasoning_config`, `team_config`, `settings`)
+  - Незначительные различия: `tools_config.tools` заполняется пустым массивом (можно дополнить статическими инструментами при необходимости)
+- **src/hooks/useChatActions.ts**: Исправлена проблема с исчезающим списком агентов при создании нового агента:
+  - При переходе на `?agent=new` список агентов в левом сайдбаре теперь остается видимым
+  - Убрана преждевременная остановка загрузки агентов в `initializePlayground()` при `agentId === 'new'`
+  - Агенты загружаются независимо от режима создания/редактирования
+
+### Added
+
+- **src/components/playground/AgentInfoSidebar/AgentInfoSidebar.tsx**: Добавлена кнопка обновления кеша агента:
+
+  - Кнопка с иконкой `refresh` расположена рядом с кнопкой сворачивания сайдбара
+  - Функция `handleRefreshAgent` отправляет POST запрос на `/v1/agents/{agent_id}/cache/refresh`
+  - После очистки кеша автоматически перезагружает данные агента
+  - Добавлена анимация вращения иконки во время обновления
+  - Кнопка отключается для нового агента (agent=new) и во время процесса обновления
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Добавлены отсутствующие поля интерфейса для полного соответствия документации Agno:
+  - **Tools Configuration**: Добавлена новая вкладка "Static Tools" с полями:
+    - `Static Tools JSON` - для определения статических инструментов (массив JSON объектов)
+    - `Function Declarations JSON` - для объявлений функций (массив JSON объектов)
+  - **Advanced Settings**: Реструктуризирована секция на 3 логических таба:
+    - **Behavior Tab**: Stream Response, Markdown Support, Add Datetime, Read Chat History, Debug Mode, JSON Mode, Exponential Backoff, Monitoring (все toggle/switch поля)
+    - **System Tab**: History Runs Count, Retries, Retry Delay, Tags, Timezone (числовые параметры и метаданные)
+    - **Context Tab**: Поля организованы в два столбика для компактности:
+      - Левый столбик: Session Name, Additional Context, Context JSON
+      - Правый столбик: User Message Template, Additional Messages JSON, Response Model JSON
+  - Все новые поля корректно интегрированы в payload для отправки в Agno API
+  - Добавлены соответствующие обработчики onChange для всех новых полей с правильной типизацией
+  - JSON поля отображаются с моноширинным шрифтом для лучшей читаемости
+  - TabsList в Tools секции расширен с 3 до 4 колонок для новой вкладки Static Tools
+
+### Fixed
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Добавлена валидация полей провайдера и модели перед сохранением агента для предотвращения ошибок валидации
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлено предупреждение "Error in memory/summary operation: You must provide either a message or a list of messages":
+
+  - Изменено дефолтное значение `enableSessionSummaries` с `true` на `false` для новых агентов
+  - Это предотвращает попытку создания резюме сессии когда еще нет сообщений в истории
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлены дефолтные значения для storage_config и memory_config:
+
+  - Добавлен дефолтный db_url для PostgreSQL подключения вместо undefined process.env переменной
+  - Изменено дефолтное значение table_name с 'agent_sessions' на 'sessions' для соответствия стандарту
+  - Исправлена ошибка "db_url обязателен для типа хранилища: postgres" при создании агентов
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлена структура payload для соответствия документации Agno:
+
+  - Убрано дублирование поля `is_active` - теперь используется только `is_active_api`
+  - Исправлена структура `memory_config`: заменено `schema` на `db_schema`, улучшена структура `memory_filters`
+  - Исправлена структура `storage_config`: заменено `schema` на `db_schema`
+  - Исправлена структура `reasoning_config`: добавлены обязательные поля `goal`, `success_criteria`, `expected_output`
+  - Переработана структура `settings`: перенесены соответствующие поля из других конфигураций согласно документации
+  - Убран хардкод URL базы данных, заменен на `process.env.NEXT_PUBLIC_DATABASE_URL`
+  - Исправлен provider name с `'open-ai'` на `'openai'` для соответствия стандарту
+  - Переведены все русские строки и комментарии на английский язык
+  - Обновлена версия конфигурации до `'2.0'` и добавлен `app_id: 'agent-ui'`
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлена проблема валидации model_configuration для OpenAI:
+
+  - Теперь для OpenAI провайдера используется поле 'stop' вместо 'stop_sequences' при сохранении агента
+  - Обновлена логика загрузки данных агента для корректной обработки как 'stop' (OpenAI), так и 'stop_sequences' (другие провайдеры)
+  - Исправлена ошибка "Используйте 'stop' вместо 'stop_sequences' для OpenAI" при создании/редактировании агентов с OpenAI моделями
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлены проблемы с полями ввода и интерфейсом:
+  - Исправлен импорт `TextArea` вместо `Textarea` - исправлена проблема с вводом только одного символа в полях textarea
+  - Добавлена правильная типизация для всех обработчиков событий `onChange` с типом `React.ChangeEvent<HTMLTextAreaElement>`
+  - Убран тумблер "Active" из интерфейса во вкладке Basic (дублировался с "API Enabled")
+  - Переименован "API Enabled" в "Active" с обновленным описанием "Enable or disable agent"
+  - Обновлена логика активности агента - теперь используется единое поле `isActiveAPI`
+  - Исправлен сайдбар предварительного просмотра агента - убрано дублирование статусов "Status" и "API Access"
+  - Уменьшено количество переключателей в базовой настройке с 3 до 2 (убран дублирующий тумблер)
+
+### Added
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Добавлена поддержка режима редактирования агентов:
+  - Добавлена загрузка существующих данных агента при редактировании
+  - Динамическое изменение заголовка (Create New Agent / Edit Agent)
+  - Поддержка обновления агентов через PUT запрос
+  - Корректная загрузка всех конфигураций агента (модель, инструменты, память, знания, хранилище, рассуждения, настройки)
+  - Добавлена кнопка Cancel для отмены операции
+  - Добавлены индикаторы загрузки для режима редактирования
+- **src/store.ts**: Добавлены поля для поддержки режима редактирования:
+  - `editingAgentId` - ID редактируемого агента
+  - `setEditingAgentId` - функция для установки режима редактирования
+- **src/components/playground/Sidebar/AgentsList.tsx**: Обновлена логика кнопок создания и редактирования:
+  - Кнопка "Create Agent" переключает в режим создания нового агента
+  - Кнопка редактирования агента переключает в режим редактирования существующего агента
+  - Правильная установка состояния для режимов создания/редактирования
+- **src/hooks/useChatActions.ts**: Исправлена установка `hasStorage` в функции `initializePlayground`:
+  - Добавлена установка `hasStorage` для выбранного агента при первой загрузке
+  - Исправлена проблема с отсутствием сессий при первой загрузке страницы
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Реализована полная функциональность создания агентов:
+  - Добавлена полная логика сохранения агентов через API endpoint `/v1/agents`
+  - Добавлено автоматическое генерирование `agent_id` с транслитерацией и временной меткой
+  - Добавлены поля статуса агента: `is_active`, `is_active_api`, `is_public`
+  - Интегрированы все конфигурации: модель, инструменты, память, знания, хранилище, рассуждения, настройки
+  - Добавлена навигация в playground после успешного создания агента
+  - Добавлены состояния загрузки для кнопки сохранения
+  - Добавлено отображение статуса агента в превью сайдбара
+- **src/app/agent-editor/page.tsx**: Создан полнофункциональный компонент для создания и редактирования агентов с дизайном в стиле AgentInfoSidebar. Включает:
+  - 7 вкладок: Basic, Model, Tools, Memory, Knowledge, Team, Advanced
+  - Полную конфигурацию модели (temperature, top_p, penalties, stop sequences, seed)
+  - Расширенные настройки инструментов (dynamic_tools, custom_tools, mcp_servers, tool_choice)
+  - Конфигурацию памяти (agentic memory, user memories, database settings)
+  - Настройки знаний (RAG, references, similarity threshold)
+  - Конфигурацию рассуждений (reasoning mode, goals, max steps)
+  - Командные настройки (team mode, role, storage configuration)
+  - Продвинутые параметры (debug mode, stream, JSON mode, retries, timezone)
+  - Анимации Framer Motion, адаптивный дизайн, превью агента в сайдбаре
+- **src/components/ui/input.tsx**: Создан UI компонент Input для форм ввода
+- **src/components/ui/tabs.tsx**: Создан UI компонент Tabs для переключения между вкладками без зависимости от radix-ui
+- **src/components/ui/separator.tsx**: Создан UI компонент Separator для визуального разделения контента
+- **src/components/playground/AgentCreator/**: Создан компонент AgentCreator для создания агентов в режиме замещения ChatArea и AgentInfoSidebar
+
+### Changed
+
+- **src/components/playground/AgentInfoSidebar/AgentInfoSidebar.tsx**: Исправлены проблемы с прокруткой и отображением контента:
+  - Исправлена прокрутка списка чатов (сессий) - теперь можно прокрутить до самого конца
+  - Добавлены тултипы для description и instructions с полным контентом при наведении
+  - Улучшена структура layout с правильным использованием flexbox и overflow
+  - Добавлено сокращение длинного текста с помощью line-clamp-3
+- **src/components/playground/Sidebar/Sessions/Sessions.tsx**: Обновлена высота контейнера для правильной работы в новом layout AgentInfoSidebar
+- **src/app/globals.css**: Добавлены CSS стили для line-clamp-3 utility класса
+
 ### Fixed
 
 - **src/components/playground/ChatArea/Messages/Messages.tsx**: Исправлена ошибка `TypeError: reasoning.map is not a function` в компоненте Reasonings. Добавлена проверка типа данных и преобразование одиночного объекта reasoning в массив
@@ -160,25 +391,168 @@
 
 ## [Unreleased]
 
-### Добавлено
+### Added
 
-- Новые MagicUI компоненты: IconCloud, NumberTicker, AuroraText, Meteors
-- Статичное облако специальностей с hover-эффектами
-- 10 профессиональных специальностей: Support, Designer, Finance Broker, Analyst, Realtor, HR Manager, Lawyer, Archivist, Content Manager, Translator
+- **src/components/playground/Sidebar/ToolsList.tsx**: Создан компонент для отображения списка инструментов в левом сайдбаре в стиле проекта:
+  - Поддержка трех типов инструментов: dynamic, custom и MCP серверы
+  - Простой интерфейс в стиле AgentsList с минимальными действиями
+  - Отображение статуса активности инструментов
+  - Кнопка "Create Tool" в стиле проекта
+  - Состояния загрузки с skeleton placeholder'ами
+  - Обработка ошибок и пустых состояний (blank state)
+  - Английский интерфейс
+  - Высота контейнера адаптирована под новую структуру
+  - Интеграция с API endpoints: `/v1/tools/`, `/v1/tools/custom`, `/v1/tools/mcp`
+- **src/components/playground/Sidebar/Sidebar.tsx**: Интегрирован ToolsList компонент в таб "Tools"
+
+- Создан компонент для создания агентов `src/components/playground/AgentCreator/AgentCreator.tsx` с полной функциональностью
+- Добавлены недостающие UI компоненты: `src/components/ui/input.tsx`, `src/components/ui/tabs.tsx`, `src/components/ui/separator.tsx`
+- Реализованы все 7 табов в AgentCreator: Basic, Model, Tools, Memory, Knowledge, Team, Advanced
+- Добавлено состояние `isAgentCreationMode` в store для переключения режимов в playground
+- Интегрирован AgentCreator в playground с кнопкой "Create Agent" в левом сайдбаре
+- Добавлен индексный файл `src/components/playground/AgentCreator/index.ts`
+- Обновлена страница playground для условного рендеринга AgentCreator вместо ChatArea и AgentInfoSidebar
+
+### Modified
+
+- Обновлен `src/store.ts` - добавлено состояние для режима создания агента
+- Обновлен `src/components/playground/Sidebar/Sidebar.tsx` - добавлена кнопка "Create Agent"
+- Обновлен `src/app/playground/page.tsx` - добавлен условный рендеринг для режима создания агента
 
 ### Changed
 
-- src/components/BusinessFeaturesBento.tsx: Изменена компоновка блока "Передовые AI-технологии под капотом" - иконка и текст теперь располагаются в столбик вместо строки
+- src/components/playground/Sidebar/Sidebar.tsx: Заменил текст на иконки в табах левого сайдбара (Agents, Tools, Workflows, Connections), добавил title атрибуты для подсказок при наведении
+- src/components/playground/Sidebar/Sidebar.tsx: Заменил иконки workflows (settings -> workflow) и connections (paperclip -> link) на более подходящие
+- src/components/ui/icon/constants.tsx: Добавил новые иконки workflow и link из lucide-react
+- src/components/ui/icon/types.ts: Добавил типы для новых иконок workflow и link
+- src/app/layout.tsx: Заменил Google Fonts Geist на локальный пакет geist/font/sans для решения проблем с подключением к fonts.googleapis.com, сохранил DM_Mono для заголовков и интерфейса
+- src/components/playground/ChatArea/Messages/MessageItem.tsx: Добавил font-light для сообщений пользователя, чтобы сделать шрифт тоньше
 
-### Исправлено
+### Fixed
 
-- `src/hooks/useAIStreamHandler.tsx` - Исправлена проблема с рендерингом reasoning сообщений во время стриминга:
+- Исправлены иконки провайдеров (openai → open-ai, google → gemini) в AgentCreator
+- Устранены проблемы с линтером в коде форматирования
+- Убран фоновый цвет и граница в шапке AgentCreator для более чистого вида
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлена ESLint ошибка "@next/next/no-img-element" - заменен `<img>` тег на `<Image />` компонент из next/image для оптимизации загрузки изображений
+- **src/components/playground/AgentInfoSidebar/AgentInfoSidebar.tsx**: Улучшена структура сайдбара агента:
+  - Убрана возможность редактирования и создания агентов (только просмотр)
+  - Удалены все табы (Settings, Tools, Configs)
+  - Убраны кнопки редактирования, сохранения и удаления
+  - Оставлена только базовая информация об агенте (название, описание, инструкции, статусы)
+  - Кнопка "New Chat" и список сессий перенесены под описание агента (туда где раньше были табы)
+  - Добавлена секция "Чаты" с заголовком для лучшей организации
+  - Удалены неиспользуемые функции, типы и импорты
+  - Новая структура: AgentSelector → Информация об агенте → Секция "Чаты" (New Chat + Sessions)
+- **src/components/playground/Sidebar/AgentsList.tsx**: Создан новый компонент для отображения полноценного списка агентов в левом сайдбаре:
+  - Отображение агентов в виде списка с названием, ID и иконкой провайдера модели
+  - Визуальное выделение активного агента
+  - Полноценная кнопка "Create Agent" внизу списка агентов (заменила маленькую иконку)
+  - Состояния загрузки и пустого списка
+  - Скролл для большого количества агентов
+  - Интеграция с существующей логикой переключения агентов
+- **src/components/playground/Sidebar/Sidebar.tsx**: Упрощен левый сайдбар:
 
-  - Теперь создаются новые объекты сообщений вместо мутации существующих, что позволяет React правильно обнаруживать изменения
-  - Reasoning больше не попадает в основной content как JSON, а обрабатывается через extra_data
-  - Добавлена проверка на наличие reasoning_steps перед добавлением объекта content в сообщение
-  - Исправлена обработка первого события с пустым content и reasoning_steps
+  - Добавлен компонент AgentsList с встроенной кнопкой создания агента
+  - Удален отдельный компонент CreateAgentButton (встроен в AgentsList)
+  - Убраны неиспользуемые функции и компоненты
 
-- `src/hooks/useAIResponseStream.tsx` - Добавлен парсер Python-like объектов для правильной обработки extra_data:
-  - Теперь парсер может обрабатывать сложные структуры как RunResponseExtraData с reasoning_steps
-  - Исправлена проблема, когда extra_data терялась при парсинге событий от бэкенда
+- **Исправлена проблема исчезновения списка агентов при создании нового агента**:
+
+  - **src/hooks/useChatActions.ts**: Убрано `setAgents([])` из условия `agentId === 'new'` в функции `initializePlayground`
+  - **src/components/playground/Sidebar/AgentsList.tsx**: Изменено условие отображения `AgentBlankState` чтобы не показывать его при создании агента (`agentId !== 'new'`)
+  - Теперь список агентов остается видимым при нажатии на "Create Agent"
+
+- **Улучшения UI в AgentCreator**:
+
+  - **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлены иконки и добавлена функция удаления:
+    - Увеличен размер заголовка "Edit Agent:" и "Create New Agent" с `text-xs` до `text-lg` для лучшей видимости
+    - Кнопка удаления перенесена в правый верхний угол карточки превью агента
+    - Исправлены иконки табов на более подходящие по смыслу:
+      - Avatar: `user` (пользователь)
+      - Model: `cpu` (процессор)
+      - Tools: `hammer` (молоток) - уже был правильным
+      - Memory: `brain` (мозг)
+      - Advanced: `settings` (настройки)
+    - Все иконки в табах остаются светлыми (`text-zinc-300`) на темном фоне
+    - Иконка Save/Update теперь темная (`text-zinc-900`) для лучшей видимости на светлой кнопке
+    - Добавлена кнопка удаления агента в виде маленькой иконки корзинки в превью агента
+    - Кнопка удаления малозаметная (`text-zinc-500`) с красным hover эффектом
+    - Реализована функция `handleDelete()` с подтверждением удаления и обновлением списка агентов
+    - Кнопка удаления показывается только в режиме редактирования существующего агента
+  - **src/components/ui/icon/**: Добавлены новые иконки `brain`, `settings`, `image`, `cpu`
+
+- **Исправлены проблемы с левым сайдбаром и URL параметром agent=new**:
+  - **src/components/playground/Sidebar/Sidebar.tsx**: Добавлены иконки в табы левого сайдбара:
+    - Agents: `agent` (иконка агента)
+    - Tools: `hammer` (молоток)
+    - Workflows: `settings` (настройки)
+    - Connections: `paperclip` (скрепка)
+    - Все иконки светлые (`text-zinc-300`) на темном фоне табов
+  - **src/app/playground/page.tsx**: Исправлена проблема с URL `/playground?agent=new`:
+    - Добавлен useEffect для синхронизации `isAgentCreationMode` с URL параметром `agent`
+    - Теперь при переходе по URL с `agent=new` корректно устанавливается режим создания агента
+    - Левый сайдбар остается видимым с табами и списком агентов
+
+### Changed
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Заменен Supabase на Backend API для загрузки данных агента при редактировании:
+
+  - Функция `loadAgentData` теперь использует эндпоинт `/v1/agents/detailed` вместо прямого обращения к Supabase
+  - Добавлен интерфейс `AgentData` для типизации данных агента
+  - Удален неиспользуемый импорт `supabase`
+  - Улучшена обработка различных конфигураций агента (response_config, debug_config, streaming_config, etc.)
+
+- **src/components/playground/AgentInfoSidebar/AgentInfoSidebar.tsx**: Заменен Supabase на Backend API для получения деталей агента:
+  - Функция `fetchAgentDetails` теперь использует эндпоинт `/v1/agents/detailed` вместо прямого обращения к Supabase
+  - Обновлен интерфейс `AgentDetails` для соответствия структуре API
+  - Удален неиспользуемый импорт `supabase`
+
+### Removed
+
+- Устранена зависимость от Supabase для операций чтения данных агентов (за исключением авторизации и получения списка агентов с фильтрацией)
+
+### Fixed
+
+- **src/components/playground/AgentCreator/AgentCreator.tsx**: Исправлен URL для PUT запроса при обновлении агента:
+
+  - Изменено с `PUT /v1/agents` на `PUT /v1/agents/{agent_id}` для корректной передачи ID агента в URL
+  - Заменен `initializePlayground` на `refreshAgentsList` для более быстрого обновления списка агентов без полной перезагрузки
+
+- **src/hooks/useChatActions.ts**: Добавлена функция `refreshAgentsList` для оптимизированного обновления только списка агентов без полной инициализации playground
+
+### Added
+
+- **src/components/playground/Sidebar/ToolsList.tsx**: Создан компонент для отображения списка инструментов в левом сайдбаре в стиле проекта:
+  - Поддержка трех типов инструментов: dynamic, custom и MCP серверы
+  - Простой интерфейс в стиле AgentsList с минимальными действиями
+  - Отображение статуса активности инструментов
+  - Кнопка "Create Tool" в стиле проекта
+  - Состояния загрузки с skeleton placeholder'ами
+  - Обработка ошибок и пустых состояний (blank state)
+  - Английский интерфейс
+  - Высота контейнера адаптирована под новую структуру
+  - Интеграция с API endpoints: `/v1/tools/`, `/v1/tools/custom`, `/v1/tools/mcp`
+- **src/components/playground/Sidebar/Sidebar.tsx**: Интегрирован ToolsList компонент в таб "Tools"
+
+### Updated
+
+- **src/types/playground.ts** - Обновлена структура Agent интерфейса под новую схему данных:
+  - Добавлены новые интерфейсы: ModelConfiguration, ToolsConfiguration, MemoryConfiguration, KnowledgeConfiguration, StorageConfiguration, ReasoningConfiguration, TeamConfiguration, AgentSettings
+  - Обновлен интерфейс Agent с полной поддержкой новой структуры данных
+  - Добавлены поля: id, is_active, is_active_api, is_public, company_id, created_at, updated_at
+  - Сохранена обратная совместимость со старыми полями model и storage
+- **src/api/routes.ts** - Добавлены новые API маршруты для CRUD операций с агентами:
+  - CreateAgent, UpdateAgent, DeleteAgent, GetAgent для работы напрямую с Agno API
+- **src/components/playground/AgentCreator/AgentCreator.tsx** - Полностью обновлен компонент под новую структуру агентов:
+  - Реализована загрузка данных агента при редактировании с новой структурой
+  - Обновлена функция buildAgentPayload для создания объекта агента в новом формате
+  - Добавлены поля статуса агента: is_active, is_active_api, is_public в основную форму
+  - Обновлена логика сохранения агентов с отправкой данных напрямую в Agno API
+  - Добавлено отображение статуса агента в превью сайдбаре
+  - Добавлен индикатор загрузки в заголовке при редактировании агента
+  - Исправлены типы и удалены неиспользуемые импорты для соответствия линтеру
+
+### Fixed
+
+- Исправлены все предупреждения линтера в AgentCreator компоненте
+- В файлах src/components/playground/Sidebar/Sidebar.tsx и src/components/playground/AgentInfoSidebar/AgentInfoSidebar.tsx для иконки sheet (кнопка коллапса) добавлен класс text-primary для корректного отображения в светлой теме.

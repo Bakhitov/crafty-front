@@ -33,7 +33,7 @@ export function AgentSelector() {
       const agent = agents.find((agent) => agent.value === agentId)
       if (agent) {
         setSelectedModel(agent.model.provider || '')
-        setHasStorage(!!agent.storage)
+        setHasStorage(!!(agent.storage || agent.storage_config?.enabled))
         if (agent.model.provider) {
           focusChatInput()
         }
@@ -48,7 +48,9 @@ export function AgentSelector() {
     const newAgent = value === agentId ? '' : value
     const selectedAgent = agents.find((agent) => agent.value === newAgent)
     setSelectedModel(selectedAgent?.model.provider || '')
-    setHasStorage(!!selectedAgent?.storage)
+    setHasStorage(
+      !!(selectedAgent?.storage || selectedAgent?.storage_config?.enabled)
+    )
     setAgentId(newAgent)
     clearChat()
     if (selectedAgent?.model.provider) {

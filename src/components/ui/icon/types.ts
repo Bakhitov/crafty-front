@@ -39,6 +39,12 @@ export type IconType =
   | 'trash'
   | 'log-out'
   | 'paperclip'
+  | 'brain'
+  | 'settings'
+  | 'image'
+  | 'cpu'
+  | 'workflow'
+  | 'link'
 
 export interface IconProps {
   type: IconType

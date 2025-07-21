@@ -1,5 +1,4 @@
 import type { Config } from 'tailwindcss'
-import tailwindcssAnimate from 'tailwindcss-animate'
 
 export default {
   darkMode: ['class'],
@@ -11,20 +10,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#FAFAFA',
-        primaryAccent: '#18181B',
-        brand: 'gray',
         background: {
-          DEFAULT: '#111113',
-          secondary: '#27272A'
+          DEFAULT: 'rgb(var(--background))',
+          secondary: 'rgb(var(--background-secondary))',
+          primary: 'rgb(var(--background-primary))'
         },
-        foreground: '#f5f5f5',
-        secondary: '#f5f5f5',
-        border: '#f5f5f5',
-        accent: '#27272A',
-        muted: '#A1A1AA',
-        destructive: '#E53935',
-        positive: '#22C55E'
+        foreground: 'rgb(var(--foreground))',
+        border: 'rgb(var(--border))',
+        accent: 'rgb(var(--accent))',
+        muted: 'rgb(var(--muted))',
+        destructive: 'rgb(var(--destructive))',
+        positive: 'rgb(var(--positive))'
       },
       fontFamily: {
         geist: 'var(--font-geist-sans)',
@@ -32,52 +28,8 @@ export default {
       },
       borderRadius: {
         xl: '10px'
-      },
-      animation: {
-        rainbow: 'rainbow var(--speed, 2s) infinite linear',
-        'pulse-glow': 'pulse-glow var(--duration, 2s) ease-in-out infinite',
-        meteor: 'meteor 5s linear infinite',
-        marquee: 'marquee var(--duration) linear infinite',
-        'marquee-vertical': 'marquee-vertical var(--duration) linear infinite'
-      },
-      keyframes: {
-        rainbow: {
-          '0%': { backgroundPosition: '0%' },
-          '100%': { backgroundPosition: '200%' }
-        },
-        'pulse-glow': {
-          '0%, 100%': {
-            transform: 'scale(1)',
-            opacity: '0.8'
-          },
-          '50%': {
-            transform: 'scale(1.05)',
-            opacity: '0.4'
-          }
-        },
-        meteor: {
-          '0%': {
-            transform: 'rotate(var(--angle)) translateX(0)',
-            opacity: '1'
-          },
-          '70%': {
-            opacity: '1'
-          },
-          '100%': {
-            transform: 'rotate(var(--angle)) translateX(-500px)',
-            opacity: '0'
-          }
-        },
-        marquee: {
-          from: { transform: 'translateX(0)' },
-          to: { transform: 'translateX(calc(-100% - var(--gap)))' }
-        },
-        'marquee-vertical': {
-          from: { transform: 'translateY(0)' },
-          to: { transform: 'translateY(calc(-100% - var(--gap)))' }
-        }
       }
     }
   },
-  plugins: [tailwindcssAnimate]
+  plugins: []
 } satisfies Config

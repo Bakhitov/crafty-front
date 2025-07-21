@@ -86,9 +86,9 @@ const ChatInput = () => {
           disabled={!selectedAgent}
           size="icon"
           variant="outline"
-          className="border-accent bg-primaryAccent text-primary shrink-0 rounded-xl border p-5"
+          className="border-accent bg-pimary text-primary shrink-0 rounded-xl border p-5"
         >
-          <Icon type="paperclip" color="primary" />
+          <Icon type="paperclip" color="secondary" />
         </Button>
         <TextArea
           placeholder={'Ask anything'}
@@ -105,7 +105,7 @@ const ChatInput = () => {
               handleSubmit()
             }
           }}
-          className="border-accent bg-primaryAccent text-primary focus:border-accent w-full border px-4 text-sm"
+          className="border-accent bg-background-primary text-secondary focus:border-accent w-full border px-4 text-sm"
           disabled={!selectedAgent}
           ref={chatInputRef}
         />
@@ -117,7 +117,7 @@ const ChatInput = () => {
             isStreaming
           }
           size="icon"
-          className="bg-primary text-primaryAccent rounded-xl p-5"
+          className="bg-foreground text-background-secondary rounded-xl p-5"
         >
           <Icon type="send" color="primaryAccent" />
         </Button>

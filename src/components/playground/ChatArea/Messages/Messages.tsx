@@ -79,7 +79,7 @@ const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
           <Accordion
             type="single"
             collapsible
-            className="w-full rounded-lg border border-neutral-800"
+            className="border-accent w-full rounded-lg border"
           >
             <AccordionItem value="reasoning" className="border-b-0">
               <AccordionTrigger className="p-3 hover:no-underline">
@@ -174,7 +174,7 @@ const Reasonings: FC<ReasoningProps> = ({ reasoning }) => {
         >
           <AccordionTrigger className="p-2 hover:no-underline">
             <div className="text-secondary flex w-full items-center gap-3">
-              <div className="flex h-[30px] w-[65px] items-center rounded-md border border-neutral-800 p-2">
+              <div className="border-accent flex h-[30px] w-[65px] items-center rounded-md border p-2">
                 <p className="text-primary/60 text-xs uppercase">
                   step {index + 1}
                 </p>
@@ -216,7 +216,7 @@ const Reasonings: FC<ReasoningProps> = ({ reasoning }) => {
                     </Heading>
                     <Badge
                       variant="outline"
-                      className="flex items-center space-x-1"
+                      className="border-accent flex items-center space-x-1"
                     >
                       {getNextActionIcon(step.next_action)}
                       <span>{step.next_action}</span>
@@ -231,7 +231,8 @@ const Reasonings: FC<ReasoningProps> = ({ reasoning }) => {
                       Confidence:
                     </Heading>
                     <Badge
-                      variant={step.confidence > 0.8 ? 'default' : 'secondary'}
+                      variant={step.confidence > 0.8 ? 'outline' : 'default'}
+                      className="border-accent flex items-center space-x-1"
                     >
                       {(step.confidence * 100).toFixed(0)}%
                     </Badge>

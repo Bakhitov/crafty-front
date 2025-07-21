@@ -1,15 +1,11 @@
 import type { Metadata } from 'next'
-import { DM_Mono, Geist } from 'next/font/google'
+import { GeistSans } from 'geist/font/sans'
+import { DM_Mono } from 'next/font/google'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider } from '@/components/AuthProvider'
+import { ThemeProvider } from '@/components/ThemeProvider'
 import './globals.css'
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  weight: '400',
-  subsets: ['latin']
-})
 
 const dmMono = DM_Mono({
   subsets: ['latin'],
@@ -30,11 +26,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${dmMono.variable} antialiased`}>
-        <AuthProvider>
-          <NuqsAdapter>{children}</NuqsAdapter>
-          <Toaster />
-        </AuthProvider>
+      <body className={`${GeistSans.variable} ${dmMono.variable} antialiased`}>
+        <ThemeProvider>
+          <AuthProvider>
+            <NuqsAdapter>{children}</NuqsAdapter>
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
