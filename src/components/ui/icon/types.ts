@@ -45,6 +45,22 @@ export type IconType =
   | 'cpu'
   | 'workflow'
   | 'link'
+  | 'message-circle'
+  | 'key'
+  | 'calendar'
+  | 'qr-code'
+  | 'bot'
+  | 'more-horizontal'
+  | 'play'
+  | 'square'
+  | 'refresh-cw'
+  | 'trash-2'
+  | 'loader-2'
+  | 'copy'
+  | 'alert-circle'
+  | 'database'
+  | 'file-text'
+  | 'plus'
 
 export interface IconProps {
   type: IconType

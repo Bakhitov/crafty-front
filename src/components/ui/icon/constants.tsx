@@ -44,7 +44,22 @@ import {
   Image,
   Cpu,
   Workflow,
-  Link
+  Link,
+  MessageCircle,
+  Key,
+  Calendar,
+  QrCode,
+  Bot,
+  MoreHorizontal,
+  Play,
+  Square,
+  Trash2,
+  Loader2,
+  Copy,
+  AlertCircle,
+  Database,
+  FileText,
+  Plus
 } from 'lucide-react'
 
 import { PlusIcon } from '@radix-ui/react-icons'
@@ -93,5 +108,21 @@ export const ICONS: IconTypeMap = {
   image: Image,
   cpu: Cpu,
   workflow: Workflow,
-  link: Link
+  link: Link,
+  'message-circle': MessageCircle,
+  key: Key,
+  calendar: Calendar,
+  'qr-code': QrCode,
+  bot: Bot,
+  'more-horizontal': MoreHorizontal,
+  play: Play,
+  square: Square,
+  'refresh-cw': RefreshCw,
+  'trash-2': Trash2,
+  'loader-2': Loader2,
+  copy: Copy,
+  'alert-circle': AlertCircle,
+  database: Database,
+  'file-text': FileText,
+  plus: Plus
 }

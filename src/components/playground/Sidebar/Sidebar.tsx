@@ -14,6 +14,7 @@ import { useAuthContext } from '@/components/AuthProvider'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import AgentsList from './AgentsList'
 import ToolsList from './ToolsList'
+import { MessengerProviderList } from '@/components/playground/MessengerProvider'
 import { useTheme } from '@/components/ThemeProvider'
 import { Sun, Moon } from 'lucide-react'
 
@@ -313,7 +314,7 @@ const Sidebar = () => {
         {isMounted && isEndpointActive && (
           <div className="mt-5 flex min-h-0 flex-1 flex-col">
             <Tabs defaultValue="agents" className="flex flex-1 flex-col">
-              <TabsList className="bg-background-secondary grid h-8 w-full shrink-0 grid-cols-4">
+              <TabsList className="bg-background-secondary grid h-8 w-full shrink-0 grid-cols-5">
                 <TabsTrigger value="agents" className="py-1">
                   <div title="Agents">
                     <Icon type="agent" size="xs" className="text-primary" />
@@ -322,6 +323,15 @@ const Sidebar = () => {
                 <TabsTrigger value="tools" className="py-1">
                   <div title="Tools">
                     <Icon type="hammer" size="xs" className="text-primary" />
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger value="messengers" className="py-1">
+                  <div title="Messengers">
+                    <Icon
+                      type="message-circle"
+                      size="xs"
+                      className="text-primary"
+                    />
                   </div>
                 </TabsTrigger>
                 <TabsTrigger value="workflows" className="py-1">
@@ -348,6 +358,12 @@ const Sidebar = () => {
                   className="h-full data-[state=active]:flex data-[state=active]:flex-col"
                 >
                   <ToolsList />
+                </TabsContent>
+                <TabsContent
+                  value="messengers"
+                  className="h-full data-[state=active]:flex data-[state=active]:flex-col"
+                >
+                  <MessengerProviderList />
                 </TabsContent>
                 <TabsContent
                   value="workflows"

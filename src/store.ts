@@ -5,6 +5,7 @@ import {
   type PlaygroundChatMessage,
   type SessionEntry
 } from '@/types/playground'
+import { MessengerInstanceUnion } from '@/types/messenger'
 
 interface Agent {
   value: string
@@ -111,6 +112,16 @@ interface PlaygroundStore {
   setIsAgentCreationMode: (isAgentCreationMode: boolean) => void
   editingAgentId: string | null
   setEditingAgentId: (agentId: string | null) => void
+  // Messenger instance editor state
+  isMessengerInstanceEditorMode: boolean
+  setIsMessengerInstanceEditorMode: (isEditorMode: boolean) => void
+  editingMessengerInstance: MessengerInstanceUnion | null
+  setEditingMessengerInstance: (instance: MessengerInstanceUnion | null) => void
+  // Messenger manager state
+  isMessengerManagerMode: boolean
+  setIsMessengerManagerMode: (isManagerMode: boolean) => void
+  editingMessengerInstanceId: string | null
+  setEditingMessengerInstanceId: (instanceId: string | null) => void
   // Кеширование инструментов
   toolsCache: {
     dynamicTools: DynamicTool[]
@@ -181,6 +192,20 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
         set({ isAgentCreationMode }),
       editingAgentId: null,
       setEditingAgentId: (agentId) => set({ editingAgentId: agentId }),
+      // Messenger instance editor state
+      isMessengerInstanceEditorMode: false,
+      setIsMessengerInstanceEditorMode: (isEditorMode) =>
+        set({ isMessengerInstanceEditorMode: isEditorMode }),
+      editingMessengerInstance: null,
+      setEditingMessengerInstance: (instance) =>
+        set({ editingMessengerInstance: instance }),
+      // Messenger manager state
+      isMessengerManagerMode: false,
+      setIsMessengerManagerMode: (isManagerMode) =>
+        set({ isMessengerManagerMode: isManagerMode }),
+      editingMessengerInstanceId: null,
+      setEditingMessengerInstanceId: (instanceId) =>
+        set({ editingMessengerInstanceId: instanceId }),
       // Кеширование инструментов
       toolsCache: {
         dynamicTools: [],
