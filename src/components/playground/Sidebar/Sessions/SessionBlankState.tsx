@@ -99,7 +99,7 @@ const SessionBlankState = () => {
       case !agentId:
         return 'Select an agent to see the history.'
       case !hasStorage:
-        return <>Start a conversation with your agent to see chats. </>
+        return <>Start a conversation with your agent to see sessions. </>
       default:
         return 'No session records yet. Start a conversation to create one.'
     }
@@ -110,7 +110,9 @@ const SessionBlankState = () => {
       <div className="flex flex-col items-center gap-1">
         <HistoryBlankStateIcon />
         <div className="flex flex-col items-center gap-2">
-          <h3 className="text-primary text-sm font-medium">No chats found</h3>
+          <h3 className="text-primary text-sm font-medium">
+            No sessions found
+          </h3>
           <p className="text-muted max-w-[210px] text-center text-sm">
             {errorMessage}
           </p>

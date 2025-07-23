@@ -1,70 +1,49 @@
 'use client'
 import Sidebar from '@/components/playground/Sidebar/Sidebar'
-import AgentInfoSidebar from '@/components/playground/AgentInfoSidebar'
-import { ChatArea } from '@/components/playground/ChatArea'
-import AgentCreator from '@/components/playground/AgentCreator'
-import MessengerInstanceEditor from '@/components/playground/MessengerProvider/MessengerInstanceEditor'
-import MessengerManager from '@/components/playground/MessengerManager'
-import { Suspense, useEffect } from 'react'
+import AgentInfoSidebar, {
+  MessengerAgentSidebar
+} from '@/components/playground/AgentInfoSidebar'
+import MainContent from '@/components/playground/MainContent'
+import { Suspense } from 'react'
 import { usePlaygroundStore } from '@/store'
 import { useQueryState } from 'nuqs'
 
 function PlaygroundContent() {
   const {
+    isChatMode,
+    activeTab,
+    selectedChatId,
     isAgentCreationMode,
-    setIsAgentCreationMode,
+    isToolCreationMode,
     isMessengerInstanceEditorMode,
-    setIsMessengerInstanceEditorMode,
-    editingMessengerInstance,
-    setEditingMessengerInstance,
-    isMessengerManagerMode,
-    setIsMessengerManagerMode,
-    editingMessengerInstanceId,
-    setEditingMessengerInstanceId
+    isMessengerManagerMode
   } = usePlaygroundStore()
+
   const [agentId] = useQueryState('agent')
 
-  // Устанавливаем режим создания агента при agent=new
-  useEffect(() => {
-    if (agentId === 'new' && !isAgentCreationMode) {
-      setIsAgentCreationMode(true)
-    } else if (agentId !== 'new' && isAgentCreationMode) {
-      setIsAgentCreationMode(false)
-    }
-  }, [agentId, isAgentCreationMode, setIsAgentCreationMode])
+  const shouldShowMessengerSidebar =
+    (isChatMode || activeTab === 'chats') && selectedChatId
 
-  const handleCloseMessengerEditor = () => {
-    setIsMessengerInstanceEditorMode(false)
-    setEditingMessengerInstance(null)
-  }
-
-  const handleCloseMessengerManager = () => {
-    setIsMessengerManagerMode(false)
-    setEditingMessengerInstanceId(null)
-  }
+  // AgentInfoSidebar показывается только когда:
+  // - Активен таб agents
+  // - НЕ в режиме создания/редактирования агента
+  // - НЕ в других режимах редактирования
+  // - Выбран агент (agentId существует и не 'new')
+  const shouldShowAgentSidebar =
+    activeTab === 'agents' &&
+    !isAgentCreationMode &&
+    !isToolCreationMode &&
+    !isMessengerInstanceEditorMode &&
+    !isMessengerManagerMode &&
+    agentId &&
+    agentId !== 'new'
 
   return (
     <div className="bg-background/80 flex h-screen">
       <Sidebar />
-      {isAgentCreationMode ? (
-        <AgentCreator />
-      ) : isMessengerManagerMode ? (
-        <MessengerManager
-          isOpen={isMessengerManagerMode}
-          onClose={handleCloseMessengerManager}
-          editingInstanceId={editingMessengerInstanceId}
-        />
-      ) : isMessengerInstanceEditorMode ? (
-        <MessengerInstanceEditor
-          editingInstance={editingMessengerInstance}
-          onClose={handleCloseMessengerEditor}
-        />
-      ) : (
-        <>
-          <ChatArea />
-          <AgentInfoSidebar />
-        </>
-      )}
+      <MainContent />
+      {shouldShowMessengerSidebar && <MessengerAgentSidebar />}
+      {shouldShowAgentSidebar && <AgentInfoSidebar />}
     </div>
   )
 }

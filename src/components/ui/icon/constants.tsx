@@ -1,6 +1,9 @@
 import {
-  MistralLogo,
   OpenAILogo,
+  AgnoIcon,
+  UserIcon,
+  AgentIcon,
+  MistralLogo,
   GeminiLogo,
   AwsLogo,
   AzureLogo,
@@ -11,16 +14,9 @@ import {
   CohereLogo,
   OllamaLogo,
   XaiLogo,
-  AgnoIcon,
-  UserIcon,
-  AgentIcon,
   SheetIcon,
   NextjsTag,
-  ShadcnTag,
-  TailwindTag,
-  AgnoTag,
-  ReasoningIcon,
-  ReferencesIcon
+  ShadcnTag
 } from './custom-icons'
 import { IconTypeMap } from './types'
 import {
@@ -59,10 +55,24 @@ import {
   AlertCircle,
   Database,
   FileText,
-  Plus
+  Plus,
+  Users
 } from 'lucide-react'
 
 import { PlusIcon } from '@radix-ui/react-icons'
+import {
+  BsWhatsapp,
+  BsTelegram,
+  BsDiscord,
+  BsSlack,
+  BsFacebook,
+  BsInstagram,
+  BsInfoCircle,
+  BsClock,
+  BsServer,
+  BsCheckCircle,
+  BsDot
+} from 'react-icons/bs'
 
 export const ICONS: IconTypeMap = {
   'open-ai': OpenAILogo,
@@ -83,9 +93,6 @@ export const ICONS: IconTypeMap = {
   sheet: SheetIcon,
   nextjs: NextjsTag,
   shadcn: ShadcnTag,
-  tailwind: TailwindTag,
-  reasoning: ReasoningIcon,
-  'agno-tag': AgnoTag,
   refresh: RefreshCw,
   edit: Edit,
   save: Save,
@@ -99,7 +106,6 @@ export const ICONS: IconTypeMap = {
   'chevron-down': ChevronDown,
   'chevron-up': ChevronUp,
   'plus-icon': PlusIcon,
-  references: ReferencesIcon,
   trash: Trash,
   'log-out': LogOut,
   paperclip: Paperclip,
@@ -124,5 +130,18 @@ export const ICONS: IconTypeMap = {
   'alert-circle': AlertCircle,
   database: Database,
   'file-text': FileText,
-  plus: Plus
+  plus: Plus,
+  users: Users,
+  whatsapp: BsWhatsapp,
+  telegram: BsTelegram,
+  discord: BsDiscord,
+  slack: BsSlack,
+  messenger: BsFacebook,
+  info: BsInfoCircle,
+  clock: BsClock,
+  server: BsServer,
+  'check-circle': BsCheckCircle,
+  instagram: BsInstagram,
+  facebook: BsFacebook,
+  dot: BsDot
 }

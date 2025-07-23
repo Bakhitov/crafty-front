@@ -9,8 +9,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { ToolBlankState as ToolCreateBlankState } from './BlankStates'
 
-// Типы инструментов
+// Tool types
 interface DynamicTool {
   id: number
   tool_id: string
@@ -153,35 +154,6 @@ const ToolItem = ({
   )
 }
 
-const ToolBlankState = () => {
-  const { selectedEndpoint, isEndpointActive } = usePlaygroundStore()
-
-  const errorMessage = (() => {
-    switch (true) {
-      case !isEndpointActive:
-        return 'Endpoint is not connected. Please connect the endpoint to see tools.'
-      case !selectedEndpoint:
-        return 'Select an endpoint to see tools.'
-      default:
-        return 'No tools found. Create or add tools to the system.'
-    }
-  })()
-
-  return (
-    <div className="bg-background-secondary/50 mt-1 flex items-center justify-center rounded-lg pb-6 pt-4">
-      <div className="flex flex-col items-center gap-1">
-        <Icon type="hammer" size="lg" className="text-muted-foreground" />
-        <div className="flex flex-col items-center gap-2">
-          <h3 className="text-primary text-sm font-medium">No tools found</h3>
-          <p className="text-muted max-w-[210px] text-center text-sm">
-            {errorMessage}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 const SkeletonList = ({ skeletonCount = 3 }: { skeletonCount: number }) => {
   return (
     <div className="space-y-2">
@@ -212,14 +184,14 @@ const ToolsList = () => {
     clearToolsCache
   } = usePlaygroundStore()
 
-  // Время жизни кеша - 5 минут
+  // Cache lifetime - 5 minutes
   const CACHE_LIFETIME = 5 * 60 * 1000
 
-  // Получение всех инструментов с кешированием
+  // Fetch all tools with caching
   const fetchTools = useCallback(async () => {
     if (!selectedEndpoint || !isEndpointActive) return
 
-    // Проверяем кеш
+    // Check cache
     const now = Date.now()
     if (
       toolsCache.lastFetchTime &&
@@ -228,7 +200,7 @@ const ToolsList = () => {
         toolsCache.customTools.length > 0 ||
         toolsCache.mcpServers.length > 0)
     ) {
-      // Кеш актуален, не загружаем заново
+      // Cache is valid, don't reload
       return
     }
 
@@ -239,7 +211,7 @@ const ToolsList = () => {
     let mcpServers: McpServer[] = []
 
     try {
-      // Динамические инструменты
+      // Dynamic tools
       try {
         const dynamicResponse = await fetch(`${selectedEndpoint}/v1/tools/`)
         if (dynamicResponse.ok) {
@@ -252,7 +224,7 @@ const ToolsList = () => {
         console.error('Error fetching dynamic tools:', error)
       }
 
-      // Кастомные инструменты
+      // Custom tools
       try {
         const customResponse = await fetch(
           `${selectedEndpoint}/v1/tools/custom`
@@ -267,7 +239,7 @@ const ToolsList = () => {
         console.error('Error fetching custom tools:', error)
       }
 
-      // MCP серверы
+      // MCP servers
       try {
         const mcpResponse = await fetch(`${selectedEndpoint}/v1/tools/mcp`)
         if (mcpResponse.ok) {
@@ -280,7 +252,7 @@ const ToolsList = () => {
         console.error('Error fetching MCP servers:', error)
       }
 
-      // Сохраняем в кеш
+      // Save to cache
       setToolsCache({
         dynamicTools,
         customTools,
@@ -313,13 +285,13 @@ const ToolsList = () => {
     }
   }, [isEndpointActive, selectedEndpoint, fetchTools, clearToolsCache])
 
-  // Обработчики действий с инструментами
+  // Tool action handlers
   const handleToggleTool = async (
     toolId: string,
     type: 'dynamic' | 'custom' | 'mcp'
   ) => {
     try {
-      // Здесь должна быть логика для переключения состояния инструмента
+      // Here should be the logic for toggling tool state
       // const endpoint = type === 'dynamic'
       //   ? `${selectedEndpoint}/v1/tools/${toolId}`
       //   : type === 'custom'
@@ -398,7 +370,10 @@ const ToolsList = () => {
       {/* Create Tool Button */}
       <div className="mb-3">
         <Button
-          onClick={() => toast.info('Tool creation coming soon')}
+          onClick={() => {
+            const { setIsToolCreationMode } = usePlaygroundStore.getState()
+            setIsToolCreationMode(true)
+          }}
           size="lg"
           variant="outline"
           className="border-primary/20 text-primary hover:bg-primary/10 h-9 w-full rounded-xl border-dashed text-xs font-medium"
@@ -409,12 +384,14 @@ const ToolsList = () => {
       </div>
 
       {!isEndpointActive || allTools.length === 0 ? (
-        <ToolBlankState />
+        <ToolCreateBlankState
+          onCreateTool={() => {
+            const { setIsToolCreationMode } = usePlaygroundStore.getState()
+            setIsToolCreationMode(true)
+          }}
+        />
       ) : (
-        <Tabs
-          defaultValue="all"
-          className="flex flex-1 flex-col overflow-hidden"
-        >
+        <Tabs defaultValue="all" className="flex h-full flex-1 flex-col">
           <TabsList className="bg-background-secondary mb-3 grid w-full shrink-0 grid-cols-4">
             <TabsTrigger value="all" className="text-xs">
               All
@@ -432,10 +409,10 @@ const ToolsList = () => {
 
           <TabsContent
             value="all"
-            className="flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
+            className="h-full data-[state=active]:flex data-[state=active]:flex-col"
           >
             <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
-              <div className="flex flex-col gap-y-1 pr-1">
+              <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
                 {allTools.map((tool) => (
                   <ToolItem
                     key={`${tool.type}-${tool.tool_id}`}
@@ -453,10 +430,10 @@ const ToolsList = () => {
 
           <TabsContent
             value="dynamic"
-            className="flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
+            className="h-full data-[state=active]:flex data-[state=active]:flex-col"
           >
             <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
-              <div className="flex flex-col gap-y-1 pr-1">
+              <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
                 {toolsCache.dynamicTools.map((tool) => (
                   <ToolItem
                     key={`dynamic-${tool.tool_id}`}
@@ -479,10 +456,10 @@ const ToolsList = () => {
 
           <TabsContent
             value="mcp"
-            className="flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
+            className="h-full data-[state=active]:flex data-[state=active]:flex-col"
           >
             <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
-              <div className="flex flex-col gap-y-1 pr-1">
+              <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
                 {toolsCache.mcpServers.map((server) => (
                   <ToolItem
                     key={`mcp-${server.server_id}`}
@@ -505,10 +482,10 @@ const ToolsList = () => {
 
           <TabsContent
             value="custom"
-            className="flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
+            className="h-full data-[state=active]:flex data-[state=active]:flex-col"
           >
             <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
-              <div className="flex flex-col gap-y-1 pr-1">
+              <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
                 {toolsCache.customTools.map((tool) => (
                   <ToolItem
                     key={`custom-${tool.tool_id}`}

@@ -84,7 +84,7 @@ const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
             <AccordionItem value="reasoning" className="border-b-0">
               <AccordionTrigger className="p-3 hover:no-underline">
                 <div className="flex items-center gap-3">
-                  <Icon type="reasoning" size="sm" />
+                  <Icon type="brain" size="sm" />
                   <p className="font-geist text-xs uppercase">Reasonings</p>
                 </div>
               </AccordionTrigger>
@@ -102,7 +102,7 @@ const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
               content={<p className="text-accent">References</p>}
               side="top"
             >
-              <Icon type="references" size="sm" />
+              <Icon type="link" size="sm" />
             </Tooltip>
             <div className="flex flex-col gap-3">
               <References references={message.extra_data.references} />

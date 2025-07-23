@@ -62,20 +62,22 @@ interface McpServer {
   updated_at: string
 }
 
-interface PlaygroundStore {
+export interface ToolsCache {
+  dynamicTools: DynamicTool[]
+  customTools: CustomTool[]
+  mcpServers: McpServer[]
+  lastFetchTime: number | null
+  isLoading: boolean
+}
+
+export interface PlaygroundStore {
   hydrated: boolean
   setHydrated: () => void
   streamingErrorMessage: string
   setStreamingErrorMessage: (streamingErrorMessage: string) => void
-  endpoints: {
-    endpoint: string
-    id_playground_endpoint: string
-  }[]
+  endpoints: { endpoint: string; id_playground_endpoint: string }[]
   setEndpoints: (
-    endpoints: {
-      endpoint: string
-      id_playground_endpoint: string
-    }[]
+    endpoints: { endpoint: string; id_playground_endpoint: string }[]
   ) => void
   isStreaming: boolean
   setIsStreaming: (isStreaming: boolean) => void
@@ -120,8 +122,23 @@ interface PlaygroundStore {
   // Messenger manager state
   isMessengerManagerMode: boolean
   setIsMessengerManagerMode: (isManagerMode: boolean) => void
-  editingMessengerInstanceId: string | null
-  setEditingMessengerInstanceId: (instanceId: string | null) => void
+  // Messenger instances
+  messengerInstances: MessengerInstanceUnion[]
+  setMessengerInstances: (instances: MessengerInstanceUnion[]) => void
+  // Selected chat state
+  selectedChatId: string | null
+  setSelectedChatId: (chatId: string | null) => void
+  selectedInstanceId: string | null
+  setSelectedInstanceId: (instanceId: string | null) => void
+  // Chat mode state
+  isChatMode: boolean
+  setIsChatMode: (isChatMode: boolean) => void
+  // Tool creation mode state
+  isToolCreationMode: boolean
+  setIsToolCreationMode: (isToolCreationMode: boolean) => void
+  // Navigation modes
+  activeTab: 'agents' | 'tools' | 'chats' | 'instances'
+  setActiveTab: (tab: 'agents' | 'tools' | 'chats' | 'instances') => void
   // Кеширование инструментов
   toolsCache: {
     dynamicTools: DynamicTool[]
@@ -203,9 +220,26 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
       isMessengerManagerMode: false,
       setIsMessengerManagerMode: (isManagerMode) =>
         set({ isMessengerManagerMode: isManagerMode }),
-      editingMessengerInstanceId: null,
-      setEditingMessengerInstanceId: (instanceId) =>
-        set({ editingMessengerInstanceId: instanceId }),
+      // Messenger instances
+      messengerInstances: [],
+      setMessengerInstances: (instances) =>
+        set({ messengerInstances: instances }),
+      // Selected chat state
+      selectedChatId: null,
+      setSelectedChatId: (chatId) => set({ selectedChatId: chatId }),
+      selectedInstanceId: null,
+      setSelectedInstanceId: (instanceId) =>
+        set({ selectedInstanceId: instanceId }),
+      // Chat mode state
+      isChatMode: false,
+      setIsChatMode: (isChatMode) => set({ isChatMode }),
+      // Tool creation mode state
+      isToolCreationMode: false,
+      setIsToolCreationMode: (isToolCreationMode) =>
+        set({ isToolCreationMode }),
+      // Navigation modes
+      activeTab: 'agents',
+      setActiveTab: (tab) => set({ activeTab: tab }),
       // Кеширование инструментов
       toolsCache: {
         dynamicTools: [],

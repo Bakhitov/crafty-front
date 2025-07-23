@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { getProviderIcon } from '@/lib/modelProvider'
+import { AgentBlankState } from './BlankStates'
 
 interface AgentItemProps {
   agentId: string
@@ -35,7 +36,7 @@ const AgentItem = ({
         'group flex h-11 w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors duration-200',
         isSelected
           ? 'bg-accent cursor-default'
-          : 'bg-background-primary hover:bg-background-secondary'
+          : 'bg-background-secondary hover:bg-background-secondary'
       )}
     >
       <div
@@ -87,16 +88,6 @@ const AgentItem = ({
     </div>
   )
 }
-
-const AgentBlankState = () => (
-  <div className="flex flex-col items-center justify-center py-8 text-center">
-    <Icon type="agent" size="md" className="text-muted-foreground mb-2" />
-    <p className="text-muted-foreground text-sm">No agents found</p>
-    <p className="text-muted-foreground mt-1 text-xs">
-      Connect to an endpoint to see agents
-    </p>
-  </div>
-)
 
 const SkeletonList = ({ skeletonCount }: { skeletonCount: number }) => (
   <div className="flex flex-col gap-y-1">
@@ -162,13 +153,13 @@ const AgentsList = () => {
   )
 
   const handleCreateAgent = () => {
-    setEditingAgentId(null) // Режим создания
+    setEditingAgentId(null) // Create mode
     setIsAgentCreationMode(true)
     setAgentId('new', { shallow: true })
   }
 
   const handleEditAgent = (agentId: string) => {
-    setEditingAgentId(agentId) // Режим редактирования
+    setEditingAgentId(agentId) // Edit mode
     setIsAgentCreationMode(true)
     setAgentId('new', { shallow: true })
   }
@@ -223,9 +214,9 @@ const AgentsList = () => {
 
       <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
         {(!isEndpointActive || agents.length === 0) && agentId !== 'new' ? (
-          <AgentBlankState />
+          <AgentBlankState onCreateAgent={handleCreateAgent} />
         ) : (
-          <div className="flex flex-col gap-y-1 pr-1">
+          <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
             {agents.map((agent) => (
               <AgentItem
                 key={agent.value}

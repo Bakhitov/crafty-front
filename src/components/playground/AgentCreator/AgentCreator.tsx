@@ -1120,7 +1120,14 @@ export default function AgentCreator() {
   }, [selectedEndpoint, fetchToolsFromAPI])
 
   return (
-    <div className="bg-background-primary flex h-screen flex-1 flex-col">
+    <motion.main
+      className="bg-background-primary relative flex flex-grow flex-col rounded-xl p-6"
+      style={{ margin: '5px' }}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+    >
       {/* Header */}
       <motion.header
         className="border-secondary border-b px-6 py-4"
@@ -1174,7 +1181,7 @@ export default function AgentCreator() {
       </motion.header>
 
       <div className="flex-1 overflow-hidden">
-        <div className="h-full px-6 py-6">
+        <div className="h-full px-3 py-6">
           <div className="grid h-full grid-cols-1 gap-8 lg:grid-cols-4">
             {/* Main Content */}
             <motion.div
@@ -3066,6 +3073,6 @@ export default function AgentCreator() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.main>
   )
 }

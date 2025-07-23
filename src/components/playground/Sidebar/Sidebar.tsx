@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import useChatActions from '@/hooks/useChatActions'
 import { usePlaygroundStore } from '@/store'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Icon from '@/components/ui/icon'
 import { isValidUrl, truncateText } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -14,9 +14,12 @@ import { useAuthContext } from '@/components/AuthProvider'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import AgentsList from './AgentsList'
 import ToolsList from './ToolsList'
+import ChatsList from './ChatsList'
 import { MessengerProviderList } from '@/components/playground/MessengerProvider'
 import { useTheme } from '@/components/ThemeProvider'
 import { Sun, Moon } from 'lucide-react'
+import { messengerAPI } from '@/lib/messengerApi'
+import { MessengerInstanceUnion } from '@/types/messenger'
 
 const ENDPOINT_PLACEHOLDER = 'NO ENDPOINT ADDED'
 
@@ -269,13 +272,113 @@ const Endpoint = () => {
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { initializePlayground } = useChatActions()
-  const { selectedEndpoint, isEndpointActive, hydrated } = usePlaygroundStore()
+  const {
+    selectedEndpoint,
+    isEndpointActive,
+    hydrated,
+    setMessengerInstances,
+    activeTab,
+    setActiveTab
+  } = usePlaygroundStore()
   const [isMounted, setIsMounted] = useState(false)
+  const [, setAgentId] = useQueryState('agent')
+  const [, setSessionId] = useQueryState('session')
+
+  // Загрузка messenger instances
+  const loadMessengerInstances = useCallback(async () => {
+    try {
+      console.log('Sidebar: Loading messenger instances...')
+      const response = await messengerAPI.getInstances()
+      console.log(
+        'Sidebar: Messenger instances loaded:',
+        response.instances.length,
+        response.instances
+      )
+      // Преобразуем RealInstanceResponse в MessengerInstanceUnion (id -> instance_id)
+      const convertedInstances = response.instances.map((instance) => {
+        const { id, ...instanceWithoutId } = instance
+        return {
+          ...instanceWithoutId,
+          instance_id: id
+        } as MessengerInstanceUnion
+      })
+      setMessengerInstances(convertedInstances)
+    } catch (error) {
+      console.error('Error loading messenger instances:', error)
+      setMessengerInstances([])
+    }
+  }, [setMessengerInstances])
+
+  // Функция сброса всех состояний
+  const resetAllStates = useCallback(() => {
+    const {
+      setIsAgentCreationMode,
+      setIsToolCreationMode,
+      setIsChatMode,
+      setIsMessengerInstanceEditorMode,
+      setIsMessengerManagerMode,
+      setEditingMessengerInstance,
+      setSelectedChatId,
+      setSelectedInstanceId,
+      setEditingAgentId
+    } = usePlaygroundStore.getState()
+
+    // Сбрасываем все режимы
+    setIsAgentCreationMode(false)
+    setIsToolCreationMode(false)
+    setIsChatMode(false)
+    setIsMessengerInstanceEditorMode(false)
+    setIsMessengerManagerMode(false)
+
+    // Сбрасываем все выборы
+    setEditingMessengerInstance(null)
+    setSelectedChatId(null)
+    setSelectedInstanceId(null)
+    setEditingAgentId(null)
+
+    // Сбрасываем URL параметры
+    setAgentId(null)
+    setSessionId(null)
+  }, [setAgentId, setSessionId])
+
+  // Обработчик изменения табов
+  const handleTabChange = useCallback(
+    (value: string) => {
+      // Сначала сбрасываем все состояния
+      resetAllStates()
+
+      // Затем устанавливаем новый активный таб
+      switch (value) {
+        case 'agents':
+          setActiveTab('agents')
+          break
+        case 'tools':
+          setActiveTab('tools')
+          break
+        case 'connections':
+          setActiveTab('chats')
+          break
+        case 'messengers':
+          setActiveTab('instances')
+          break
+        case 'workflows':
+          toast.info('Workflows пока не реализованы')
+          break
+        default:
+          setActiveTab('agents')
+          break
+      }
+    },
+    [setActiveTab, resetAllStates]
+  )
 
   useEffect(() => {
     setIsMounted(true)
-    if (hydrated) initializePlayground()
-  }, [selectedEndpoint, initializePlayground, hydrated])
+    if (hydrated) {
+      initializePlayground()
+      loadMessengerInstances()
+    }
+  }, [selectedEndpoint, initializePlayground, hydrated, loadMessengerInstances])
 
   return (
     <motion.aside
@@ -313,7 +416,24 @@ const Sidebar = () => {
 
         {isMounted && isEndpointActive && (
           <div className="mt-5 flex min-h-0 flex-1 flex-col">
-            <Tabs defaultValue="agents" className="flex flex-1 flex-col">
+            <Tabs
+              value={(() => {
+                switch (activeTab) {
+                  case 'agents':
+                    return 'agents'
+                  case 'tools':
+                    return 'tools'
+                  case 'chats':
+                    return 'connections'
+                  case 'instances':
+                    return 'messengers'
+                  default:
+                    return 'agents'
+                }
+              })()}
+              className="flex min-h-0 flex-1 flex-col"
+              onValueChange={handleTabChange}
+            >
               <TabsList className="bg-background-secondary grid h-8 w-full shrink-0 grid-cols-5">
                 <TabsTrigger value="agents" className="py-1">
                   <div title="Agents">
@@ -325,8 +445,8 @@ const Sidebar = () => {
                     <Icon type="hammer" size="xs" className="text-primary" />
                   </div>
                 </TabsTrigger>
-                <TabsTrigger value="messengers" className="py-1">
-                  <div title="Messengers">
+                <TabsTrigger value="connections" className="py-1">
+                  <div title="Chats">
                     <Icon
                       type="message-circle"
                       size="xs"
@@ -334,19 +454,19 @@ const Sidebar = () => {
                     />
                   </div>
                 </TabsTrigger>
+                <TabsTrigger value="messengers" className="py-1">
+                  <div title="Messengers">
+                    <Icon type="link" size="xs" className="text-primary" />
+                  </div>
+                </TabsTrigger>
                 <TabsTrigger value="workflows" className="py-1">
                   <div title="Workflows">
                     <Icon type="workflow" size="xs" className="text-primary" />
                   </div>
                 </TabsTrigger>
-                <TabsTrigger value="connections" className="py-1">
-                  <div title="Connections">
-                    <Icon type="link" size="xs" className="text-primary" />
-                  </div>
-                </TabsTrigger>
               </TabsList>
 
-              <div className="mt-4 flex-1 overflow-hidden">
+              <div className="mt-4 min-h-0 flex-1 overflow-hidden">
                 <TabsContent
                   value="agents"
                   className="h-full data-[state=active]:flex data-[state=active]:flex-col"
@@ -377,9 +497,7 @@ const Sidebar = () => {
                   value="connections"
                   className="h-full data-[state=active]:flex data-[state=active]:flex-col"
                 >
-                  <div className="text-muted-foreground py-8 text-center text-sm">
-                    Connections coming soon
-                  </div>
+                  <ChatsList />
                 </TabsContent>
               </div>
             </Tabs>

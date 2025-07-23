@@ -16,20 +16,15 @@ import {
 import { MessengerInstanceUnion, InstanceStatus } from '@/types/messenger'
 
 import { usePlaygroundStore } from '@/store'
+import { InstanceCreateBlankState } from '../Sidebar/BlankStates'
 
 interface InstanceItemProps {
   instance: MessengerInstanceUnion
-  onSelect: (instance: MessengerInstanceUnion) => void
   onEdit: (instance: MessengerInstanceUnion) => void
   isSelected: boolean
 }
 
-const InstanceItem = ({
-  instance,
-  onSelect,
-  onEdit,
-  isSelected
-}: InstanceItemProps) => {
+const InstanceItem = ({ instance, onEdit, isSelected }: InstanceItemProps) => {
   const providerConfig = useProviderConfig(instance.provider)
 
   const getStatusText = (status: InstanceStatus) => {
@@ -63,48 +58,104 @@ const InstanceItem = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       className={cn(
-        'group relative cursor-pointer rounded-lg border p-4 transition-all duration-200 hover:shadow-md',
+        'bg-background-secondary border-border group relative cursor-pointer rounded-lg border p-3 transition-all duration-200',
         isSelected
-          ? 'border-primary bg-accent shadow-md'
-          : 'bg-background-primary border-secondary hover:bg-background-secondary'
+          ? 'bg-background-secondary'
+          : 'bg-background-secondary hover:bg-background-primary'
       )}
-      onClick={() => onSelect(instance)}
-      onDoubleClick={() => onEdit(instance)}
+      onClick={() => onEdit(instance)}
     >
       {/* Header */}
-      <div className="mb-3 flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="h-3 w-3 rounded-full"
-            style={{ backgroundColor: providerConfig.color }}
-          />
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center">
+            <Icon
+              type={providerConfig.icon as IconType}
+              size="xs"
+              className={cn(
+                instance.provider === 'whatsappweb' && 'text-green-500',
+                instance.provider === 'telegram' && 'text-blue-500',
+                instance.provider === 'discord' && 'text-indigo-600',
+                instance.provider === 'slack' && 'text-purple-600',
+                instance.provider === 'messenger' && 'text-blue-600',
+                instance.provider === 'whatsapp-official' && 'text-green-500'
+              )}
+            />
+          </div>
           <div>
             <h3 className="text-primary text-sm font-medium">
               {providerConfig.name}
             </h3>
-            <p className="text-muted-foreground max-w-32 truncate text-xs">
-              {instance.user_id}
+            <p className="text-muted max-w-44 truncate text-xs">
+              {instance.instance_id ||
+                (instance as unknown as { id?: string }).id}
             </p>
           </div>
         </div>
 
+        {/* Restart button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation()
+            // Handle restart logic here
+          }}
+        >
+          <Icon type="refresh-cw" size="xs" className="text-muted-foreground" />
+        </Button>
+      </div>
+
+      {/* Provider specific info */}
+      {instance.provider === 'whatsappweb' && (
+        <div className="mb-2 flex items-center gap-2 text-xs">
+          <div className="flex h-4 w-4 items-center justify-center">
+            <Icon type="qr-code" size="xs" className="text-muted-foreground" />
+          </div>
+          <span className="text-muted-foreground">
+            Auth:{' '}
+            {(instance as { auth_status?: string }).auth_status || 'pending'}
+          </span>
+        </div>
+      )}
+
+      {instance.provider === 'telegram' && (
+        <div className="mb-2 flex items-center gap-2 text-xs">
+          <div className="flex h-4 w-4 items-center justify-center">
+            <Icon type="bot" size="xs" className="text-muted-foreground" />
+          </div>
+          <span className="text-muted-foreground">
+            Bot: {(instance as { account?: string }).account || 'Not set'}
+          </span>
+        </div>
+      )}
+
+      {/* Bottom row with status and date */}
+      <div className="border-secondary flex items-center justify-between border-t pt-1">
         <div className="flex items-center gap-2">
-          <Icon
-            type={getStatusIcon(instance.status)}
-            size="xs"
-            className={cn(
-              'transition-colors',
-              instance.status === 'running' && 'text-positive',
-              instance.status === 'error' && 'text-destructive',
-              instance.status === 'processing' && 'text-warning animate-spin',
-              instance.status === 'stopped' && 'text-muted-foreground',
-              instance.status === 'created' && 'text-primary'
+          <div className="flex h-4 w-4 items-center justify-center">
+            {instance.status === 'running' ? (
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+            ) : (
+              <Icon
+                type={getStatusIcon(instance.status)}
+                size="xs"
+                className={cn(
+                  'transition-colors',
+                  instance.status === 'error' && 'text-destructive',
+                  instance.status === 'processing' &&
+                    'text-warning animate-spin',
+                  instance.status === 'stopped' && 'text-muted-foreground',
+                  instance.status === 'created' && 'text-primary'
+                )}
+              />
             )}
-          />
+          </div>
           <Badge
             variant="outline"
             className={cn(
-              'border-0 px-2 py-1 text-xs',
+              'border-0 px-1.5 py-0.5 text-xs',
               instance.status === 'running' && 'bg-positive/10 text-positive',
               instance.status === 'error' &&
                 'bg-destructive/10 text-destructive',
@@ -116,89 +167,18 @@ const InstanceItem = ({
             {getStatusText(instance.status)}
           </Badge>
         </div>
-      </div>
 
-      {/* Instance Info */}
-      <div className="space-y-2">
-        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+        <div className="text-muted flex items-center gap-1 text-xs">
           <Icon type="calendar" size="xs" />
           <span>{new Date(instance.created_at).toLocaleDateString()}</span>
         </div>
-
-        {/* Provider specific info */}
-        {instance.provider === 'whatsappweb' && (
-          <div className="border-border mt-2 border-t pt-2">
-            <div className="flex items-center gap-2 text-xs">
-              <Icon
-                type="qr-code"
-                size="xs"
-                className="text-muted-foreground"
-              />
-              <span className="text-muted-foreground">
-                Auth:{' '}
-                {(instance as { auth_status?: string }).auth_status ||
-                  'pending'}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {instance.provider === 'telegram' && (
-          <div className="border-border mt-2 border-t pt-2">
-            <div className="flex items-center gap-2 text-xs">
-              <Icon type="bot" size="xs" className="text-muted-foreground" />
-              <span className="text-muted-foreground">
-                Bot:{' '}
-                {(instance as { bot_username?: string }).bot_username ||
-                  'Not set'}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
-
-      {/* Selection indicator */}
-      {isSelected && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="absolute right-2 top-2"
-        >
-          <Icon type="check" size="xs" className="text-primary" />
-        </motion.div>
-      )}
     </motion.div>
   )
 }
 
-const InstanceBlankState = () => (
-  <div className="flex items-center justify-center p-8">
-    <div className="text-center">
-      <Icon
-        type="message-circle"
-        size="md"
-        className="text-muted-foreground mx-auto mb-2"
-      />
-      <p className="text-muted-foreground mb-1 text-sm">
-        No messenger instances found
-      </p>
-      <p className="text-muted-foreground text-xs">
-        Create your first messenger instance to get started
-      </p>
-    </div>
-  </div>
-)
-
 const MessengerProviderList = () => {
-  const {
-    instances,
-    isLoading,
-    error,
-    stats,
-    selectedInstance,
-    fetchInstances,
-    setSelectedInstance
-  } = useMessengerProvider()
+  const { instances, isLoading, error, fetchInstances } = useMessengerProvider()
   const {
     setIsMessengerInstanceEditorMode,
     setEditingMessengerInstance,
@@ -216,6 +196,8 @@ const MessengerProviderList = () => {
   }
 
   const handleOpenManager = () => {
+    setIsMessengerInstanceEditorMode(false)
+    setEditingMessengerInstance(null)
     setIsMessengerManagerMode(true)
   }
 
@@ -227,12 +209,6 @@ const MessengerProviderList = () => {
           <div className="text-primary text-xs font-medium uppercase">
             Messengers
           </div>
-
-          {stats && (
-            <Badge variant="outline" className="text-xs">
-              {stats.total_instances}
-            </Badge>
-          )}
         </div>
 
         {/* Action Buttons */}
@@ -246,15 +222,14 @@ const MessengerProviderList = () => {
             <Icon type="plus-icon" size="xs" className="text-primary" />
             <span className="uppercase">Create Instance</span>
           </Button>
-
           <Button
             size="lg"
             variant="outline"
-            className="border-secondary/50 text-secondary hover:bg-secondary/10 h-9 w-full rounded-xl text-xs font-medium"
+            className="border-primary/20 text-primary hover:bg-primary/10 h-9 w-full rounded-xl text-xs font-medium"
             onClick={handleOpenManager}
           >
-            <Icon type="settings" size="xs" className="text-secondary" />
-            <span className="uppercase">Manage Instances</span>
+            <Icon type="settings" size="xs" className="text-primary" />
+            <span className="uppercase">Instance Manager</span>
           </Button>
         </div>
       </div>
@@ -263,7 +238,7 @@ const MessengerProviderList = () => {
       {isLoading && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="bg-background-primary">
+            <Card key={i} className="bg-background-secondary border-0">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <Skeleton className="h-3 w-3 rounded-full" />
@@ -307,11 +282,13 @@ const MessengerProviderList = () => {
       )}
 
       {/* Empty State */}
-      {!isLoading && !error && instances.length === 0 && <InstanceBlankState />}
+      {!isLoading && !error && instances.length === 0 && (
+        <InstanceCreateBlankState onCreateInstance={handleCreateNew} />
+      )}
 
       {/* Instances List */}
       {!isLoading && !error && instances.length > 0 && (
-        <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 space-y-3 overflow-y-auto pr-1 transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
+        <div className="[&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-background-secondary flex-1 space-y-3 overflow-y-auto pb-[10px] pr-1 transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar]:w-1">
           <AnimatePresence>
             {instances.map(
               (instance: MessengerInstanceUnion, index: number) => (
@@ -321,11 +298,8 @@ const MessengerProviderList = () => {
                     `instance-${index}-${instance.provider}-${instance.user_id}`
                   }
                   instance={instance}
-                  onSelect={setSelectedInstance}
                   onEdit={handleEditInstance}
-                  isSelected={
-                    selectedInstance?.instance_id === instance.instance_id
-                  }
+                  isSelected={false}
                 />
               )
             )}

@@ -115,6 +115,35 @@ export type MessengerInstanceUnion =
   | SlackInstance
   | MessengerInstance
 
+// Real API response from Instance Manager has id field instead of instance_id
+export interface RealInstanceResponse
+  extends Omit<BaseMessengerInstance, 'instance_id'> {
+  id: string
+  port_api?: number
+  port_mcp?: number
+  api_key_generated_at?: string
+  last_qr_generated_at?: string
+  auth_status?: string
+  account?: string | null
+  whatsapp_state?: string | null
+  token?: string | null
+  memory_status?: string
+  is_ready_for_messages?: boolean
+  message_stats?: {
+    sent_count: number
+    received_count: number
+    daily_sent: number
+    daily_received: number
+    daily_reset_at: string
+  }
+  whatsapp_user?: {
+    phone_number: string
+    account: string
+    authenticated_at: string
+    last_seen_online: string
+  }
+}
+
 // Instance creation payloads
 export interface CreateWhatsAppWebInstancePayload {
   user_id: string
@@ -187,43 +216,141 @@ export interface CreateInstanceResponse {
   api_key?: string
 }
 
+export interface CreateInstanceResponseWithStatus
+  extends CreateInstanceResponse {
+  instanceFoundInList: boolean
+}
+
 export interface InstanceListResponse {
-  instances: MessengerInstanceUnion[]
+  success?: boolean
+  instances: RealInstanceResponse[]
   total: number
   page?: number
   limit?: number
 }
 
 export interface InstanceMemoryData {
+  success?: boolean
   data: {
+    instance_id: string
+    user_id: string
+    provider: string
+    type_instance: InstanceType[]
     status: string
-    port?: number
-    api_key?: string
     auth_status?: string
-    qr_code?: string
+    whatsapp_state?: string
+    api_key?: string
+    api_key_usage_count?: number
+    api_key_last_use?: string
+    api_key_first_use?: string
+    is_ready_for_messages?: boolean
+    last_seen?: string
+    whatsapp_user?: {
+      phone_number: string
+      account: string
+      authenticated_at: string
+      last_seen_online: string
+    }
+    message_stats?: {
+      sent_count: number
+      received_count: number
+      daily_sent: number
+      daily_received: number
+      daily_reset_at: string
+    }
+    system_info?: {
+      restart_count: number
+      health_check_count: number
+      consecutive_failures: number
+      uptime_start: string
+    }
+    error_info?: {
+      error_count: number
+      error_history: Array<{
+        error_id: string
+        error_type: string
+        error_message: string
+        timestamp: string
+      }>
+    }
+    created_at: string
+    updated_at: string
     [key: string]: unknown
   }
+  timestamp?: string
 }
 
 export interface InstanceStatsResponse {
-  total_instances: number
-  by_provider: Record<ProviderType, number>
-  by_status: Record<InstanceStatus, number>
-  active_instances: number
+  success?: boolean
+  stats: {
+    total_instances: number
+    active_instances: number
+    authenticated_instances: number
+    error_instances: number
+    qr_pending_instances: number
+    memory_usage_mb: number
+    avg_uptime_hours: number
+    total_messages_today: number
+  }
 }
 
 // Resource monitoring types
 export interface PortUsageResponse {
+  success?: boolean
   used_ports: number[]
   available_ports: number[]
-  total_ports: number
+  port_range: {
+    start: number
+    end: number
+  }
 }
 
 export interface SystemPerformanceResponse {
-  cpu_usage: number
-  memory_usage: number
-  disk_usage: number
-  uptime: number
+  success?: boolean
+  performance: {
+    portAssignmentTime: number[]
+    concurrentRequests: number
+    failureRate: number
+    averageResponseTime: number
+    peakConcurrency: number
+    lastResetTime: string
+  }
+  portAssignment: {
+    totalRequests: number
+    successfulRequests: number
+    failedRequests: number
+    averageTime: number
+    minTime: number
+    maxTime: number
+    concurrentPeak: number
+    currentConcurrent: number
+  }
+  systemHealth: {
+    status: string
+    issues: string[]
+    recommendations: string[]
+    portStatistics: {
+      totalPorts: number
+      usedPorts: number
+      availablePorts: number
+      reservedPorts: number
+      portRange: {
+        start: number
+        end: number
+      }
+      utilizationPercent: number
+      assignmentMetrics: {
+        totalRequests: number
+        successfulRequests: number
+        failedRequests: number
+        averageTime: number
+        minTime: number
+        maxTime: number
+        concurrentPeak: number
+        currentConcurrent: number
+      }
+    }
+  }
 }
 
 // Error types
@@ -301,9 +428,81 @@ export interface MessengerProviderActions {
   stopInstance: (instanceId: string) => Promise<void>
   restartInstance: (instanceId: string) => Promise<void>
   getInstanceMemory: (instanceId: string) => Promise<InstanceMemoryData>
-  getInstanceQR: (instanceId: string) => Promise<{ qr_code: string }>
+  getInstanceQR: (
+    instanceId: string
+  ) => Promise<{ qr_code: string; expires_in?: number; auth_status?: string }>
   clearInstanceErrors: (instanceId: string) => Promise<void>
   setSelectedInstance: (instance: MessengerInstanceUnion | null) => void
   setFilters: (filters: Partial<MessengerProviderState['filters']>) => void
   setError: (error: string | null) => void
+}
+
+// Chat and Messages types for Supabase
+export interface Message {
+  id: string
+  instance_id: string
+  message_id: string
+  chat_id: string | null
+  from_number: string | null
+  to_number: string | null
+  message_body: string | null
+  message_type: string
+  is_from_me: boolean
+  is_group: boolean
+  group_id: string | null
+  contact_name: string | null
+  timestamp: number | null
+  agent_id: string | null
+  created_at: string
+  updated_at: string
+  session_id: string | null
+  message_source: string
+}
+
+export interface Chat {
+  chat_id: string
+  instance_id: string
+  session_id: string | null
+  contact_name: string | null
+  from_number: string | null
+  is_group: boolean
+  group_id: string | null
+  last_message: string | null
+  last_message_timestamp: number | null
+  updated_at: string | null
+  unread_count: number
+  provider: ProviderType
+}
+
+// Message Instance from Supabase
+export interface MessageInstance {
+  id: string
+  user_id: string | null
+  provider: string
+  type_instance: string[]
+  port_api: number | null
+  port_mcp: number | null
+  api_key: string | null
+  api_key_generated_at: string | null
+  last_qr_generated_at: string | null
+  api_webhook_schema: Record<string, unknown> | null
+  mcp_schema: Record<string, unknown> | null
+  created_at: string | null
+  updated_at: string | null
+  auth_status: string | null
+  account: string | null
+  whatsapp_state: string | null
+  token: string | null
+  agno_config: {
+    enabled?: boolean
+    agent_id?: string
+    model?: string
+    stream?: boolean
+    agnoUrl?: string
+  } | null
+}
+
+export interface ChatListResponse {
+  chats: Chat[]
+  total: number
 }

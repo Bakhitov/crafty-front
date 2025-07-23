@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import Icon from '@/components/ui/icon'
-import { usePlaygroundStore } from '@/store'
+import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useQueryState } from 'nuqs'
+import { usePlaygroundStore } from '@/store'
 import useChatActions from '@/hooks/useChatActions'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -412,13 +412,12 @@ const AgentInfoSidebar = () => {
               )}
             </div>
 
-            {/* Chat Section - под описанием агента */}
             {isEndpointActive && agentId !== 'new' && (
               <div className="flex flex-grow flex-col overflow-hidden border-t border-zinc-700 pt-4">
                 {/* Header with New Chat Button */}
                 <div className="flex shrink-0 items-center justify-between pb-3">
                   <div className="text-primary text-xs font-medium uppercase">
-                    Chats
+                    Sessions
                   </div>
                   <Button
                     disabled={messages.length === 0}

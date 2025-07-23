@@ -5,23 +5,24 @@ import {
   MessengerProviderState,
   ProviderType,
   InstanceStatus,
+  InstanceType,
   CreateInstanceResponse,
-  InstanceMemoryData
+  CreateInstanceResponseWithStatus
 } from '@/types/messenger'
 import { messengerAPI } from '@/lib/messengerApi'
 
 type CreateInstancePayload =
-  | { provider: 'whatsappweb'; user_id: string; type_instance: string[] }
+  | { provider: 'whatsappweb'; user_id: string; type_instance: InstanceType[] }
   | {
       provider: 'telegram'
       user_id: string
-      type_instance: string[]
+      type_instance: InstanceType[]
       token: string
     }
   | {
       provider: 'whatsapp-official'
       user_id: string
-      type_instance: string[]
+      type_instance: InstanceType[]
       phone_number_id: string
       access_token: string
       webhook_verify_token: string
@@ -29,7 +30,7 @@ type CreateInstancePayload =
   | {
       provider: 'discord'
       user_id: string
-      type_instance: string[]
+      type_instance: InstanceType[]
       bot_token: string
       client_id: string
       guild_id?: string
@@ -37,7 +38,7 @@ type CreateInstancePayload =
   | {
       provider: 'slack'
       user_id: string
-      type_instance: string[]
+      type_instance: InstanceType[]
       bot_token: string
       app_token?: string
       signing_secret?: string
@@ -45,7 +46,7 @@ type CreateInstancePayload =
   | {
       provider: 'messenger'
       user_id: string
-      type_instance: string[]
+      type_instance: InstanceType[]
       page_access_token: string
       verify_token: string
       page_id: string
@@ -92,9 +93,18 @@ export function useMessengerProvider() {
         offset: (state.pagination.page - 1) * state.pagination.limit
       })
 
+      // Convert API response to internal format
+      const instances: MessengerInstanceUnion[] = response.instances.map(
+        (instance) => ({
+          ...instance,
+          instance_id: instance.id, // Map id to instance_id for compatibility
+          port: instance.port_api || instance.port_mcp // Use api port as primary
+        })
+      ) as MessengerInstanceUnion[]
+
       setState((prev) => ({
         ...prev,
-        instances: response.instances,
+        instances,
         pagination: {
           ...prev.pagination,
           total: response.total
@@ -109,15 +119,20 @@ export function useMessengerProvider() {
     }
   }, [state.filters, state.pagination.page, state.pagination.limit])
 
-  // Create instance
+  // Create instance with auto-close after 10 seconds
   const createInstance = useCallback(
     async (
       payload: CreateInstancePayload
-    ): Promise<CreateInstanceResponse | null> => {
+    ): Promise<CreateInstanceResponseWithStatus | null> => {
       setState((prev) => ({ ...prev, isCreating: true, error: null }))
 
       try {
         let response: CreateInstanceResponse
+
+        // Show initial creating toast
+        const creatingToastId = toast.loading(
+          `Создание ${payload.provider} инстанса...`
+        )
 
         // Route to appropriate creation method based on provider
         switch (payload.provider) {
@@ -141,16 +156,27 @@ export function useMessengerProvider() {
             response = await messengerAPI.createMessengerInstance(payload)
             break
           default:
-            throw new Error(`Unsupported provider: ${payload.provider}`)
+            throw new Error(
+              `Unsupported provider: ${(payload as { provider: string }).provider}`
+            )
         }
 
-        setState((prev) => ({ ...prev, isCreating: false }))
-        toast.success(`${payload.provider} instance created successfully!`)
+        // Show success message and auto-close after 10 seconds
+        toast.success(
+          `${payload.provider} инстанс создан! Окно закроется через 10 секунд...`,
+          {
+            id: creatingToastId,
+            duration: 10000
+          }
+        )
 
         // Refresh instances list
         await fetchInstances()
 
-        return response
+        setState((prev) => ({ ...prev, isCreating: false }))
+
+        // Return success with auto-close flag
+        return { ...response, instanceFoundInList: true }
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to create instance'
@@ -159,7 +185,7 @@ export function useMessengerProvider() {
           error: errorMessage,
           isCreating: false
         }))
-        toast.error(errorMessage)
+        toast.error(`Ошибка создания инстанса: ${errorMessage}`)
         return null
       }
     },
@@ -230,28 +256,14 @@ export function useMessengerProvider() {
     [fetchInstances]
   )
 
-  // Process instance (start docker container)
-  const processInstance = useCallback(
-    async (instanceId: string, options?: { force_recreate?: boolean }) => {
-      try {
-        await messengerAPI.processInstance(instanceId, options)
-        toast.success('Instance processed successfully!')
-        await fetchInstances()
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to process instance'
-        toast.error(errorMessage)
-      }
-    },
-    [fetchInstances]
-  )
-
   // Get instance memory data
   const getInstanceMemory = useCallback(
-    async (instanceId: string): Promise<InstanceMemoryData | null> => {
+    async (
+      instanceId: string
+    ): Promise<import('@/lib/messengerApi').MemoryResponse['data'] | null> => {
       try {
         const memoryData = await messengerAPI.getInstanceMemory(instanceId)
-        return memoryData
+        return memoryData.data
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to get instance memory'
@@ -264,7 +276,13 @@ export function useMessengerProvider() {
 
   // Get instance QR code
   const getInstanceQR = useCallback(
-    async (instanceId: string): Promise<{ qr_code: string } | null> => {
+    async (
+      instanceId: string
+    ): Promise<{
+      qr_code: string
+      expires_in?: number
+      auth_status?: string
+    } | null> => {
       try {
         const qrData = await messengerAPI.getInstanceQR(instanceId)
         return qrData
@@ -334,7 +352,7 @@ export function useMessengerProvider() {
     try {
       await messengerAPI.checkHealth()
       return true
-    } catch (err) {
+    } catch {
       return false
     }
   }, [])
@@ -343,7 +361,7 @@ export function useMessengerProvider() {
   useEffect(() => {
     fetchInstances()
     refreshStats()
-  }, [state.filters, state.pagination.page])
+  }, [state.filters, state.pagination.page, fetchInstances, refreshStats])
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -372,7 +390,6 @@ export function useMessengerProvider() {
     startInstance,
     stopInstance,
     restartInstance,
-    processInstance,
     getInstanceMemory,
     getInstanceQR,
     clearInstanceErrors,

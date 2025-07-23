@@ -13,8 +13,156 @@ import {
   CreateDiscordInstancePayload,
   CreateSlackInstancePayload,
   CreateMessengerInstancePayload,
-  ProviderType
+  ProviderType,
+  InstanceType as MessengerInstanceType
 } from '@/types/messenger'
+
+// New API response types
+export interface InstanceDetailsResponse {
+  success: boolean
+  instance: MessengerInstanceUnion & {
+    health?: {
+      healthy: boolean
+      services: {
+        api?: boolean
+        mcp?: boolean
+        docker?: boolean
+      }
+    }
+    containers?: Array<{
+      id: string
+      name: string
+      state: string
+      status: string
+      labels: Record<string, string>
+    }>
+    memory_data?: InstanceMemoryData
+  }
+}
+
+export interface StatusHistoryResponse {
+  success: boolean
+  data: Array<{
+    status: string
+    timestamp: string
+    source: string
+    message?: string
+  }>
+  count: number
+  limit: number
+}
+
+export interface QRHistoryResponse {
+  success: boolean
+  data: Array<{
+    qr_code: string
+    generated_at: string
+    expires_at: string
+    source: string
+  }>
+  count: number
+  limit: number
+}
+
+export interface APIKeyHistoryResponse {
+  success: boolean
+  data: Array<{
+    api_key: string
+    created_at: string
+    usage_count: number
+    last_used_at: string
+  }>
+  count: number
+  limit: number
+}
+
+export interface ActivityStatsResponse {
+  success: boolean
+  data: {
+    uptime_hours: number
+    messages_sent_today: number
+    messages_received_today: number
+    health_score: number
+  }
+}
+
+export interface ErrorsResponse {
+  success: boolean
+  data: Array<{
+    error: string
+    timestamp: string
+    source: string
+    stack?: string
+  }>
+  count: number
+  limit: number
+}
+
+export interface AuthStatusResponse {
+  success: boolean
+  auth_status: string
+  whatsapp_state?: string
+  phone_number?: string
+  account?: string
+  is_ready_for_messages: boolean
+  last_seen: string
+}
+
+export interface CredentialsResponse {
+  success: boolean
+  api_key: string
+  api_url: string
+}
+
+export interface MemoryResponse {
+  success: boolean
+  data: {
+    instance_id: string
+    user_id: string
+    provider: string
+    type_instance: MessengerInstanceType[]
+    status: string
+    auth_status?: string
+    whatsapp_state?: string
+    api_key?: string
+    api_key_usage_count?: number
+    api_key_last_use?: string
+    api_key_first_use?: string
+    is_ready_for_messages?: boolean
+    last_seen?: string
+    whatsapp_user?: {
+      phone_number: string
+      account: string
+      authenticated_at: string
+      last_seen_online: string
+    }
+    message_stats?: {
+      sent_count: number
+      received_count: number
+      daily_sent: number
+      daily_received: number
+      daily_reset_at: string
+    }
+    system_info?: {
+      restart_count: number
+      health_check_count: number
+      consecutive_failures: number
+      uptime_start: string
+    }
+    error_info?: {
+      error_count: number
+      error_history: Array<{
+        error_id: string
+        error_type: string
+        error_message: string
+        timestamp: string
+      }>
+    }
+    created_at: string
+    updated_at: string
+  }
+  timestamp: string
+}
 
 export class MessengerAPIClient {
   private baseUrl: string
@@ -109,7 +257,15 @@ export class MessengerAPIClient {
     return this.createInstance(payload)
   }
 
-  private async createInstance(payload: any): Promise<CreateInstanceResponse> {
+  private async createInstance(
+    payload:
+      | CreateWhatsAppWebInstancePayload
+      | CreateTelegramInstancePayload
+      | CreateWhatsAppOfficialInstancePayload
+      | CreateDiscordInstancePayload
+      | CreateSlackInstancePayload
+      | CreateMessengerInstancePayload
+  ): Promise<CreateInstanceResponse> {
     const response = await fetch(`${this.baseUrl}/instances`, {
       method: 'POST',
       headers: {
@@ -128,90 +284,9 @@ export class MessengerAPIClient {
     return response.json()
   }
 
-  async deleteInstance(instanceId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/instances/${instanceId}`, {
-      method: 'DELETE'
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to delete instance')
-    }
-  }
-
-  // Instance Control
-  async processInstance(
-    instanceId: string,
-    options?: { force_recreate?: boolean }
-  ): Promise<void> {
-    const response = await fetch(
-      `${this.baseUrl}/instances/${instanceId}/process`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(options || {})
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error('Failed to process instance')
-    }
-  }
-
-  async startInstance(instanceId: string): Promise<void> {
-    const response = await fetch(
-      `${this.baseUrl}/instances/${instanceId}/start`,
-      {
-        method: 'POST'
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error('Failed to start instance')
-    }
-  }
-
-  async stopInstance(instanceId: string): Promise<void> {
-    const response = await fetch(
-      `${this.baseUrl}/instances/${instanceId}/stop`,
-      {
-        method: 'POST'
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error('Failed to stop instance')
-    }
-  }
-
-  async restartInstance(instanceId: string): Promise<void> {
-    const response = await fetch(
-      `${this.baseUrl}/instances/${instanceId}/restart`,
-      {
-        method: 'POST'
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error('Failed to restart instance')
-    }
-  }
-
-  // Instance Data
-  async getInstanceMemory(instanceId: string): Promise<InstanceMemoryData> {
-    const response = await fetch(
-      `${this.baseUrl}/instances/${instanceId}/memory`
-    )
-
-    if (!response.ok) {
-      throw new Error('Failed to get instance memory data')
-    }
-
-    return response.json()
-  }
-
-  async getInstanceQR(instanceId: string): Promise<{ qr_code: string }> {
+  async getInstanceQR(
+    instanceId: string
+  ): Promise<{ qr_code: string; expires_in?: number; auth_status?: string }> {
     const response = await fetch(`${this.baseUrl}/instances/${instanceId}/qr`)
 
     if (!response.ok) {
@@ -288,12 +363,70 @@ export class MessengerAPIClient {
     }
   }
 
+  // Instance management methods
+  async startInstance(instanceId: string): Promise<{ message: string }> {
+    const response = await fetch(
+      `${this.baseUrl}/instances/${instanceId}/start`,
+      {
+        method: 'POST'
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to start instance')
+    }
+
+    return response.json()
+  }
+
+  async stopInstance(instanceId: string): Promise<{ message: string }> {
+    const response = await fetch(
+      `${this.baseUrl}/instances/${instanceId}/stop`,
+      {
+        method: 'POST'
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to stop instance')
+    }
+
+    return response.json()
+  }
+
+  async restartInstance(instanceId: string): Promise<{ message: string }> {
+    const response = await fetch(
+      `${this.baseUrl}/instances/${instanceId}/restart`,
+      {
+        method: 'POST'
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to restart instance')
+    }
+
+    return response.json()
+  }
+
+  async deleteInstance(instanceId: string): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseUrl}/instances/${instanceId}`, {
+      method: 'DELETE'
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to delete instance')
+    }
+
+    return response.json()
+  }
+
   async getInstanceLogs(
     instanceId: string,
-    tail?: number
-  ): Promise<{ logs: string[] }> {
+    options?: { tail?: number }
+  ): Promise<{ logs: string | Record<string, string> }> {
     const params = new URLSearchParams()
-    if (tail) params.append('tail', tail.toString())
+    if (options?.tail) params.append('tail', options.tail.toString())
 
     const url = `${this.baseUrl}/instances/${instanceId}/logs${params.toString() ? `?${params.toString()}` : ''}`
     const response = await fetch(url)
@@ -305,7 +438,248 @@ export class MessengerAPIClient {
     return response.json()
   }
 
-  // Statistics and Monitoring
+  // System Resources
+  async getSystemPerformance(): Promise<SystemPerformanceResponse> {
+    const response = await fetch(`${this.baseUrl}/resources/performance`)
+
+    if (!response.ok) {
+      throw new Error('Failed to get system performance')
+    }
+
+    return response.json()
+  }
+
+  async getPortUsage(): Promise<PortUsageResponse> {
+    const response = await fetch(`${this.baseUrl}/resources/ports`)
+
+    if (!response.ok) {
+      throw new Error('Failed to get port usage')
+    }
+
+    return response.json()
+  }
+
+  async clearPortsCache(): Promise<void> {
+    const response = await fetch(
+      `${this.baseUrl}/resources/ports/clear-cache`,
+      {
+        method: 'POST'
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to clear ports cache')
+    }
+  }
+
+  // Extended Instance Management Methods
+
+  /**
+   * Get detailed instance information including health, containers, and memory data
+   */
+  async getInstanceDetails(
+    instanceId: string
+  ): Promise<InstanceDetailsResponse> {
+    const response = await fetch(`${this.baseUrl}/instances/${instanceId}`)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch instance details')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get instance memory data
+   */
+  async getInstanceMemory(instanceId: string): Promise<MemoryResponse> {
+    const response = await fetch(
+      `${this.baseUrl}/instances/${instanceId}/memory`
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch instance memory data')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get instance status history
+   */
+  async getInstanceStatusHistory(
+    instanceId: string,
+    limit?: number
+  ): Promise<StatusHistoryResponse> {
+    const params = new URLSearchParams()
+    if (limit) params.append('limit', limit.toString())
+
+    const url = `${this.baseUrl}/instances/${instanceId}/status-history${params.toString() ? `?${params.toString()}` : ''}`
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch status history')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get QR code history for WhatsApp instances
+   */
+  async getInstanceQRHistory(
+    instanceId: string,
+    limit?: number
+  ): Promise<QRHistoryResponse> {
+    const params = new URLSearchParams()
+    if (limit) params.append('limit', limit.toString())
+
+    const url = `${this.baseUrl}/instances/${instanceId}/qr-history${params.toString() ? `?${params.toString()}` : ''}`
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch QR history')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get API key history
+   */
+  async getInstanceAPIKeyHistory(
+    instanceId: string,
+    limit?: number
+  ): Promise<APIKeyHistoryResponse> {
+    const params = new URLSearchParams()
+    if (limit) params.append('limit', limit.toString())
+
+    const url = `${this.baseUrl}/instances/${instanceId}/api-key-history${params.toString() ? `?${params.toString()}` : ''}`
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch API key history')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get instance activity statistics
+   */
+  async getInstanceActivityStats(
+    instanceId: string
+  ): Promise<ActivityStatsResponse> {
+    const response = await fetch(
+      `${this.baseUrl}/instances/${instanceId}/activity-stats`
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch activity stats')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get instance errors (extended version)
+   */
+  async getInstanceErrorsExtended(
+    instanceId: string,
+    limit?: number
+  ): Promise<ErrorsResponse> {
+    const params = new URLSearchParams()
+    if (limit) params.append('limit', limit.toString())
+
+    const url = `${this.baseUrl}/instances/${instanceId}/errors${params.toString() ? `?${params.toString()}` : ''}`
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch instance errors')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Clear instance errors (extended version)
+   */
+  async clearInstanceErrorsExtended(
+    instanceId: string
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(
+      `${this.baseUrl}/instances/${instanceId}/clear-errors`,
+      {
+        method: 'POST'
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to clear instance errors')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Process instance (create Docker containers)
+   */
+  async processInstance(
+    instanceId: string,
+    options?: Record<string, unknown>
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(
+      `${this.baseUrl}/instances/${instanceId}/process`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(options || {})
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to process instance')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get authentication status (extended)
+   */
+  async getInstanceAuthStatusExtended(
+    instanceId: string
+  ): Promise<AuthStatusResponse> {
+    const response = await fetch(
+      `${this.baseUrl}/instances/${instanceId}/auth-status`
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to get auth status')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get instance credentials
+   */
+  async getInstanceCredentials(
+    instanceId: string
+  ): Promise<CredentialsResponse> {
+    const response = await fetch(
+      `${this.baseUrl}/instances/${instanceId}/credentials`
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to get instance credentials')
+    }
+
+    return response.json()
+  }
+
   async getInstanceStats(): Promise<InstanceStatsResponse> {
     const response = await fetch(`${this.baseUrl}/instances/memory/stats`)
 
@@ -316,7 +690,8 @@ export class MessengerAPIClient {
     return response.json()
   }
 
-  async getSystemResources(): Promise<{
+  // Statistics and Monitoring
+  async getSystemPortsAndPerformance(): Promise<{
     ports: PortUsageResponse
     performance: SystemPerformanceResponse
   }> {
@@ -337,17 +712,89 @@ export class MessengerAPIClient {
     return { ports, performance }
   }
 
-  async clearPortsCache(): Promise<void> {
-    const response = await fetch(
-      `${this.baseUrl}/resources/ports/clear-cache`,
-      {
-        method: 'POST'
-      }
-    )
+  /**
+   * Get general system resources
+   */
+  async getSystemResources(): Promise<{
+    success: boolean
+    server: {
+      cpu_usage: string
+      memory_usage: string
+      disk_usage: string
+      uptime: string
+    }
+    docker: {
+      total_containers: number
+      running_containers: number
+      stopped_containers: number
+    }
+    instances: {
+      total: number
+      running: number
+      stopped: number
+    }
+  }> {
+    const response = await fetch(`${this.baseUrl}/resources`)
 
     if (!response.ok) {
-      throw new Error('Failed to clear ports cache')
+      throw new Error('Failed to get system resources')
     }
+
+    return response.json()
+  }
+
+  /**
+   * Get system health status
+   */
+  async getSystemHealth(): Promise<{
+    success: boolean
+    status: string
+    issues: string[]
+    recommendations: string[]
+    portStatistics: {
+      totalPorts: number
+      usedPorts: number
+      availablePorts: number
+      reservedPorts: number
+      portRange: {
+        start: number
+        end: number
+      }
+      utilizationPercent: number
+      assignmentMetrics: {
+        totalRequests: number
+        successfulRequests: number
+        failedRequests: number
+        averageTime: number
+        minTime: number
+        maxTime: number
+        concurrentPeak: number
+        currentConcurrent: number
+      }
+    }
+  }> {
+    const response = await fetch(`${this.baseUrl}/resources/health`)
+
+    if (!response.ok) {
+      throw new Error('Failed to get system health')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get resources instances overview
+   */
+  async getResourcesInstancesOverview(): Promise<{
+    instances: MessengerInstanceUnion[]
+  }> {
+    const response = await fetch(`${this.baseUrl}/resources/instances`)
+
+    if (!response.ok) {
+      throw new Error('Failed to get resources instances overview')
+    }
+
+    return response.json()
   }
 
   // Multi-Provider API
@@ -363,7 +810,9 @@ export class MessengerAPIClient {
     return response.json()
   }
 
-  async getMultiProviderStats(): Promise<{ stats: Record<ProviderType, any> }> {
+  async getMultiProviderStats(): Promise<{
+    stats: Record<ProviderType, Record<string, unknown>>
+  }> {
     const response = await fetch(`${this.baseUrl}/multi-provider/stats`)
 
     if (!response.ok) {
@@ -373,14 +822,8 @@ export class MessengerAPIClient {
     return response.json()
   }
 
-  async getMultiProviderInstances(
-    provider?: ProviderType
-  ): Promise<InstanceListResponse> {
-    const params = new URLSearchParams()
-    if (provider) params.append('provider', provider)
-
-    const url = `${this.baseUrl}/multi-provider/instances${params.toString() ? `?${params.toString()}` : ''}`
-    const response = await fetch(url)
+  async getMultiProviderInstances(): Promise<InstanceListResponse> {
+    const response = await fetch(`${this.baseUrl}/multi-provider/instances`)
 
     if (!response.ok) {
       throw new Error('Failed to get multi-provider instances')
@@ -423,18 +866,46 @@ export class MessengerAPIClient {
     return response.json()
   }
 
-  // Utility methods
-  getInstanceManagerUrl(): string {
-    return this.instanceManagerUrl
-  }
+  // Send Telegram message with advanced formatting
+  async sendTelegramMessage(
+    port: number,
+    botToken: string,
+    payload: {
+      chatId: string
+      message: string
+      parseMode?: 'Markdown' | 'HTML'
+      disableWebPagePreview?: boolean
+      disableNotification?: boolean
+    }
+  ): Promise<{ success: boolean; message_id?: string }> {
+    const response = await fetch(
+      `http://localhost:${port}/api/v1/telegram/send-telegram-message`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${botToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          chatId: payload.chatId,
+          message: payload.message,
+          parseMode: payload.parseMode || 'Markdown',
+          disableWebPagePreview: payload.disableWebPagePreview || false,
+          disableNotification: payload.disableNotification || false
+        })
+      }
+    )
 
-  setInstanceManagerUrl(url: string): void {
-    this.instanceManagerUrl = url
-    this.baseUrl = `${url}/api/v1`
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.message || 'Failed to send Telegram message')
+    }
+
+    return response.json()
   }
 }
 
-// Default instance
+// Create singleton instance
 export const messengerAPI = new MessengerAPIClient()
 
 // Provider configurations for UI
@@ -569,7 +1040,7 @@ export const PROVIDER_CONFIGS = {
   slack: {
     id: 'slack' as ProviderType,
     name: 'Slack',
-    description: 'Slack App integration',
+    description: 'Slack Bot integration',
     icon: 'slack',
     color: '#4A154B',
     requiresAuth: true,

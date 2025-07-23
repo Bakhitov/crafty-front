@@ -26,6 +26,11 @@ export default {
         geist: 'var(--font-geist-sans)',
         dmmono: 'var(--font-dm-mono)'
       },
+      fontSize: {
+        xxs: ['0.625rem', { lineHeight: '0.75rem' }], // 10px
+        tiny: ['0.6875rem', { lineHeight: '0.875rem' }], // 11px
+        micro: ['0.5rem', { lineHeight: '0.625rem' }] // 8px
+      },
       borderRadius: {
         xl: '10px'
       }

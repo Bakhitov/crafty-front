@@ -506,95 +506,45 @@ export default function LandingPage() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto mb-16 max-w-4xl text-center">
               <Heading size={2} className="text-primary mb-4 text-center">
-                Интеграция со всеми популярными мессенджерами
+                Интеграция с основными каналами связи
               </Heading>
               <Paragraph size="lead" className="text-muted mb-8">
-                Подключите Crafty к любому мессенджеру и начните получать
-                запросы клиентов прямо сейчас
+                Подключите Crafty к разным каналам коммуникации и начните
+                получать запросы клиентов прямо сейчас
               </Paragraph>
             </div>
 
             <div className="grid items-center gap-8 lg:grid-cols-2">
               {/* Левая часть - описание и иконки мессенджеров */}
               <div className="space-y-6">
-                <div className="grid grid-cols-4 gap-4">
-                  {/* Telegram */}
+                <div className="grid grid-cols-3 gap-4">
+                  {/* Email */}
                   <div className="bg-accent/10 border-primary/15 rounded-xl border p-4 text-center">
-                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#0088cc]">
-                      <span className="text-lg font-bold text-white">T</span>
+                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#0077CC]">
+                      <span className="text-lg font-bold text-white">@</span>
                     </div>
                     <Paragraph size="xsmall" className="text-muted">
-                      Telegram
+                      Email
                     </Paragraph>
                   </div>
 
-                  {/* WhatsApp */}
+                  {/* SMS */}
                   <div className="bg-accent/10 border-primary/15 rounded-xl border p-4 text-center">
-                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#25D366]">
-                      <span className="text-lg font-bold text-white">W</span>
+                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#28A745]">
+                      <span className="text-lg font-bold text-white">SMS</span>
                     </div>
                     <Paragraph size="xsmall" className="text-muted">
-                      WhatsApp
+                      SMS
                     </Paragraph>
                   </div>
 
-                  {/* Discord */}
+                  {/* Web Chat */}
                   <div className="bg-accent/10 border-primary/15 rounded-xl border p-4 text-center">
-                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#5865F2]">
-                      <span className="text-lg font-bold text-white">D</span>
+                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#6366F1]">
+                      <span className="text-lg font-bold text-white">💬</span>
                     </div>
                     <Paragraph size="xsmall" className="text-muted">
-                      Discord
-                    </Paragraph>
-                  </div>
-
-                  {/* Slack */}
-                  <div className="bg-accent/10 border-primary/15 rounded-xl border p-4 text-center">
-                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4A154B]">
-                      <span className="text-lg font-bold text-white">S</span>
-                    </div>
-                    <Paragraph size="xsmall" className="text-muted">
-                      Slack
-                    </Paragraph>
-                  </div>
-
-                  {/* Viber */}
-                  <div className="bg-accent/10 border-primary/15 rounded-xl border p-4 text-center">
-                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#665CAC]">
-                      <span className="text-lg font-bold text-white">V</span>
-                    </div>
-                    <Paragraph size="xsmall" className="text-muted">
-                      Viber
-                    </Paragraph>
-                  </div>
-
-                  {/* VK */}
-                  <div className="bg-accent/10 border-primary/15 rounded-xl border p-4 text-center">
-                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#0077FF]">
-                      <span className="text-lg font-bold text-white">VK</span>
-                    </div>
-                    <Paragraph size="xsmall" className="text-muted">
-                      VKontakte
-                    </Paragraph>
-                  </div>
-
-                  {/* Facebook Messenger */}
-                  <div className="bg-accent/10 border-primary/15 rounded-xl border p-4 text-center">
-                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#00B2FF]">
-                      <span className="text-lg font-bold text-white">M</span>
-                    </div>
-                    <Paragraph size="xsmall" className="text-muted">
-                      Messenger
-                    </Paragraph>
-                  </div>
-
-                  {/* Instagram */}
-                  <div className="bg-accent/10 border-primary/15 rounded-xl border p-4 text-center">
-                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045]">
-                      <span className="text-lg font-bold text-white">I</span>
-                    </div>
-                    <Paragraph size="xsmall" className="text-muted">
-                      Instagram
+                      Web Chat
                     </Paragraph>
                   </div>
                 </div>
@@ -637,46 +587,46 @@ export default function LandingPage() {
                     <div className="h-[336px] overflow-hidden">
                       <AnimatedList delay={1500}>
                         <MessageItem
-                          platform="Telegram"
+                          platform="Email"
                           message="Здравствуйте! Как оформить заказ на доставку?"
                           user="Анна К."
                           time="сейчас"
-                          platformColor="#0088cc"
+                          platformColor="#0077CC"
                         />
                         <MessageItem
-                          platform="WhatsApp"
+                          platform="SMS"
                           message="Добрый день! Можно узнать стоимость услуги?"
                           user="Михаил И."
                           time="1 мин назад"
-                          platformColor="#25D366"
+                          platformColor="#28A745"
                         />
                         <MessageItem
-                          platform="Discord"
+                          platform="Web Chat"
                           message="Привет! Есть ли скидки для студентов?"
                           user="student_alex"
                           time="2 мин назад"
-                          platformColor="#5865F2"
+                          platformColor="#6366F1"
                         />
                         <MessageItem
-                          platform="Viber"
+                          platform="Email"
                           message="Подскажите режим работы службы поддержки"
                           user="Елена С."
                           time="3 мин назад"
-                          platformColor="#665CAC"
+                          platformColor="#0077CC"
                         />
                         <MessageItem
-                          platform="VKontakte"
+                          platform="SMS"
                           message="Как отменить заказ?"
                           user="Дмитрий В."
                           time="4 мин назад"
-                          platformColor="#0077FF"
+                          platformColor="#28A745"
                         />
                         <MessageItem
-                          platform="Messenger"
+                          platform="Web Chat"
                           message="Спасибо за быстрый ответ! Очень помогли 👍"
                           user="Maria L."
                           time="5 мин назад"
-                          platformColor="#00B2FF"
+                          platformColor="#6366F1"
                         />
                       </AnimatedList>
                     </div>
