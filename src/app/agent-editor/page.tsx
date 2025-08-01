@@ -14,9 +14,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Play, Info } from 'lucide-react'
 import Link from 'next/link'
 import Icon from '@/components/ui/icon'
 import { IconType } from '@/components/ui/icon/types'
@@ -161,7 +159,7 @@ export default function AgentEditor() {
   const [enableAgenticMemory, setEnableAgenticMemory] = useState(true)
   const [enableUserMemories, setEnableUserMemories] = useState(true)
   const [addMemoryReferences, setAddMemoryReferences] = useState(true)
-  const [memorySchema, setMemorySchema] = useState('ai')
+  const [memorySchema, setMemorySchema] = useState('public')
   const [memoryDbUrl, setMemoryDbUrl] = useState('')
 
   // Storage Configuration
@@ -169,7 +167,7 @@ export default function AgentEditor() {
   const [storageType, setStorageType] = useState('postgres')
   const [storageDbUrl, setStorageDbUrl] = useState('')
   const [storageTableName, setStorageTableName] = useState('agent_sessions')
-  const [storageSchema, setStorageSchema] = useState('ai')
+  const [storageSchema, setStorageSchema] = useState('public')
 
   // Knowledge Configuration
   const [addReferences, setAddReferences] = useState(true)
@@ -259,14 +257,6 @@ export default function AgentEditor() {
             </div>
             <div className="flex items-center space-x-3">
               <Button
-                variant="outline"
-                size="sm"
-                className="border-primary/15 text-xs uppercase"
-              >
-                <Play className="mr-2 h-3 w-3" />
-                Test Agent
-              </Button>
-              <Button
                 size="sm"
                 className="bg-primary text-background hover:bg-primary/80 text-xs uppercase"
               >
@@ -279,10 +269,10 @@ export default function AgentEditor() {
       </motion.header>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="w-full">
           {/* Main Content */}
           <motion.div
-            className="space-y-6 lg:col-span-2"
+            className="space-y-6"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
@@ -699,7 +689,7 @@ export default function AgentEditor() {
                     {renderFormField(
                       'Memory Schema',
                       <Input
-                        placeholder="ai"
+                        placeholder="public"
                         value={memorySchema}
                         onChange={(e) => setMemorySchema(e.target.value)}
                         className="font-dmmono border-zinc-700 bg-zinc-900 text-xs"
@@ -1095,125 +1085,6 @@ export default function AgentEditor() {
                     )}
                   </motion.div>
                 )}
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Sidebar */}
-          <motion.div
-            className="space-y-6"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-          >
-            <div className="bg-background-secondary/30 border-accent/20 rounded-xl border p-6">
-              <div className="space-y-4">
-                <div className="space-y-3 text-center">
-                  <Icon
-                    type="agent"
-                    size="md"
-                    className="text-primary mx-auto"
-                  />
-                  <h3 className="text-primary font-dmmono text-sm font-bold uppercase tracking-wider">
-                    {agentName || 'Untitled Agent'}
-                  </h3>
-                  <p className="text-muted text-xs">
-                    {agentDescription || 'No description provided'}
-                  </p>
-                  {agentId && (
-                    <p className="text-muted font-dmmono text-center text-xs">
-                      ID: {agentId}
-                    </p>
-                  )}
-                </div>
-
-                <Separator className="bg-zinc-700" />
-
-                <div className="space-y-3 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted font-dmmono uppercase">
-                      Provider:
-                    </span>
-                    <span className="text-primary">
-                      {selectedProvider || 'Not selected'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted font-dmmono uppercase">
-                      Model:
-                    </span>
-                    <span className="text-primary">
-                      {selectedModel || 'Not selected'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted font-dmmono uppercase">
-                      Tools:
-                    </span>
-                    <span className="text-primary">
-                      {dynamicTools.length} enabled
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted font-dmmono uppercase">
-                      Memory:
-                    </span>
-                    <span className="text-primary">
-                      {enableAgenticMemory ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted font-dmmono uppercase">
-                      Storage:
-                    </span>
-                    <span className="text-primary">
-                      {storageEnabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                </div>
-
-                {dynamicTools.length > 0 && (
-                  <>
-                    <Separator className="bg-zinc-700" />
-                    <div>
-                      <p className="text-primary font-dmmono mb-2 text-xs font-semibold uppercase">
-                        Enabled Tools:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {dynamicTools.map((toolId) => {
-                          const tool = availableTools.find(
-                            (t) => t.id === toolId
-                          )
-                          return (
-                            <Badge
-                              key={toolId}
-                              variant="secondary"
-                              className="font-dmmono text-xs"
-                            >
-                              {tool?.name}
-                            </Badge>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-background-secondary/30 border-accent/20 rounded-xl border p-6">
-              <div className="mb-3 flex items-center">
-                <Info className="text-primary mr-2 h-4 w-4" />
-                <h4 className="text-primary font-dmmono text-xs font-semibold uppercase">
-                  Configuration Tips
-                </h4>
-              </div>
-              <div className="text-muted space-y-2 text-xs">
-                <p>• Start with basic info and model configuration</p>
-                <p>• Enable memory for conversation continuity</p>
-                <p>• Use reasoning mode for complex tasks</p>
-                <p>• Configure team settings for multi-agent workflows</p>
-                <p>• Test thoroughly before deploying</p>
               </div>
             </div>
           </motion.div>

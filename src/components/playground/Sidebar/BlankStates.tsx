@@ -53,7 +53,7 @@ export const AgentBlankState = ({
   <BlankState
     icon="agent"
     title="No agents"
-    description="Create your first agent to start working with AI. Agents help automate tasks and answer questions."
+    description="Create your first agent to start working. Agents help automate tasks and answer questions."
     actionButton={{
       text: 'Create Agent',
       onClick: onCreateAgent
@@ -61,19 +61,11 @@ export const AgentBlankState = ({
   />
 )
 
-export const ToolBlankState = ({
-  onCreateTool
-}: {
-  onCreateTool: () => void
-}) => (
+export const ToolBlankState = () => (
   <BlankState
     icon="hammer"
     title="No tools"
     description="Create your first tool to extend agent capabilities. Tools help agents perform special tasks."
-    actionButton={{
-      text: 'Create Tool',
-      onClick: onCreateTool
-    }}
   />
 )
 
@@ -85,19 +77,11 @@ export const ChatSelectBlankState = () => (
   />
 )
 
-export const ChatCreateBlankState = ({
-  onCreateInstance
-}: {
-  onCreateInstance: () => void
-}) => (
+export const ChatCreateBlankState = () => (
   <BlankState
     icon="message-circle"
     title="No chats"
     description="To display chats, you need to create a messenger instance. Chats will appear after receiving messages."
-    actionButton={{
-      text: 'Create Instance',
-      onClick: onCreateInstance
-    }}
   />
 )
 
@@ -109,19 +93,11 @@ export const InstanceSelectBlankState = () => (
   />
 )
 
-export const InstanceCreateBlankState = ({
-  onCreateInstance
-}: {
-  onCreateInstance: () => void
-}) => (
+export const InstanceCreateBlankState = () => (
   <BlankState
     icon="link"
     title="No instances"
     description="A messenger instance is a connection to WhatsApp, Telegram, or another messenger. Create your first instance to work with chats."
-    actionButton={{
-      text: 'Create Instance',
-      onClick: onCreateInstance
-    }}
   />
 )
 

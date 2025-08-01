@@ -20,6 +20,66 @@ const MessengerMessageArea = ({
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // Обработчики realtime событий
+  const handleNewMessage = useCallback(
+    (payload: { new: Message }) => {
+      console.log('New message received:', payload.new)
+      const newMessage = payload.new as Message
+
+      // Проверяем, что сообщение для нашего инстанса
+      if (newMessage.instance_id === instanceId) {
+        setMessages((prevMessages) => {
+          // Проверяем, не существует ли уже такое сообщение
+          const messageExists = prevMessages.some(
+            (msg) => msg.id === newMessage.id
+          )
+          if (messageExists) {
+            return prevMessages
+          }
+
+          // Добавляем новое сообщение в правильном порядке по timestamp
+          const updatedMessages = [...prevMessages, newMessage]
+          return updatedMessages.sort(
+            (a, b) => (a.timestamp || 0) - (b.timestamp || 0)
+          )
+        })
+      }
+    },
+    [instanceId]
+  )
+
+  const handleUpdateMessage = useCallback(
+    (payload: { new: Message }) => {
+      console.log('Message updated:', payload.new)
+      const updatedMessage = payload.new as Message
+
+      // Проверяем, что сообщение для нашего инстанса
+      if (updatedMessage.instance_id === instanceId) {
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === updatedMessage.id ? updatedMessage : msg
+          )
+        )
+      }
+    },
+    [instanceId]
+  )
+
+  const handleDeleteMessage = useCallback(
+    (payload: { old: Message }) => {
+      console.log('Message deleted:', payload.old)
+      const deletedMessage = payload.old as Message
+
+      // Проверяем, что сообщение для нашего инстанса
+      if (deletedMessage.instance_id === instanceId) {
+        setMessages((prevMessages) =>
+          prevMessages.filter((msg) => msg.id !== deletedMessage.id)
+        )
+      }
+    },
+    [instanceId]
+  )
+
   const fetchMessages = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -52,28 +112,52 @@ const MessengerMessageArea = ({
     fetchMessages()
   }, [fetchMessages])
 
-  // Подписываемся на изменения в сообщениях для этого чата
+  // Подписываемся на изменения в сообщениях для этого чата с бесшовными обновлениями
   useEffect(() => {
     const subscription = supabase
       .channel(`messages_${chatId}_${instanceId}`)
       .on(
-        'postgres_changes',
+        'postgres_changes' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'messages',
           filter: `chat_id=eq.${chatId}`
         },
-        () => {
-          fetchMessages()
-        }
+        handleNewMessage
+      )
+      .on(
+        'postgres_changes' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`
+        },
+        handleUpdateMessage
+      )
+      .on(
+        'postgres_changes' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`
+        },
+        handleDeleteMessage
       )
       .subscribe()
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [chatId, instanceId, fetchMessages])
+  }, [
+    chatId,
+    instanceId,
+    handleNewMessage,
+    handleUpdateMessage,
+    handleDeleteMessage
+  ])
 
   return (
     <StickToBottom

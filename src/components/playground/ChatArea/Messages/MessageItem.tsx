@@ -14,6 +14,7 @@ interface MessageProps {
 
 const AgentMessage = ({ message }: MessageProps) => {
   const { streamingErrorMessage } = usePlaygroundStore()
+
   let messageContent
   if (message.streamingError) {
     messageContent = (
@@ -42,74 +43,79 @@ const AgentMessage = ({ message }: MessageProps) => {
       </div>
     )
   } else if (message.response_audio) {
-    if (!message.response_audio.transcript) {
+    // Обработка как старого формата (ResponseAudio), так и нового (string)
+    if (typeof message.response_audio === 'string') {
       messageContent = (
-        <div className="mt-2 flex items-start">
-          <AgentThinkingLoader />
+        <div className="flex w-full flex-col gap-4">
+          <MarkdownRenderer>{message.response_audio}</MarkdownRenderer>
         </div>
       )
     } else {
       messageContent = (
         <div className="flex w-full flex-col gap-4">
           <MarkdownRenderer>
-            {message.response_audio.transcript}
+            {message.response_audio.content || ''}
           </MarkdownRenderer>
-          {message.response_audio.content && message.response_audio && (
-            <Audios audio={[message.response_audio]} />
-          )}
         </div>
       )
     }
   } else {
-    messageContent = (
-      <div className="mt-2">
-        <AgentThinkingLoader />
-      </div>
-    )
+    messageContent = <AgentThinkingLoader />
   }
 
   return (
-    <div className="font-geist flex flex-row items-start gap-4">
-      <div className="border-accent flex-shrink-0 rounded-lg border">
+    <div className="flex gap-4 py-4 first:pt-6">
+      <div className="bg-background flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow">
         <Icon type="agent" size="sm" />
       </div>
-      {messageContent}
+      <div className="flex-1 space-y-2 overflow-hidden">{messageContent}</div>
     </div>
   )
 }
 
-const UserMessage = memo(({ message }: MessageProps) => {
+const UserMessage = ({ message }: MessageProps) => {
   return (
-    <div className="flex items-start justify-end pt-4 text-start max-md:break-words">
-      <div className="flex max-w-[80%] flex-row-reverse gap-x-3">
-        <p className="text-muted flex items-center text-sm font-medium">
-          <Icon
-            type="user"
-            size="sm"
-            className="border-accent rounded-lg border"
-          />
-        </p>
-        <div className="bg-accent/60 font-geist text-secondary rounded-lg px-4 py-3 font-bold">
-          <MarkdownRenderer inline>{message.content}</MarkdownRenderer>
-          {message.files && message.files.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {message.files.map((file, index) => (
-                <div
-                  key={index}
-                  className="bg-primary/10 text-primary flex items-center gap-2 rounded-lg px-2 py-1"
-                >
-                  <Icon type="paperclip" size="xs" />
-                  <span className="text-xs font-medium">{file}</span>
-                </div>
-              ))}
+    <div className="flex flex-row-reverse gap-4 py-4 first:pt-6">
+      <div className="bg-background text-primary-foreground flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow">
+        <Icon type="user" size="sm" />
+      </div>
+      <div className="flex-1 space-y-2 overflow-hidden">
+        <div className="flex w-full flex-col gap-4">
+          <div className="ml-auto max-w-[80%]">
+            <div className="bg-primary text-primary-foreground rounded-lg">
+              <MarkdownRenderer>{message.content}</MarkdownRenderer>
+            </div>
+          </div>
+          {message.videos && message.videos.length > 0 && (
+            <div className="ml-auto max-w-[80%]">
+              <Videos videos={message.videos} />
+            </div>
+          )}
+          {message.images && message.images.length > 0 && (
+            <div className="ml-auto max-w-[80%]">
+              <Images images={message.images} />
+            </div>
+          )}
+          {message.audio && message.audio.length > 0 && (
+            <div className="ml-auto max-w-[80%]">
+              <Audios audio={message.audio} />
             </div>
           )}
         </div>
       </div>
     </div>
   )
+}
+
+const MessageItem = memo(({ message }: MessageProps) => {
+  if (message.role === 'user') {
+    return <UserMessage message={message} />
+  }
+
+  return <AgentMessage message={message} />
 })
 
-AgentMessage.displayName = 'AgentMessage'
-UserMessage.displayName = 'UserMessage'
+MessageItem.displayName = 'MessageItem'
+
+export default MessageItem
 export { AgentMessage, UserMessage }

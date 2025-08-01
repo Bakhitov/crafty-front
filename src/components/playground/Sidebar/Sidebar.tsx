@@ -14,19 +14,199 @@ import { useAuthContext } from '@/components/AuthProvider'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import AgentsList from './AgentsList'
 import ToolsList from './ToolsList'
-import ChatsList from './ChatsList'
-import { MessengerProviderList } from '@/components/playground/MessengerProvider'
+import TabChatsList from './TabChatsList'
 import { useTheme } from '@/components/ThemeProvider'
 import { Sun, Moon } from 'lucide-react'
 import { messengerAPI } from '@/lib/messengerApi'
 import { MessengerInstanceUnion } from '@/types/messenger'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const ENDPOINT_PLACEHOLDER = 'NO ENDPOINT ADDED'
+
+// Компонент для модального окна настроек сервера
+const ServerModal = ({
+  isOpen,
+  onClose
+}: {
+  isOpen: boolean
+  onClose: () => void
+}) => {
+  const {
+    selectedEndpoint,
+    isEndpointActive,
+    setSelectedEndpoint,
+    setAgents,
+    setSessionsData,
+    setMessages
+  } = usePlaygroundStore()
+  const { initializePlayground } = useChatActions()
+  const [isEditing, setIsEditing] = useState(false)
+  const [endpointValue, setEndpointValue] = useState('')
+  const [isMounted, setIsMounted] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
+  const [isRotating, setIsRotating] = useState(false)
+  const [, setAgentId] = useQueryState('agent')
+  const [, setSessionId] = useQueryState('session')
+
+  useEffect(() => {
+    setEndpointValue(selectedEndpoint)
+    setIsMounted(true)
+  }, [selectedEndpoint])
+
+  const getStatusColor = (isActive: boolean) =>
+    isActive ? 'bg-positive' : 'bg-destructive'
+
+  const handleSave = async () => {
+    if (!isValidUrl(endpointValue)) {
+      toast.error('Please enter a valid URL')
+      return
+    }
+    const cleanEndpoint = endpointValue.replace(/\/$/, '').trim()
+    setSelectedEndpoint(cleanEndpoint)
+    setAgentId(null)
+    setSessionId(null)
+    setIsEditing(false)
+    setIsHovering(false)
+    setAgents([])
+    setSessionsData([])
+    setMessages([])
+    onClose()
+  }
+
+  const handleCancel = () => {
+    setEndpointValue(selectedEndpoint)
+    setIsEditing(false)
+    setIsHovering(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSave()
+    } else if (e.key === 'Escape') {
+      handleCancel()
+    }
+  }
+
+  const handleRefresh = async () => {
+    setIsRotating(true)
+    await initializePlayground()
+    setTimeout(() => setIsRotating(false), 500)
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Настройки сервера</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-start gap-4 p-4">
+          <div className="text-primary text-xs font-medium uppercase">
+            Server
+          </div>
+          {isEditing ? (
+            <div className="flex w-full items-center gap-1">
+              <input
+                type="text"
+                value={endpointValue}
+                onChange={(e) => setEndpointValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="border-primary/15 bg-accent text-muted flex h-9 w-full items-center text-ellipsis rounded-xl border p-3 text-xs font-medium"
+                autoFocus
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSave}
+                className="hover:cursor-pointer hover:bg-transparent"
+              >
+                <Icon type="save" size="xs" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex w-full items-center gap-1">
+              <motion.div
+                className="border-primary/15 bg-accent relative flex h-9 w-full cursor-pointer items-center justify-between rounded-xl border p-3 uppercase"
+                onMouseEnter={() => setIsHovering(true)}
+                onMouseLeave={() => setIsHovering(false)}
+                onClick={() => setIsEditing(true)}
+                transition={{ type: 'spring', stiffness: 400, damping: 10 }}
+              >
+                <AnimatePresence mode="wait">
+                  {isHovering ? (
+                    <motion.div
+                      key="endpoint-display-hover"
+                      className="absolute inset-0 flex items-center justify-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <p className="text-primary flex items-center gap-2 whitespace-nowrap text-xs font-medium">
+                        <Icon type="edit" size="xxs" /> EDIT ENDPOINT
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="endpoint-display"
+                      className="absolute inset-0 flex items-center justify-between px-3"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <p className="text-muted text-xs font-medium">
+                        {isMounted
+                          ? truncateText(selectedEndpoint, 21) ||
+                            ENDPOINT_PLACEHOLDER
+                          : 'https://crafty-v0-0-1.onrender.com'}
+                      </p>
+                      <div
+                        className={`size-2 shrink-0 rounded-full ${getStatusColor(isEndpointActive)}`}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRefresh}
+                className="hover:cursor-pointer hover:bg-transparent"
+              >
+                <motion.div
+                  key={isRotating ? 'rotating' : 'idle'}
+                  animate={{ rotate: isRotating ? 360 : 0 }}
+                  transition={{ duration: 0.5, ease: 'easeInOut' }}
+                >
+                  <Icon type="refresh" size="xs" />
+                </motion.div>
+              </Button>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 const UserProfile = () => {
   const router = useRouter()
   const { user } = useAuthContext()
-  const { theme, toggleTheme } = useTheme()
+  const [isServerModalOpen, setIsServerModalOpen] = useState(false)
   const {
     setMessages,
     setSessionsData,
@@ -75,7 +255,9 @@ const UserProfile = () => {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-primary truncate text-sm font-medium">
-            {user?.user_metadata?.full_name || 'User'}
+            {user?.user_metadata?.full_name ||
+              user?.email?.split('@')[0] ||
+              'Пользователь'}
           </p>
           <p className="text-muted-foreground truncate text-xs">
             {user?.email}
@@ -83,6 +265,60 @@ const UserProfile = () => {
         </div>
       </div>
       <div className="flex items-center space-x-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-primary h-8 w-8 p-0"
+              title="Меню"
+            >
+              <Icon type="more-horizontal" size="xs" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="bg-primary/5 border-primary/20 w-56 backdrop-blur-sm"
+          >
+            <DropdownMenuItem
+              onClick={() => setIsServerModalOpen(true)}
+              className="cursor-pointer"
+            >
+              <Icon type="server" size="xs" className="mr-2" />
+              Настройки сервера
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="cursor-pointer text-red-500 hover:text-red-600 focus:text-red-600"
+            >
+              <Icon type="log-out" size="xs" className="mr-2" />
+              Выйти
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <ServerModal
+        isOpen={isServerModalOpen}
+        onClose={() => setIsServerModalOpen(false)}
+      />
+    </div>
+  )
+}
+
+const SidebarHeader = ({
+  isCollapsed,
+  setIsCollapsed
+}: {
+  isCollapsed: boolean
+  setIsCollapsed: (collapsed: boolean) => void
+}) => {
+  const { theme, toggleTheme } = useTheme()
+
+  return (
+    <div className="flex items-center justify-between">
+      <h1 className="text-primary text-lg font-bold">CRAFTY</h1>
+      <div className="flex items-center space-x-1">
         <Button
           variant="ghost"
           size="sm"
@@ -101,173 +337,50 @@ const UserProfile = () => {
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleLogout}
+          onClick={() => setIsCollapsed(!isCollapsed)}
           className="text-muted-foreground hover:text-primary h-8 w-8 p-0"
-          title="Logout"
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <Icon type="log-out" size="xs" />
+          <Icon
+            type="sheet"
+            size="xs"
+            className={`text-primary transform ${isCollapsed ? 'rotate-180' : 'rotate-0'}`}
+          />
         </Button>
       </div>
     </div>
   )
 }
 
-const SidebarHeader = () => {
-  return (
-    <div className="flex items-center justify-center">
-      <h1 className="text-primary text-lg font-bold">CRAFTY</h1>
-    </div>
-  )
-}
-
-const Endpoint = () => {
-  const {
-    selectedEndpoint,
-    isEndpointActive,
-    setSelectedEndpoint,
-    setAgents,
-    setSessionsData,
-    setMessages
-  } = usePlaygroundStore()
-  const { initializePlayground } = useChatActions()
-  const [isEditing, setIsEditing] = useState(false)
-  const [endpointValue, setEndpointValue] = useState('')
-  const [isMounted, setIsMounted] = useState(false)
-  const [isHovering, setIsHovering] = useState(false)
-  const [isRotating, setIsRotating] = useState(false)
-  const [, setAgentId] = useQueryState('agent')
-  const [, setSessionId] = useQueryState('session')
-
-  useEffect(() => {
-    setEndpointValue(selectedEndpoint)
-    setIsMounted(true)
-  }, [selectedEndpoint])
-
-  const getStatusColor = (isActive: boolean) =>
-    isActive ? 'bg-positive' : 'bg-destructive'
-
-  const handleSave = async () => {
-    if (!isValidUrl(endpointValue)) {
-      toast.error('Please enter a valid URL')
-      return
-    }
-    const cleanEndpoint = endpointValue.replace(/\/$/, '').trim()
-    setSelectedEndpoint(cleanEndpoint)
-    setAgentId(null)
-    setSessionId(null)
-    setIsEditing(false)
-    setIsHovering(false)
-    setAgents([])
-    setSessionsData([])
-    setMessages([])
-  }
-
-  const handleCancel = () => {
-    setEndpointValue(selectedEndpoint)
-    setIsEditing(false)
-    setIsHovering(false)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSave()
-    } else if (e.key === 'Escape') {
-      handleCancel()
-    }
-  }
-
-  const handleRefresh = async () => {
-    setIsRotating(true)
-    await initializePlayground()
-    setTimeout(() => setIsRotating(false), 500)
-  }
-
-  return (
-    <div className="flex flex-col items-start gap-2">
-      <div className="text-primary text-xs font-medium uppercase">Server</div>
-      {isEditing ? (
-        <div className="flex w-full items-center gap-1">
-          <input
-            type="text"
-            value={endpointValue}
-            onChange={(e) => setEndpointValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="border-primary/15 bg-accent text-muted flex h-9 w-full items-center text-ellipsis rounded-xl border p-3 text-xs font-medium"
-            autoFocus
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSave}
-            className="hover:cursor-pointer hover:bg-transparent"
-          >
-            <Icon type="save" size="xs" />
-          </Button>
+// Компонент скелетона для агентов
+const AgentsListSkeleton = () => (
+  <div className="space-y-2">
+    {Array.from({ length: 5 }).map((_, i) => (
+      <div key={i} className="flex items-center space-x-3 rounded-lg p-3">
+        <Skeleton className="h-8 w-8 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-3 w-16" />
         </div>
-      ) : (
-        <div className="flex w-full items-center gap-1">
-          <motion.div
-            className="border-primary/15 bg-accent relative flex h-9 w-full cursor-pointer items-center justify-between rounded-xl border p-3 uppercase"
-            onMouseEnter={() => setIsHovering(true)}
-            onMouseLeave={() => setIsHovering(false)}
-            onClick={() => setIsEditing(true)}
-            transition={{ type: 'spring', stiffness: 400, damping: 10 }}
-          >
-            <AnimatePresence mode="wait">
-              {isHovering ? (
-                <motion.div
-                  key="endpoint-display-hover"
-                  className="absolute inset-0 flex items-center justify-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <p className="text-primary flex items-center gap-2 whitespace-nowrap text-xs font-medium">
-                    <Icon type="edit" size="xxs" /> EDIT ENDPOINT
-                  </p>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="endpoint-display"
-                  className="absolute inset-0 flex items-center justify-between px-3"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <p className="text-muted text-xs font-medium">
-                    {isMounted
-                      ? truncateText(selectedEndpoint, 21) ||
-                        ENDPOINT_PLACEHOLDER
-                      : 'https://crafty-v0-0-1.onrender.com'}
-                  </p>
-                  <div
-                    className={`size-2 shrink-0 rounded-full ${getStatusColor(isEndpointActive)}`}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            className="hover:cursor-pointer hover:bg-transparent"
-          >
-            <motion.div
-              key={isRotating ? 'rotating' : 'idle'}
-              animate={{ rotate: isRotating ? 360 : 0 }}
-              transition={{ duration: 0.5, ease: 'easeInOut' }}
-            >
-              <Icon type="refresh" size="xs" />
-            </motion.div>
-          </Button>
+      </div>
+    ))}
+  </div>
+)
+
+// Компонент скелетона для инструментов
+const ToolsListSkeleton = () => (
+  <div className="space-y-2">
+    {Array.from({ length: 4 }).map((_, i) => (
+      <div key={i} className="flex items-center space-x-3 rounded-lg p-3">
+        <Skeleton className="h-6 w-6 rounded" />
+        <div className="flex-1 space-y-1">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-16" />
         </div>
-      )}
-    </div>
-  )
-}
+      </div>
+    ))}
+  </div>
+)
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -278,7 +391,9 @@ const Sidebar = () => {
     hydrated,
     setMessengerInstances,
     activeTab,
-    setActiveTab
+    setActiveTab,
+    agents,
+    isEndpointLoading
   } = usePlaygroundStore()
   const [isMounted, setIsMounted] = useState(false)
   const [, setAgentId] = useQueryState('agent')
@@ -358,9 +473,6 @@ const Sidebar = () => {
         case 'connections':
           setActiveTab('chats')
           break
-        case 'messengers':
-          setActiveTab('instances')
-          break
         case 'workflows':
           toast.info('Workflows пока не реализованы')
           break
@@ -374,11 +486,71 @@ const Sidebar = () => {
 
   useEffect(() => {
     setIsMounted(true)
-    if (hydrated) {
+    console.log('Sidebar: useEffect triggered', { hydrated, selectedEndpoint })
+
+    // Инициализируем плейграунд только один раз при монтировании
+    // или при изменении endpoint (но не при каждой гидратации)
+    const shouldInitialize =
+      selectedEndpoint && !selectedEndpoint.includes('undefined')
+
+    if (shouldInitialize && isMounted) {
+      console.log('Sidebar: Initializing playground...')
       initializePlayground()
       loadMessengerInstances()
+    } else {
+      console.log('Sidebar: Not initializing playground', {
+        hydrated,
+        selectedEndpoint,
+        hasSelectedEndpoint: !!selectedEndpoint,
+        shouldInitialize,
+        isMounted
+      })
     }
-  }, [selectedEndpoint, initializePlayground, hydrated, loadMessengerInstances])
+  }, [
+    selectedEndpoint,
+    isMounted,
+    initializePlayground,
+    loadMessengerInstances,
+    hydrated
+  ])
+
+  // Определяем состояние загрузки для каждой вкладки
+  const getTabLoadingState = () => {
+    switch (activeTab) {
+      case 'agents':
+        return agents.length === 0 && isEndpointLoading
+      case 'chats':
+        return false // Чаты загружаются отдельно
+      case 'tools':
+        return isEndpointLoading
+      default:
+        return false
+    }
+  }
+
+  const renderTabContent = () => {
+    const isLoading = getTabLoadingState()
+
+    switch (activeTab) {
+      case 'agents':
+        if (isLoading) {
+          return <AgentsListSkeleton />
+        }
+        return <AgentsList />
+
+      case 'chats':
+        return <TabChatsList />
+
+      case 'tools':
+        if (isLoading) {
+          return <ToolsListSkeleton />
+        }
+        return <ToolsList />
+
+      default:
+        return <AgentsList />
+    }
+  }
 
   return (
     <motion.aside
@@ -387,19 +559,6 @@ const Sidebar = () => {
       animate={{ width: isCollapsed ? '2.5rem' : '19rem' }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
-      <motion.button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute right-2 top-4 z-10 p-1"
-        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        type="button"
-        whileTap={{ scale: 0.95 }}
-      >
-        <Icon
-          type="sheet"
-          size="xs"
-          className={`text-primary transform ${isCollapsed ? 'rotate-180' : 'rotate-0'}`}
-        />
-      </motion.button>
       <motion.div
         className="flex h-full w-72 flex-col"
         initial={{ opacity: 0, x: -20 }}
@@ -410,8 +569,10 @@ const Sidebar = () => {
         }}
       >
         <div className="space-y-5">
-          <SidebarHeader />
-          {isMounted && <Endpoint />}
+          <SidebarHeader
+            isCollapsed={isCollapsed}
+            setIsCollapsed={setIsCollapsed}
+          />
         </div>
 
         {isMounted && isEndpointActive && (
@@ -425,8 +586,6 @@ const Sidebar = () => {
                     return 'tools'
                   case 'chats':
                     return 'connections'
-                  case 'instances':
-                    return 'messengers'
                   default:
                     return 'agents'
                 }
@@ -434,7 +593,7 @@ const Sidebar = () => {
               className="flex min-h-0 flex-1 flex-col"
               onValueChange={handleTabChange}
             >
-              <TabsList className="bg-background-secondary grid h-8 w-full shrink-0 grid-cols-5">
+              <TabsList className="bg-background-secondary grid h-8 w-full shrink-0 grid-cols-4">
                 <TabsTrigger value="agents" className="py-1">
                   <div title="Agents">
                     <Icon type="agent" size="xs" className="text-primary" />
@@ -446,17 +605,12 @@ const Sidebar = () => {
                   </div>
                 </TabsTrigger>
                 <TabsTrigger value="connections" className="py-1">
-                  <div title="Chats">
+                  <div title="Connections">
                     <Icon
                       type="message-circle"
                       size="xs"
                       className="text-primary"
                     />
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger value="messengers" className="py-1">
-                  <div title="Messengers">
-                    <Icon type="link" size="xs" className="text-primary" />
                   </div>
                 </TabsTrigger>
                 <TabsTrigger value="workflows" className="py-1">
@@ -471,19 +625,13 @@ const Sidebar = () => {
                   value="agents"
                   className="h-full data-[state=active]:flex data-[state=active]:flex-col"
                 >
-                  <AgentsList />
+                  {renderTabContent()}
                 </TabsContent>
                 <TabsContent
                   value="tools"
                   className="h-full data-[state=active]:flex data-[state=active]:flex-col"
                 >
                   <ToolsList />
-                </TabsContent>
-                <TabsContent
-                  value="messengers"
-                  className="h-full data-[state=active]:flex data-[state=active]:flex-col"
-                >
-                  <MessengerProviderList />
                 </TabsContent>
                 <TabsContent
                   value="workflows"
@@ -497,7 +645,7 @@ const Sidebar = () => {
                   value="connections"
                   className="h-full data-[state=active]:flex data-[state=active]:flex-col"
                 >
-                  <ChatsList />
+                  <TabChatsList />
                 </TabsContent>
               </div>
             </Tabs>

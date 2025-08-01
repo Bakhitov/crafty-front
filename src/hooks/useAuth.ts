@@ -20,16 +20,16 @@ export function useAuth(): UseAuthReturn {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Получаем текущую сессию
-    const getSession = async () => {
+    // Получаем текущего пользователя
+    const getUser = async () => {
       const {
-        data: { session }
-      } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
+        data: { user: currentUser }
+      } = await supabase.auth.getUser()
+      setUser(currentUser)
       setLoading(false)
     }
 
-    getSession()
+    getUser()
 
     // Слушаем изменения аутентификации
     const {
@@ -90,10 +90,7 @@ export function useAuth(): UseAuthReturn {
   const signOut = async () => {
     setLoading(true)
     try {
-      // Очищаем пользователя сразу для мгновенного обновления UI
-      setUser(null)
-
-      // Выходим из Supabase Auth
+      // Выходим из Supabase Auth сначала
       await supabase.auth.signOut()
 
       // Очищаем все локальные данные браузера связанные с сессией
@@ -101,8 +98,13 @@ export function useAuth(): UseAuthReturn {
         localStorage.clear()
         sessionStorage.clear()
       }
+
+      // Очищаем пользователя в конце, чтобы middleware успел обработать редирект
+      setUser(null)
     } catch (error) {
       console.error('Error during sign out:', error)
+      // При ошибке все равно очищаем пользователя
+      setUser(null)
     } finally {
       setLoading(false)
     }

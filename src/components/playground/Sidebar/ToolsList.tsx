@@ -1,359 +1,154 @@
 'use client'
 
-import { useCallback, useEffect } from 'react'
-import { usePlaygroundStore } from '@/store'
-import Icon from '@/components/ui/icon'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-
-import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { ToolBlankState as ToolCreateBlankState } from './BlankStates'
-
-// Tool types
-interface DynamicTool {
-  id: number
-  tool_id: string
-  name: string
-  display_name?: string
-  agno_class: string
-  module_path?: string
-  config?: Record<string, unknown>
-  description?: string
-  category?: string
-  icon?: string
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-interface CustomTool {
-  id: number
-  tool_id: string
-  name: string
-  description?: string
-  source_code: string
-  config: Record<string, unknown>
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-interface McpServer {
-  id: number
-  server_id: string
-  name: string
-  description?: string
-  command?: string | null
-  url?: string | null
-  transport: string
-  env_config?: Record<string, unknown> | null
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-// API response types
-interface DynamicToolsResponse {
-  tools: DynamicTool[]
-  total: number
-}
-
-interface CustomToolsResponse {
-  success: boolean
-  tools: CustomTool[]
-  total: number
-}
-
-interface McpServersResponse {
-  success: boolean
-  servers: McpServer[]
-  total: number
-}
+import { usePlaygroundStore } from '@/store'
+import { useTools } from '@/hooks/useTools'
+import { useCompanyContext } from '@/components/CompanyProvider'
+import { type Tool } from '@/lib/apiClient'
+import Icon from '@/components/ui/icon'
+import SearchTools from '@/components/playground/SearchTools'
+import { BsSearch } from 'react-icons/bs'
 
 interface ToolItemProps {
-  id: string
   name: string
   type: 'dynamic' | 'custom' | 'mcp'
-  isActive: boolean
-  onToggle: () => void
-  onInfo: () => void
+  category?: string
+  isPublic?: boolean
 }
 
-const ToolItem = ({
-  id,
-  name,
-  type,
-  isActive,
-  onToggle,
-  onInfo
-}: ToolItemProps) => {
-  const getTypeIcon = () => {
-    switch (type) {
-      case 'dynamic':
-        return 'hammer'
-      case 'custom':
-        return 'settings'
-      case 'mcp':
-        return 'link'
-      default:
-        return 'hammer'
-    }
-  }
-
+const ToolItem = ({ name, type, category, isPublic }: ToolItemProps) => {
   return (
-    <div
-      className={cn(
-        'group flex h-11 w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors duration-200',
-        isActive
-          ? 'bg-primary/20 cursor-default'
-          : 'bg-background-secondary hover:bg-background-secondary/80'
-      )}
-    >
-      <div
-        className="flex flex-1 items-center gap-2 overflow-hidden"
-        onClick={onToggle}
-      >
+    <div className="bg-background-secondary hover:bg-background-secondary group flex h-11 w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors duration-200">
+      <div className="flex flex-1 items-center gap-2 overflow-hidden">
         <Icon
-          type={getTypeIcon()}
+          type={type === 'mcp' ? 'link' : 'hammer'}
           size="xs"
-          className={isActive ? 'text-primary' : 'text-muted-foreground'}
+          className="text-muted-foreground shrink-0"
         />
         <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-          <h4
-            className={cn(
-              'font-geist truncate text-xs font-medium',
-              isActive && 'text-primary'
+          <div className="flex items-center gap-1">
+            <h4 className="font-geist text-primary truncate text-xs font-medium">
+              {name}
+            </h4>
+            {/* Индикатор публичного тула */}
+            {isPublic && (
+              <div title="Public tool">
+                <Icon type="users" size="xxs" className="text-muted shrink-0" />
+              </div>
             )}
-          >
-            {name}
-          </h4>
-          <p className="text-muted-foreground truncate text-xs">{id}</p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation()
-            onInfo()
-          }}
-          className="h-6 w-6 opacity-0 transition-opacity hover:bg-transparent group-hover:opacity-100"
-        >
-          <Icon
-            type="brain"
-            size="xs"
-            className="text-muted-foreground hover:text-primary"
-          />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-const SkeletonList = ({ skeletonCount = 3 }: { skeletonCount: number }) => {
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: skeletonCount }).map((_, index) => (
-        <div key={index} className="bg-background-secondary rounded-lg p-3">
-          <div className="flex items-start gap-2">
-            <Skeleton className="h-4 w-4 shrink-0" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
+            {/* Индикатор приватного тула */}
+            {!isPublic && (
+              <div title="Private tool">
+                <Icon type="key" size="xxs" className="text-muted shrink-0" />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground capitalize">{type}</span>
+            {category && (
+              <Badge
+                variant="outline"
+                className="text-muted-foreground bg-background-primary border-muted-foreground/20 pointer-events-none h-4 px-1.5 py-0 text-[10px]"
+              >
+                {category.replace('-', ' ')}
+              </Badge>
+            )}
           </div>
         </div>
-      ))}
+      </div>
     </div>
   )
 }
 
+const SkeletonList = ({ skeletonCount }: { skeletonCount: number }) => (
+  <div className="flex flex-col gap-y-1">
+    {Array.from({ length: skeletonCount }).map((_, index) => (
+      <div
+        key={index}
+        className="bg-background-secondary flex items-center gap-2 rounded-lg px-3 py-2"
+      >
+        <Skeleton className="h-4 w-4 rounded" />
+        <div className="flex-1 space-y-1">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-2 w-16" />
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
 const ToolsList = () => {
-  const {
-    selectedEndpoint,
-    isEndpointActive,
-    isEndpointLoading,
-    toolsCache,
-    setToolsCache,
-    setToolsLoading,
-    clearToolsCache
-  } = usePlaygroundStore()
+  const { isEndpointLoading, setIsToolCreationMode } = usePlaygroundStore()
+  const { tools, isLoading, refreshTools, getToolsByType } = useTools()
+  const [showSearch, setShowSearch] = useState(false)
+  const { company } = useCompanyContext()
 
-  // Cache lifetime - 5 minutes
-  const CACHE_LIFETIME = 5 * 60 * 1000
+  // Фильтрация тулзов по аналогии с агентами
+  // Показываем тулзы компании + публичные (как у агентов)
+  const getFilteredTools = (
+    filterType?: 'all' | 'dynamic' | 'custom' | 'mcp'
+  ) => {
+    let filtered = tools
 
-  // Fetch all tools with caching
-  const fetchTools = useCallback(async () => {
-    if (!selectedEndpoint || !isEndpointActive) return
-
-    // Check cache
-    const now = Date.now()
-    if (
-      toolsCache.lastFetchTime &&
-      now - toolsCache.lastFetchTime < CACHE_LIFETIME &&
-      (toolsCache.dynamicTools.length > 0 ||
-        toolsCache.customTools.length > 0 ||
-        toolsCache.mcpServers.length > 0)
-    ) {
-      // Cache is valid, don't reload
-      return
+    // Фильтрация по типу
+    if (filterType && ['dynamic', 'custom', 'mcp'].includes(filterType)) {
+      filtered = getToolsByType(filterType as 'dynamic' | 'custom' | 'mcp')
     }
 
-    setToolsLoading(true)
-
-    let dynamicTools: DynamicTool[] = []
-    let customTools: CustomTool[] = []
-    let mcpServers: McpServer[] = []
-
-    try {
-      // Dynamic tools
-      try {
-        const dynamicResponse = await fetch(`${selectedEndpoint}/v1/tools/`)
-        if (dynamicResponse.ok) {
-          const dynamicData: DynamicToolsResponse = await dynamicResponse.json()
-          dynamicTools = Array.isArray(dynamicData.tools)
-            ? dynamicData.tools
-            : []
-        }
-      } catch (error) {
-        console.error('Error fetching dynamic tools:', error)
-      }
-
-      // Custom tools
-      try {
-        const customResponse = await fetch(
-          `${selectedEndpoint}/v1/tools/custom`
-        )
-        if (customResponse.ok) {
-          const customData: CustomToolsResponse = await customResponse.json()
-          if (customData.success && Array.isArray(customData.tools)) {
-            customTools = customData.tools
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching custom tools:', error)
-      }
-
-      // MCP servers
-      try {
-        const mcpResponse = await fetch(`${selectedEndpoint}/v1/tools/mcp`)
-        if (mcpResponse.ok) {
-          const mcpData: McpServersResponse = await mcpResponse.json()
-          if (mcpData.success && Array.isArray(mcpData.servers)) {
-            mcpServers = mcpData.servers
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching MCP servers:', error)
-      }
-
-      // Save to cache
-      setToolsCache({
-        dynamicTools,
-        customTools,
-        mcpServers,
-        lastFetchTime: now
-      })
-    } catch (error) {
-      console.error('Error fetching tools:', error)
-      toast.error('Error loading tools')
-    } finally {
-      setToolsLoading(false)
-    }
-  }, [
-    selectedEndpoint,
-    isEndpointActive,
-    toolsCache.lastFetchTime,
-    toolsCache.dynamicTools.length,
-    toolsCache.customTools.length,
-    toolsCache.mcpServers.length,
-    CACHE_LIFETIME,
-    setToolsCache,
-    setToolsLoading
-  ])
-
-  useEffect(() => {
-    if (isEndpointActive && selectedEndpoint) {
-      fetchTools()
+    // Логика фильтрации как у агентов: показываем тулзы компании + публичные
+    if (company?.id) {
+      // Если есть компания, показываем тулзы компании + публичные
+      filtered = filtered.filter(
+        (tool) => tool.company_id === company.id || tool.is_public === true
+      )
     } else {
-      clearToolsCache()
+      // Если нет компании, показываем только публичные
+      filtered = filtered.filter((tool) => tool.is_public === true)
     }
-  }, [isEndpointActive, selectedEndpoint, fetchTools, clearToolsCache])
 
-  // Tool action handlers
-  const handleToggleTool = async (
-    toolId: string,
-    type: 'dynamic' | 'custom' | 'mcp'
-  ) => {
+    return filtered
+  }
+
+  const handleSearchToolSelect = async (tool: Tool) => {
     try {
-      // Here should be the logic for toggling tool state
-      // const endpoint = type === 'dynamic'
-      //   ? `${selectedEndpoint}/v1/tools/${toolId}`
-      //   : type === 'custom'
-      //   ? `${selectedEndpoint}/v1/tools/custom/${toolId}`
-      //   : `${selectedEndpoint}/v1/tools/mcp/${toolId}`
-
-      // Currently just showing notification
-      toast.info(`Toggling ${type} tool ${toolId}`)
+      toast.success(`Selected tool: ${tool.name}`)
+      // Здесь можно добавить логику выбора инструмента
     } catch (error) {
-      console.error('Error toggling tool:', error)
-      toast.error('Error changing tool status')
+      console.error('Error selecting search tool:', error)
+      toast.error('Failed to select tool')
     }
   }
 
-  const handleToolInfo = (
-    toolId: string,
-    type: 'dynamic' | 'custom' | 'mcp'
-  ) => {
-    let toolInfo = ''
-
-    if (type === 'dynamic') {
-      const tool = toolsCache.dynamicTools.find((t) => t.tool_id === toolId)
-      if (tool) {
-        toolInfo = `${tool.name}\nClass: ${tool.agno_class}\nCategory: ${tool.category || 'N/A'}\nDescription: ${tool.description || 'No description'}`
-      }
-    } else if (type === 'custom') {
-      const tool = toolsCache.customTools.find((t) => t.tool_id === toolId)
-      if (tool) {
-        toolInfo = `${tool.name}\nType: Custom Python Tool\nDescription: ${tool.description || 'No description'}\nFunctions: ${tool.source_code.match(/def\s+(\w+)/g)?.join(', ') || 'None'}`
-      }
-    } else if (type === 'mcp') {
-      const server = toolsCache.mcpServers.find((s) => s.server_id === toolId)
-      if (server) {
-        toolInfo = `${server.name}\nTransport: ${server.transport}\nDescription: ${server.description || 'No description'}\nCommand: ${server.command || server.url || 'N/A'}`
-      }
+  const handleRefreshTools = async () => {
+    try {
+      await refreshTools()
+      toast.success('Tools refreshed')
+    } catch (error) {
+      console.error('Error refreshing tools:', error)
+      toast.error('Error refreshing tools')
     }
-
-    toast.info(toolInfo || `Info for ${type} tool ${toolId}`)
   }
 
-  // Get all tools from cache
-  const allTools = [
-    ...toolsCache.dynamicTools.map((tool) => ({
-      ...tool,
-      type: 'dynamic' as const
-    })),
-    ...toolsCache.customTools.map((tool) => ({
-      ...tool,
-      type: 'custom' as const
-    })),
-    ...toolsCache.mcpServers.map((server) => ({
-      tool_id: server.server_id,
-      name: server.name,
-      description: server.description,
-      is_active: server.is_active,
-      type: 'mcp' as const
-    }))
-  ]
+  const handleCreateTool = () => {
+    setIsToolCreationMode(true)
+  }
 
-  if (toolsCache.isLoading || isEndpointLoading) {
+  if (isLoading || isEndpointLoading) {
     return (
       <div className="w-full">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-primary text-xs font-medium uppercase">
+            Tools
+          </div>
+        </div>
+        <div className="mb-3">
+          <Skeleton className="border-primary/20 h-9 w-full rounded-xl border-dashed" />
+        </div>
         <div className="mt-4 h-full w-full overflow-y-auto">
           <SkeletonList skeletonCount={5} />
         </div>
@@ -365,147 +160,107 @@ const ToolsList = () => {
     <div className="flex h-full w-full flex-col">
       <div className="mb-2 flex items-center justify-between">
         <div className="text-primary text-xs font-medium uppercase">Tools</div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleRefreshTools}
+          className="h-6 w-6 hover:bg-transparent"
+          title="Refresh tools"
+        >
+          <Icon
+            type="refresh"
+            size="xs"
+            className="text-muted-foreground hover:text-primary"
+          />
+        </Button>
       </div>
 
       {/* Create Tool Button */}
-      <div className="mb-3">
+      <div className="mb-3 flex gap-2">
         <Button
-          onClick={() => {
-            const { setIsToolCreationMode } = usePlaygroundStore.getState()
-            setIsToolCreationMode(true)
-          }}
+          onClick={handleCreateTool}
           size="lg"
           variant="outline"
-          className="border-primary/20 text-primary hover:bg-primary/10 h-9 w-full rounded-xl border-dashed text-xs font-medium"
+          className="border-primary/20 text-primary hover:bg-primary/10 h-9 flex-1 rounded-xl border-dashed text-xs font-medium"
         >
           <Icon type="plus-icon" size="xs" className="text-primary" />
           <span className="uppercase">Create Tool</span>
         </Button>
+        <Button
+          onClick={() => setShowSearch(true)}
+          size="lg"
+          variant="outline"
+          className="border-primary/20 text-primary hover:bg-primary/10 h-9 w-9 rounded-xl border-dashed"
+          title="Search Tools"
+        >
+          <BsSearch className="h-4 w-4" />
+        </Button>
       </div>
 
-      {!isEndpointActive || allTools.length === 0 ? (
-        <ToolCreateBlankState
-          onCreateTool={() => {
-            const { setIsToolCreationMode } = usePlaygroundStore.getState()
-            setIsToolCreationMode(true)
-          }}
-        />
-      ) : (
-        <Tabs defaultValue="all" className="flex h-full flex-1 flex-col">
-          <TabsList className="bg-background-secondary mb-3 grid w-full shrink-0 grid-cols-4">
-            <TabsTrigger value="all" className="text-xs">
-              All
-            </TabsTrigger>
-            <TabsTrigger value="dynamic" className="text-xs">
-              Native
-            </TabsTrigger>
-            <TabsTrigger value="mcp" className="text-xs">
-              MCP
-            </TabsTrigger>
-            <TabsTrigger value="custom" className="text-xs">
-              Custom
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="all" className="flex h-full flex-1 flex-col">
+        <TabsList className="bg-background-secondary mb-3 grid w-full shrink-0 grid-cols-4">
+          <TabsTrigger value="all" className="text-xs">
+            All
+          </TabsTrigger>
+          <TabsTrigger value="dynamic" className="text-xs">
+            Native
+          </TabsTrigger>
+          <TabsTrigger value="mcp" className="text-xs">
+            MCP
+          </TabsTrigger>
+          <TabsTrigger value="custom" className="text-xs">
+            Custom
+          </TabsTrigger>
+        </TabsList>
 
+        <TabsContent
+          value="all"
+          className="h-full data-[state=active]:flex data-[state=active]:flex-col"
+        >
+          <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
+            <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
+              {getFilteredTools('all').map((tool) => (
+                <ToolItem
+                  key={`${tool.type}-${tool.id || tool.tool_id}`}
+                  name={tool.name}
+                  type={tool.type}
+                  category={tool.category}
+                  isPublic={tool.is_public}
+                />
+              ))}
+            </div>
+          </div>
+        </TabsContent>
+
+        {(['dynamic', 'mcp', 'custom'] as const).map((filterType) => (
           <TabsContent
-            value="all"
+            key={filterType}
+            value={filterType}
             className="h-full data-[state=active]:flex data-[state=active]:flex-col"
           >
             <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
               <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
-                {allTools.map((tool) => (
+                {getFilteredTools(filterType).map((tool) => (
                   <ToolItem
-                    key={`${tool.type}-${tool.tool_id}`}
-                    id={tool.tool_id}
+                    key={`${tool.type}-${tool.id || tool.tool_id}`}
                     name={tool.name}
                     type={tool.type}
-                    isActive={tool.is_active}
-                    onToggle={() => handleToggleTool(tool.tool_id, tool.type)}
-                    onInfo={() => handleToolInfo(tool.tool_id, tool.type)}
+                    category={tool.category}
+                    isPublic={tool.is_public}
                   />
                 ))}
               </div>
             </div>
           </TabsContent>
+        ))}
+      </Tabs>
 
-          <TabsContent
-            value="dynamic"
-            className="h-full data-[state=active]:flex data-[state=active]:flex-col"
-          >
-            <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
-              <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
-                {toolsCache.dynamicTools.map((tool) => (
-                  <ToolItem
-                    key={`dynamic-${tool.tool_id}`}
-                    id={tool.tool_id}
-                    name={tool.name}
-                    type="dynamic"
-                    isActive={tool.is_active}
-                    onToggle={() => handleToggleTool(tool.tool_id, 'dynamic')}
-                    onInfo={() => handleToolInfo(tool.tool_id, 'dynamic')}
-                  />
-                ))}
-                {toolsCache.dynamicTools.length === 0 && (
-                  <div className="p-4 text-center text-xs text-zinc-400">
-                    No native tools available
-                  </div>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent
-            value="mcp"
-            className="h-full data-[state=active]:flex data-[state=active]:flex-col"
-          >
-            <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
-              <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
-                {toolsCache.mcpServers.map((server) => (
-                  <ToolItem
-                    key={`mcp-${server.server_id}`}
-                    id={server.server_id}
-                    name={server.name}
-                    type="mcp"
-                    isActive={server.is_active}
-                    onToggle={() => handleToggleTool(server.server_id, 'mcp')}
-                    onInfo={() => handleToolInfo(server.server_id, 'mcp')}
-                  />
-                ))}
-                {toolsCache.mcpServers.length === 0 && (
-                  <div className="p-4 text-center text-xs text-zinc-400">
-                    No MCP servers available
-                  </div>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent
-            value="custom"
-            className="h-full data-[state=active]:flex data-[state=active]:flex-col"
-          >
-            <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
-              <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
-                {toolsCache.customTools.map((tool) => (
-                  <ToolItem
-                    key={`custom-${tool.tool_id}`}
-                    id={tool.tool_id}
-                    name={tool.name}
-                    type="custom"
-                    isActive={tool.is_active}
-                    onToggle={() => handleToggleTool(tool.tool_id, 'custom')}
-                    onInfo={() => handleToolInfo(tool.tool_id, 'custom')}
-                  />
-                ))}
-                {toolsCache.customTools.length === 0 && (
-                  <div className="p-4 text-center text-xs text-zinc-400">
-                    No custom tools available
-                  </div>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+      {/* Search Modal */}
+      {showSearch && (
+        <SearchTools
+          onToolSelect={handleSearchToolSelect}
+          onClose={() => setShowSearch(false)}
+        />
       )}
     </div>
   )

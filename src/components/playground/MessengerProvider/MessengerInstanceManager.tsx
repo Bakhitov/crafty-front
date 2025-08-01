@@ -42,9 +42,11 @@ import {
 } from '@/hooks/useMessengerProvider'
 import { messengerAPI } from '@/lib/messengerApi'
 import { formatLogsWithAnsi } from '@/lib/ansiToHtml'
+import InstanceManagerLogs from './InstanceManagerLogs'
 
 interface MessengerInstanceManagerProps {
   onEditInstance: (instance: MessengerInstanceUnion) => void
+  onClose?: () => void
 }
 
 interface InstanceItemProps {
@@ -363,16 +365,21 @@ const InstanceItem = ({
         <div className="flex items-center gap-3">
           {/* Статус соединения - точка и текст */}
           <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                'size-3 shrink-0 rounded-full transition-colors',
-                instance.status === 'running' && 'bg-green-500',
-                instance.status === 'error' && 'bg-red-500',
-                instance.status === 'processing' && 'bg-yellow-500',
-                instance.status === 'stopped' && 'bg-gray-400',
-                instance.status === 'created' && 'bg-blue-500'
+            <div className="relative">
+              <div
+                className={cn(
+                  'size-3 shrink-0 rounded-full transition-colors',
+                  instance.status === 'running' && 'bg-green-500',
+                  instance.status === 'error' && 'bg-red-500',
+                  instance.status === 'processing' && 'bg-yellow-500',
+                  instance.status === 'stopped' && 'bg-gray-400',
+                  instance.status === 'created' && 'bg-blue-500'
+                )}
+              />
+              {instance.status === 'running' && (
+                <div className="absolute -inset-1 animate-pulse rounded-full bg-green-400 opacity-20" />
               )}
-            />
+            </div>
             <span
               className={cn(
                 'text-xs font-medium transition-colors',
@@ -438,7 +445,7 @@ const InstanceItem = ({
               e.stopPropagation()
               onViewLogs(instanceId)
             }}
-            title="Logs"
+            title="Instance Logs"
           >
             <Icon type="file-text" size="xs" />
           </Button>
@@ -512,7 +519,8 @@ const InstanceItem = ({
 }
 
 const MessengerInstanceManager = ({
-  onEditInstance
+  onEditInstance,
+  onClose
 }: MessengerInstanceManagerProps) => {
   const {
     instances,
@@ -573,6 +581,9 @@ const MessengerInstanceManager = ({
     import('@/lib/messengerApi').QRHistoryResponse | null
   >(null)
 
+  // Instance Manager Logs state
+  const [showInstanceManagerLogs, setShowInstanceManagerLogs] = useState(false)
+
   // Load system data with error handling
   const loadSystemStats = useCallback(async () => {
     try {
@@ -621,7 +632,7 @@ const MessengerInstanceManager = ({
     if (!instance) return false
 
     const matchesSearch =
-      instance.user_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      instance.instance_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       instance.provider?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus =
       statusFilter === 'all' || instance.status === statusFilter
@@ -842,6 +853,29 @@ const MessengerInstanceManager = ({
     >
       <div className="flex-1 overflow-hidden">
         <div className="h-full px-3 py-3">
+          {/* Header with Close Button */}
+          <motion.div
+            className="mb-4 flex items-center justify-between"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <h1 className="text-primary text-lg font-semibold">
+              Instance Manager
+            </h1>
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={onClose}
+                title="Close Manager"
+              >
+                <Icon type="x" size="sm" />
+              </Button>
+            )}
+          </motion.div>
+
           {/* Instance Statistics - Full Width */}
           <motion.div
             className="mb-6"
@@ -849,12 +883,7 @@ const MessengerInstanceManager = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <Card className="bg-background-secondary border-none">
-              <CardHeader className="pb-2">
-                <CardTitle className="font-dmmono text-xs font-medium uppercase">
-                  Instance Statistics
-                </CardTitle>
-              </CardHeader>
+            <Card className="bg-background-secondary border-none pt-4">
               <CardContent className="space-y-2 pt-2">
                 {systemStats ? (
                   <div className="grid grid-cols-4 gap-6">
@@ -1113,7 +1142,7 @@ const MessengerInstanceManager = ({
                             variant="outline"
                             size="sm"
                             className="mt-2"
-                            onClick={fetchInstances}
+                            onClick={() => fetchInstances()}
                           >
                             Retry
                           </Button>
@@ -1273,6 +1302,14 @@ const MessengerInstanceManager = ({
                   <Button
                     variant="outline"
                     className="w-full justify-start text-xs"
+                    onClick={() => setShowInstanceManagerLogs(true)}
+                  >
+                    <Icon type="server" size="xs" className="mr-2" />
+                    System Logs
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-xs"
                     onClick={async () => {
                       try {
                         await messengerAPI.clearPortsCache()
@@ -1297,7 +1334,7 @@ const MessengerInstanceManager = ({
                   <Button
                     variant="outline"
                     className="w-full justify-start text-xs"
-                    onClick={fetchInstances}
+                    onClick={() => fetchInstances()}
                   >
                     <Icon type="database" size="xs" className="mr-2" />
                     Refresh Instances
@@ -1551,7 +1588,7 @@ const MessengerInstanceManager = ({
       <Dialog open={showLogsDialog} onOpenChange={setShowLogsDialog}>
         <DialogContent className="bg-background-primary max-h-[80vh] max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Instance Logs</DialogTitle>
+            <DialogTitle>Instance Logs (Container)</DialogTitle>
             <div className="mb-4 mr-8 mt-2">
               <Button
                 variant="outline"
@@ -2161,6 +2198,12 @@ const MessengerInstanceManager = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Instance Manager Logs Dialog */}
+      <InstanceManagerLogs
+        open={showInstanceManagerLogs}
+        onOpenChange={setShowInstanceManagerLogs}
+      />
     </motion.main>
   )
 }

@@ -7,8 +7,10 @@ import utc from 'dayjs/plugin/utc'
 import { usePlaygroundStore } from '@/store'
 import { useQueryState } from 'nuqs'
 import SessionItem from './SessionItem'
-import SessionBlankState from './SessionBlankState'
+
 import useSessionLoader from '@/hooks/useSessionLoader'
+import { useAuthContext } from '@/components/AuthProvider'
+import useChatActions from '@/hooks/useChatActions'
 
 import { cn } from '@/lib/utils'
 import { FC } from 'react'
@@ -55,20 +57,22 @@ const Sessions = () => {
   const [sessionId] = useQueryState('session')
   const {
     selectedEndpoint,
-    isEndpointActive,
     isEndpointLoading,
     sessionsData,
     hydrated,
     hasStorage,
-    setSessionsData
+    setSessionsData,
+    isAgentSwitching
   } = usePlaygroundStore()
   const [isScrolling, setIsScrolling] = useState(false)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null
   )
-  const { getSession, getSessions } = useSessionLoader()
+  const { getSessions } = useSessionLoader()
+  const { completeAgentSwitch } = useChatActions()
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null)
   const { isSessionsLoading } = usePlaygroundStore()
+  const { user } = useAuthContext() // Получаем user из AuthContext
 
   const handleScroll = () => {
     setIsScrolling(true)
@@ -91,25 +95,50 @@ const Sessions = () => {
     }
   }, [])
 
-  // Load a session on render if a session id exists in url
   useEffect(() => {
-    if (sessionId && agentId && selectedEndpoint && hydrated) {
-      getSession(sessionId, agentId)
+    // Если идет переключение агента, не загружаем сессии
+    if (isAgentSwitching) {
+      console.log('🔄 Sessions: Skipping session loading - agent is switching')
+      return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated])
 
-  useEffect(() => {
     if (!selectedEndpoint || !agentId || !hasStorage) {
+      console.log('🔄 Sessions: Clearing sessions data - conditions not met:', {
+        hasSelectedEndpoint: !!selectedEndpoint,
+        hasAgentId: !!agentId,
+        hasStorage,
+        agentId,
+        isAgentSwitching
+      })
       setSessionsData(() => null)
       return
     }
     if (agentId === 'new') {
+      console.log('🔄 Sessions: Setting empty sessions for new agent')
       setSessionsData([])
       return
     }
     if (!isEndpointLoading) {
+      console.log(
+        '🔄 Sessions: Clearing sessions before loading new ones for agent:',
+        agentId
+      )
       setSessionsData(() => null)
+      console.log(
+        '🔄 Sessions: Loading sessions for user:',
+        user?.id,
+        'agent:',
+        agentId,
+        'conditions:',
+        {
+          hasSelectedEndpoint: !!selectedEndpoint,
+          hasAgentId: !!agentId,
+          hasStorage,
+          isEndpointLoading,
+          userEmail: user?.email,
+          isAgentSwitching
+        }
+      )
       getSessions(agentId)
     }
   }, [
@@ -118,7 +147,66 @@ const Sessions = () => {
     getSessions,
     isEndpointLoading,
     hasStorage,
-    setSessionsData
+    setSessionsData,
+    user?.id, // Добавляем user?.id в зависимости
+    user?.email, // Добавляем user?.email в зависимости
+    isAgentSwitching // Добавляем isAgentSwitching в зависимости
+  ])
+
+  // Завершаем переключение агента после загрузки сессий
+  useEffect(() => {
+    if (
+      isAgentSwitching &&
+      !isSessionsLoading &&
+      (sessionsData !== null || !hasStorage)
+    ) {
+      console.log(
+        '✅ Sessions: Completing agent switch after sessions loaded or no storage'
+      )
+      completeAgentSwitch()
+    }
+  }, [
+    isAgentSwitching,
+    isSessionsLoading,
+    sessionsData,
+    hasStorage,
+    completeAgentSwitch
+  ])
+
+  // Load a specific session from URL only after sessions are loaded and session exists
+  useEffect(() => {
+    // ОТКЛЮЧАЕМ автоматическую загрузку сессий из URL
+    // Всегда показываем заглушку "начать новый чат" при переключении/открытии агента
+
+    // Если идет переключение агента, очищаем sessionId из URL
+    if (isAgentSwitching && sessionId) {
+      console.log(
+        '🧹 Sessions: Clearing sessionId from URL - agent is switching'
+      )
+      const url = new URL(window.location.href)
+      url.searchParams.delete('session')
+      window.history.replaceState({}, '', url.toString())
+      return
+    }
+
+    // Если идет переключение агента, не загружаем сессию из URL
+    if (isAgentSwitching) {
+      console.log(
+        '📋 Sessions: Skipping URL session loading - agent is switching'
+      )
+      return
+    }
+
+    // БОЛЬШЕ НЕ ЗАГРУЖАЕМ СЕССИИ АВТОМАТИЧЕСКИ ИЗ URL
+    // Пользователь должен вручную кликнуть на сессию в сайдбаре
+  }, [
+    sessionId,
+    agentId,
+    selectedEndpoint,
+    hydrated,
+    sessionsData,
+    isSessionsLoading,
+    isAgentSwitching
   ])
 
   useEffect(() => {
@@ -158,22 +246,16 @@ const Sessions = () => {
         onMouseOver={() => setIsScrolling(true)}
         onMouseLeave={handleScroll}
       >
-        {!isEndpointActive ||
-        !hasStorage ||
-        (!isSessionsLoading && (!sessionsData || sessionsData.length === 0)) ? (
-          <SessionBlankState />
-        ) : (
-          <div className="flex flex-col gap-y-1 pr-1">
-            {formattedSessionsData.map((entry, index) => (
-              <SessionItem
-                key={`${entry.session_id}-${index}`}
-                {...entry}
-                isSelected={selectedSessionId === entry.session_id}
-                onSessionClick={handleSessionClick(entry.session_id)}
-              />
-            ))}
-          </div>
-        )}
+        <div className="flex flex-col gap-y-1 pr-1">
+          {formattedSessionsData.map((entry, index) => (
+            <SessionItem
+              key={`${entry.session_id}-${index}`}
+              {...entry}
+              isSelected={selectedSessionId === entry.session_id}
+              onSessionClick={handleSessionClick(entry.session_id)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )

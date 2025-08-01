@@ -242,7 +242,7 @@ const MessengerInstanceDetail = ({
                 {providerConfig.name} Instance
               </h1>
               <p className="text-muted-foreground text-sm">
-                {instance.user_id}
+                {instance.instance_id}
               </p>
             </div>
           </div>
@@ -380,9 +380,9 @@ const MessengerInstanceDetail = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground text-sm">
-                      User ID
+                      Company ID
                     </span>
-                    <span className="text-sm">{instance.user_id}</span>
+                    <span className="text-sm">{instance.company_id}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground text-sm">

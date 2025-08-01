@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import Icon from '@/components/ui/icon'
 import { motion } from 'framer-motion'
@@ -8,220 +8,127 @@ import { toast } from 'sonner'
 import { useQueryState } from 'nuqs'
 import { usePlaygroundStore } from '@/store'
 import useChatActions from '@/hooks/useChatActions'
+import { useCompanyContext } from '@/components/CompanyProvider'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import Sessions from '@/components/playground/Sidebar/Sessions'
 import Tooltip from '@/components/ui/tooltip/CustomTooltip'
-
-interface AgentDetails {
-  id?: number
-  agent_id: string
-  name: string
-  description: string
-  instructions?: string
-  is_active?: boolean
-  is_active_api?: boolean
-  is_public?: boolean
-  company_id?: string
-  created_at?: string
-  updated_at?: string
-  model_configuration?: {
-    id?: string
-    provider?: string
-    temperature?: number
-    max_tokens?: number
-    top_p?: number
-    frequency_penalty?: number
-    presence_penalty?: number
-    stop?: string[]
-    timeout?: number
-    max_retries?: number
-    seed?: number
-    user?: string
-    metadata?: Record<string, unknown>
-  }
-  tools_config?: {
-    show_tool_calls?: boolean
-    tool_call_limit?: number
-    tool_choice?: string
-    tools?: Array<{
-      type: string
-      function: {
-        name: string
-        description: string
-        parameters: Record<string, unknown>
-      }
-    }>
-    dynamic_tools?: string[]
-    custom_tools?: string[]
-    mcp_servers?: string[]
-    tool_hooks?: Array<{
-      hook_type: string
-      registry_id: string
-    }>
-    function_declarations?: unknown[]
-  }
-  memory_config?: {
-    memory_type?: string
-    enable_agentic_memory?: boolean
-    enable_user_memories?: boolean
-    enable_session_summaries?: boolean
-    add_memory_references?: boolean
-    add_session_summary_references?: boolean
-    memory_filters?: Record<string, unknown>
-    db_url?: string
-    table_name?: string
-    db_schema?: string
-  }
-  knowledge_config?: {
-    add_references?: boolean
-    search_knowledge?: boolean
-    update_knowledge?: boolean
-    max_references?: number
-    similarity_threshold?: number
-    references_format?: string
-    knowledge_filters?: Record<string, unknown>
-    enable_agentic_knowledge_filters?: boolean
-  }
-  storage_config?: {
-    storage_type?: string
-    enabled?: boolean
-    db_url?: string
-    table_name?: string
-    db_schema?: string
-    store_events?: boolean
-    extra_data?: Record<string, unknown>
-  }
-  reasoning_config?: {
-    reasoning?: boolean
-    reasoning_min_steps?: number
-    reasoning_max_steps?: number
-    goal?: string
-    success_criteria?: string
-    expected_output?: string
-    reasoning_model?: string
-    reasoning_agent?: string
-    reasoning_prompt?: string
-    reasoning_instructions?: string[]
-    stream_reasoning?: boolean
-    save_reasoning_steps?: boolean
-    show_full_reasoning?: boolean
-  }
-  team_config?: {
-    team_mode?: string
-    role?: string
-    respond_directly?: boolean
-    add_transfer_instructions?: boolean
-    team_response_separator?: string
-    workflow_id?: string
-    team_id?: string
-    members?: Array<{
-      agent_id: string
-      role: string
-      name: string
-    }>
-    add_member_tools_to_system_message?: boolean
-    show_members_responses?: boolean
-    stream_member_events?: boolean
-    share_member_interactions?: boolean
-    get_member_information_tool?: boolean
-  }
-  settings?: {
-    introduction?: string
-    system_message?: string
-    system_message_role?: string
-    create_default_system_message?: boolean
-    user_message_role?: string
-    create_default_user_message?: boolean
-    add_messages?: Array<{
-      role: string
-      content: string
-    }>
-    context?: Record<string, unknown>
-    add_context?: boolean
-    resolve_context?: boolean
-    additional_context?: string
-    add_state_in_messages?: boolean
-    add_history_to_messages?: boolean
-    num_history_runs?: number
-    search_previous_sessions_history?: boolean
-    num_history_sessions?: number
-    read_chat_history?: boolean
-    read_tool_call_history?: boolean
-    markdown?: boolean
-    add_name_to_instructions?: boolean
-    add_datetime_to_instructions?: boolean
-    add_location_to_instructions?: boolean
-    timezone_identifier?: string
-    stream?: boolean
-    stream_intermediate_steps?: boolean
-    response_model?: Record<string, unknown>
-    parse_response?: boolean
-    use_json_mode?: boolean
-    parser_model?: string
-    parser_model_prompt?: string
-    retries?: number
-    delay_between_retries?: number
-    exponential_backoff?: boolean
-    debug_mode?: boolean
-    monitoring?: boolean
-    telemetry?: boolean
-    store_events?: boolean
-    events_to_skip?: string[]
-    config_version?: string
-    tags?: string[]
-    app_id?: string
-    extra_data?: Record<string, unknown>
-  }
-}
+import { type Agent as APIAgent } from '@/lib/apiClient'
 
 const AgentInfoSidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [agentDetails, setAgentDetails] = useState<AgentDetails | null>(null)
+  const [agentDetails, setAgentDetails] = useState<APIAgent | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [canEdit, setCanEdit] = useState(false)
   const [agentId] = useQueryState('agent')
-  const { isEndpointActive, messages, hasStorage } = usePlaygroundStore()
+  const {
+    isEndpointActive,
+    hasStorage,
+    selectedEndpoint,
+    agents,
+    isEndpointLoading,
+    setIsAgentCreationMode,
+    setEditingAgentId,
+    setCopyingAgentData,
+    streamingEnabled,
+    setStreamingEnabled
+  } = usePlaygroundStore()
+  const { company } = useCompanyContext()
   const { clearChat, focusChatInput } = useChatActions()
 
   const isCreatingNewAgent = agentId === 'new'
 
-  // Handler for new chat
-  const handleNewChat = () => {
-    clearChat()
-    focusChatInput()
-  }
+  // Determine edit permissions based on company_id (same logic as left sidebar)
+  useEffect(() => {
+    if (agentDetails) {
+      // Edit logic:
+      // - Own company agents (private and public) - can edit
+      // - Public agents from other companies - cannot edit
+      // - Private agents from other companies - cannot edit
+      const isOwnAgent = !!(
+        company?.id && agentDetails.company_id === company.id
+      )
+      setCanEdit(isOwnAgent)
+    } else {
+      setCanEdit(false)
+    }
+  }, [agentDetails, company?.id])
 
-  // Handler for refreshing agent cache
-  const handleRefreshAgent = async () => {
-    if (!agentId || isCreatingNewAgent || isRefreshing) {
+  // Agent edit handler
+  const handleEditAgent = useCallback(() => {
+    if (!canEdit || !agentId) {
+      toast.error('У вас нет прав для редактирования этого агента')
       return
     }
+    setEditingAgentId(agentId)
+    setIsAgentCreationMode(true)
+  }, [canEdit, agentId, setEditingAgentId, setIsAgentCreationMode])
 
-    setIsRefreshing(true)
+  // Обработчик копирования агента
+  const handleCopyAgent = useCallback(async () => {
+    if (!agentDetails || !agentId) return
+
     try {
-      const { selectedEndpoint } = usePlaygroundStore.getState()
-
-      // Clear agent cache
-      const cacheUrl = `${selectedEndpoint}/v1/agents/${agentId}/cache/refresh`
-      const cacheResponse = await fetch(cacheUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-
-      if (!cacheResponse.ok) {
-        throw new Error('Failed to refresh agent cache')
+      // Преобразуем APIAgent в Agent формат для копирования
+      const agentForCopy = {
+        id: agentDetails.id,
+        agent_id: agentDetails.agent_id,
+        name: agentDetails.name || '',
+        description: agentDetails.description || '',
+        model_config: agentDetails.model_config || { id: '', provider: '' },
+        system_instructions: agentDetails.system_instructions || [],
+        tool_ids: agentDetails.tool_ids || [],
+        user_id: agentDetails.user_id,
+        is_active: agentDetails.is_active || true,
+        created_at: agentDetails.created_at || new Date().toISOString(),
+        updated_at: agentDetails.updated_at || new Date().toISOString(),
+        agent_config: agentDetails.agent_config || {},
+        is_public: agentDetails.is_public || false,
+        company_id: agentDetails.company_id
       }
 
-      // Reload agent details
-      await fetchAgentDetails()
-      toast.success('Agent cache refreshed successfully!')
+      setCopyingAgentData(agentForCopy)
+      setIsAgentCreationMode(true)
+      toast.success(
+        `Агент "${agentDetails.name}" скопирован для редактирования`
+      )
     } catch (error) {
-      console.error('Error refreshing agent cache:', error)
-      toast.error('Failed to refresh agent cache.')
-    } finally {
-      setIsRefreshing(false)
+      console.error('Error copying agent:', error)
+      toast.error('Ошибка при копировании агента')
     }
+  }, [agentDetails, agentId, setCopyingAgentData, setIsAgentCreationMode])
+
+  // Определяем возможность редактирования на основе company_id
+  useEffect(() => {
+    if (agentDetails) {
+      // Логика редактирования:
+      // - Агенты своей компании (приватные и публичные) - можно редактировать
+      // - Публичные агенты других компаний - нельзя редактировать
+      // - Приватные агенты других компаний - нельзя редактировать
+      const isOwnAgent = !!(
+        company?.id && agentDetails.company_id === company.id
+      )
+      setCanEdit(isOwnAgent)
+    } else {
+      setCanEdit(false)
+    }
+  }, [agentDetails, company?.id])
+
+  // Handler for new chat
+  const handleNewChat = () => {
+    console.log('🆕 AgentInfoSidebar: Creating new chat')
+
+    // Очищаем текущий чат
+    clearChat()
+
+    // Очищаем sessionId из URL чтобы создать новую сессию при следующем сообщении
+    const url = new URL(window.location.href)
+    url.searchParams.delete('session')
+    window.history.replaceState({}, '', url.toString())
+    console.log('🧹 AgentInfoSidebar: Cleared sessionId from URL for new chat')
+
+    // Фокусируем поле ввода
+    focusChatInput()
   }
 
   const fetchAgentDetails = async () => {
@@ -232,32 +139,51 @@ const AgentInfoSidebar = () => {
     setIsLoading(true)
 
     try {
-      // Используем существующий API эндпоинт вместо Supabase
-      const { selectedEndpoint } = usePlaygroundStore.getState()
-      const url = `${selectedEndpoint}/v1/agents/detailed`
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch agents from API')
+      // Проверяем, не идет ли еще загрузка агентов
+      if (isEndpointLoading && agents.length === 0) {
+        console.log('AgentInfoSidebar: Agents are still loading, waiting...')
+        setIsLoading(false)
+        return
       }
 
-      const allAgents = await response.json()
+      // Ищем агента ТОЛЬКО в уже загруженном списке из store
+      const agentFromStore = agents.find((agent) => agent.value === agentId)
 
-      // Находим нужного агента по agent_id
-      const agent = allAgents.find((a: AgentDetails) => a.agent_id === agentId)
+      if (agentFromStore) {
+        console.log('AgentInfoSidebar: Found agent in store:', agentFromStore)
 
-      if (!agent) {
-        toast.error('Agent not found')
-        setAgentDetails(null)
-      } else {
-        setAgentDetails(agent)
+        // Преобразуем AgentOption в APIAgent формат для отображения
+        const agentForDisplay: APIAgent = {
+          agent_id: agentFromStore.value,
+          name: agentFromStore.label,
+          model_config: {
+            id: agentFromStore.model?.provider || 'unknown',
+            provider: agentFromStore.model?.provider || 'unknown'
+          },
+          is_public: agentFromStore.is_public || false,
+          company_id: agentFromStore.company_id || undefined,
+          description: agentFromStore.description || undefined,
+          system_instructions: agentFromStore.system_instructions || [],
+          tool_ids: [],
+          agent_config: {},
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          user_id: undefined
+        }
+
+        setAgentDetails(agentForDisplay)
+        return
       }
+
+      // Если агент не найден в store - просто не показываем информацию
+      console.log(
+        'AgentInfoSidebar: Agent not found in loaded agents:',
+        agentId
+      )
+      setAgentDetails(null)
     } catch (error) {
-      console.error('Error fetching agent details:', error)
-      toast.error('Failed to fetch agent details.')
+      console.error('Error processing agent details:', error)
       setAgentDetails(null)
     } finally {
       setIsLoading(false)
@@ -269,7 +195,33 @@ const AgentInfoSidebar = () => {
       fetchAgentDetails()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentId, isCreatingNewAgent])
+  }, [agentId, isCreatingNewAgent, selectedEndpoint, agents])
+
+  // Дополнительный useEffect для повторной попытки когда загрузка агентов завершится
+  useEffect(() => {
+    if (
+      !isCreatingNewAgent &&
+      !isEndpointLoading &&
+      agentId &&
+      !agentDetails &&
+      !isLoading &&
+      agents.length > 0
+    ) {
+      console.log(
+        'AgentInfoSidebar: Agents loading completed, retrying fetch for agent:',
+        agentId
+      )
+      fetchAgentDetails()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isEndpointLoading,
+    agentId,
+    agentDetails,
+    isLoading,
+    isCreatingNewAgent,
+    agents
+  ])
 
   return (
     <motion.aside
@@ -279,26 +231,43 @@ const AgentInfoSidebar = () => {
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
       <div className="absolute right-2 top-4 z-10 flex items-center gap-2">
-        <Button
-          onClick={handleRefreshAgent}
-          disabled={isRefreshing || isCreatingNewAgent}
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 hover:bg-transparent"
-          aria-label="Refresh agent cache"
-        >
-          <motion.div
-            key={isRefreshing ? 'rotating' : 'idle'}
-            animate={{ rotate: isRefreshing ? 360 : 0 }}
-            transition={{ duration: 0.5, ease: 'easeInOut' }}
-          >
-            <Icon
-              type="refresh"
-              size="xs"
-              className="text-muted-foreground hover:text-primary"
-            />
-          </motion.div>
-        </Button>
+        {/* Action Buttons - Edit and Duplicate */}
+        {!isLoading && agentDetails && !isCreatingNewAgent && (
+          <>
+            {/* Edit Button - show only if user has rights */}
+            {canEdit && (
+              <Button
+                onClick={handleEditAgent}
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 hover:bg-transparent"
+                aria-label="Edit agent"
+              >
+                <Icon
+                  type="edit"
+                  size="xs"
+                  className="text-muted-foreground hover:text-primary"
+                />
+              </Button>
+            )}
+
+            {/* Copy Button - show for all agents */}
+            <Button
+              onClick={handleCopyAgent}
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 hover:bg-transparent"
+              aria-label="Duplicate agent"
+            >
+              <Icon
+                type="copy"
+                size="xs"
+                className="text-muted-foreground hover:text-primary"
+              />
+            </Button>
+          </>
+        )}
+
         <motion.button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="p-1"
@@ -333,8 +302,27 @@ const AgentInfoSidebar = () => {
                 {agentDetails.name}
               </h2>
 
-              <div className="flex justify-center gap-x-6 py-2">
-                <div className="flex items-center space-x-2">
+              <div className="flex justify-center gap-x-4 py-2">
+                <div className="flex flex-col items-center space-y-1">
+                  <Label
+                    htmlFor="streaming-toggle"
+                    className="text-muted text-xs capitalize"
+                  >
+                    Stream
+                  </Label>
+                  <Switch
+                    id="streaming-toggle"
+                    checked={streamingEnabled}
+                    onCheckedChange={setStreamingEnabled}
+                  />
+                </div>
+                <div className="flex flex-col items-center space-y-1">
+                  <Label
+                    htmlFor="is_active_api"
+                    className="text-muted text-xs capitalize"
+                  >
+                    Active
+                  </Label>
                   <Switch
                     id="is_active_api"
                     checked={
@@ -342,25 +330,19 @@ const AgentInfoSidebar = () => {
                     }
                     disabled={true}
                   />
-                  <Label
-                    htmlFor="is_active_api"
-                    className="text-muted text-xs capitalize"
-                  >
-                    Active
-                  </Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_public"
-                    checked={!!agentDetails.is_public}
-                    disabled={true}
-                  />
+                <div className="flex flex-col items-center space-y-1">
                   <Label
                     htmlFor="is_public"
                     className="text-muted text-xs capitalize"
                   >
                     Public
                   </Label>
+                  <Switch
+                    id="is_public"
+                    checked={!!agentDetails.is_public}
+                    disabled={true}
+                  />
                 </div>
               </div>
             </div>
@@ -374,42 +356,43 @@ const AgentInfoSidebar = () => {
                   </div>
                   <Tooltip
                     content={
-                      <div className="max-w-xs whitespace-pre-wrap break-words">
+                      <div className="font-geist text-primary max-w-xs whitespace-pre-wrap break-words p-2 text-xs">
                         {agentDetails.description}
                       </div>
                     }
                     side="left"
-                    delayDuration={500}
-                    contentClassName="max-w-xs"
+                    delayDuration={300}
+                    contentClassName="bg-background border border-border shadow-lg max-w-xs rounded-xl"
                   >
-                    <p className="text-muted line-clamp-3 cursor-help font-sans text-xs">
+                    <p className="text-muted hover:text-foreground line-clamp-3 cursor-help font-sans text-xs transition-colors">
                       {agentDetails.description}
                     </p>
                   </Tooltip>
                 </div>
               )}
 
-              {agentDetails.instructions && (
-                <div>
-                  <div className="text-primary mb-2 text-xs font-medium uppercase">
-                    Instructions
+              {agentDetails.system_instructions &&
+                agentDetails.system_instructions.length > 0 && (
+                  <div>
+                    <div className="text-primary mb-2 text-xs font-medium uppercase">
+                      Instructions
+                    </div>
+                    <Tooltip
+                      content={
+                        <div className="text-primary max-w-xs whitespace-pre-wrap break-words text-xs">
+                          {agentDetails.system_instructions.join('\n\n')}
+                        </div>
+                      }
+                      side="left"
+                      delayDuration={300}
+                      contentClassName="font-geist p-4 bg-background border border-border shadow-lg max-w-xs rounded-xl"
+                    >
+                      <p className="text-muted hover:text-foreground line-clamp-3 cursor-help font-sans text-xs transition-colors">
+                        {agentDetails.system_instructions.join(' ')}
+                      </p>
+                    </Tooltip>
                   </div>
-                  <Tooltip
-                    content={
-                      <div className="max-w-xs whitespace-pre-wrap break-words">
-                        {agentDetails.instructions}
-                      </div>
-                    }
-                    side="left"
-                    delayDuration={500}
-                    contentClassName="max-w-xs"
-                  >
-                    <p className="text-muted line-clamp-3 cursor-help font-sans text-xs">
-                      {agentDetails.instructions}
-                    </p>
-                  </Tooltip>
-                </div>
-              )}
+                )}
             </div>
 
             {isEndpointActive && agentId !== 'new' && (
@@ -420,11 +403,11 @@ const AgentInfoSidebar = () => {
                     Sessions
                   </div>
                   <Button
-                    disabled={messages.length === 0}
                     onClick={handleNewChat}
                     variant="ghost"
                     size="icon"
                     className="bg-background-secondary h-7 w-7 hover:bg-transparent"
+                    title="Создать новый чат"
                   >
                     <Icon
                       type="plus-icon"

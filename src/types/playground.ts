@@ -1,14 +1,18 @@
 export interface ToolCall {
-  role: 'user' | 'tool' | 'system' | 'assistant'
-  content: string | null
-  tool_call_id: string
+  role?: 'user' | 'tool' | 'system' | 'assistant'
+  content?: string | null
+  tool_call_id?: string
   tool_name: string
-  tool_args: Record<string, string>
-  tool_call_error: boolean
-  metrics: {
+  tool_args?: Record<string, string>
+  tool_call_error?: boolean
+  metrics?: {
     time: number
   }
   created_at: number
+  // Дополнительные поля для Agno API
+  tool_input?: unknown
+  tool_output?: unknown
+  status?: 'running' | 'completed' | 'failed'
 }
 
 export interface ReasoningSteps {
@@ -220,19 +224,45 @@ export interface AgentSettings {
   extra_data?: Record<string, unknown>
 }
 
-// Updated Agent interface with new structure
+// Updated Agent interface with new Supabase structure
 export interface Agent {
-  id?: number
+  id?: string // UUID from Supabase
+  agent_id: string // Unique agent identifier
   name: string
-  agent_id: string
-  description: string
+  description?: string
+  model_config: {
+    id: string
+    provider: string
+    temperature?: number
+    max_tokens?: number
+    top_p?: number
+    frequency_penalty?: number
+    presence_penalty?: number
+    stop?: string[]
+    seed?: number
+    timeout?: number
+    max_retries?: number
+  }
+  system_instructions?: string[]
+  tool_ids?: string[] // UUID array for tools
+  user_id?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  agent_config: Record<string, unknown>
+  is_public: boolean
+  company_id?: string // UUID
+  photo?: string
+  category?: string
+
+  // New fields added to match updated schema
+  goal?: string
+  expected_output?: string
+  role?: string
+
+  // Legacy fields for backward compatibility
   instructions?: string
-  is_active?: boolean
   is_active_api?: boolean
-  is_public?: boolean
-  company_id?: string
-  created_at?: string
-  updated_at?: string
   model_configuration?: ModelConfiguration
   tools_config?: ToolsConfiguration
   memory_config?: MemoryConfiguration
@@ -241,9 +271,45 @@ export interface Agent {
   reasoning_config?: ReasoningConfiguration
   team_config?: TeamConfiguration
   settings?: AgentSettings
-  // Legacy fields for backward compatibility
   model?: Model
   storage?: boolean
+}
+
+// API Agent interface for responses from Supabase
+export interface APIAgent {
+  id: string
+  agent_id: string
+  name: string
+  description?: string
+  model_config: {
+    id: string
+    provider: string
+    temperature?: number
+    max_tokens?: number
+    top_p?: number
+    frequency_penalty?: number
+    presence_penalty?: number
+    stop?: string[]
+    seed?: number
+    timeout?: number
+    max_retries?: number
+  }
+  system_instructions: string[]
+  tool_ids: string[]
+  user_id?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  agent_config: Record<string, unknown>
+  is_public: boolean
+  company_id?: string
+  photo?: string
+  category?: string
+
+  // New fields added to match updated schema
+  goal?: string
+  expected_output?: string
+  role?: string
 }
 
 interface MessageContext {
@@ -264,6 +330,50 @@ export enum RunEvent {
   ReasoningStarted = 'ReasoningStarted',
   ReasoningStep = 'ReasoningStep',
   ReasoningCompleted = 'ReasoningCompleted'
+}
+
+// Новые типы событий для Agno API
+export type AgnoEvent =
+  | 'RunStarted'
+  | 'RunResponseContent'
+  | 'RunCompleted'
+  | 'ToolCallStarted'
+  | 'ToolCallCompleted'
+  | 'ReasoningStarted'
+  | 'ReasoningStep'
+  | 'RunError'
+
+// Структура события стриминга Agno
+export interface AgnoStreamEvent {
+  event: AgnoEvent
+  content?: string
+  agent_id?: string
+  run_id?: string
+  session_id?: string
+  created_at: number
+
+  // Медиа контент
+  images?: AgnoMediaItem[]
+  videos?: AgnoMediaItem[]
+  audio?: AgnoMediaItem[]
+  response_audio?: string
+
+  // Информация об инструменте
+  tool_name?: string
+  tool_input?: unknown
+  tool_output?: unknown
+
+  // Ошибки
+  error_type?: 'NotFound' | 'RuntimeError' | 'General'
+}
+
+// Структура медиа элемента для Agno API
+export interface AgnoMediaItem {
+  url?: string
+  content?: string
+  content_type: string
+  name?: string
+  size?: number
 }
 
 export interface ResponseAudio {
@@ -356,10 +466,11 @@ export interface PlaygroundChatMessage {
     reasoning_messages?: ReasoningMessage[]
     references?: ReferenceData[]
   }
-  images?: ImageData[]
-  videos?: VideoData[]
-  audio?: AudioData[]
-  response_audio?: ResponseAudio
+  // Поддержка как старых типов, так и новых типов Agno API
+  images?: ImageData[] | AgnoMediaItem[]
+  videos?: VideoData[] | AgnoMediaItem[]
+  audio?: AudioData[] | AgnoMediaItem[]
+  response_audio?: ResponseAudio | string
   files?: string[]
 }
 
@@ -373,6 +484,10 @@ export interface ComboboxAgent {
   storage_config?: {
     enabled?: boolean
   }
+  is_public?: boolean
+  company_id?: string
+  category?: string
+  photo?: string
 }
 export interface ImageData {
   revised_prompt: string
@@ -414,6 +529,10 @@ export interface SessionEntry {
   session_id: string
   title: string
   created_at: number
+  session_data?: {
+    session_name?: string
+    [key: string]: unknown
+  }
 }
 
 export interface ChatEntry {

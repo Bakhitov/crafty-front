@@ -6,6 +6,8 @@ import React, { type FC } from 'react'
 import Icon from '@/components/ui/icon'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { BsPhone } from 'react-icons/bs'
+import { LuUsers } from 'react-icons/lu'
 
 interface MessengerMessagesProps {
   messages: Message[]
@@ -27,18 +29,50 @@ const MessageItem: FC<MessageItemProps> = ({ message }) => {
     })
   }
 
+  const getSourceIcon = (source: string) => {
+    switch (source) {
+      case 'device':
+        return <BsPhone className="text-muted-foreground h-3 w-3" />
+      case 'user':
+        return <Icon type="user" size="xs" className="text-muted-foreground" />
+      case 'agno':
+        return <Icon type="agent" size="xs" className="text-muted-foreground" />
+      case 'api':
+        return <LuUsers className="text-muted-foreground h-3 w-3" />
+      default:
+        return (
+          <Icon
+            type="message-circle"
+            size="xs"
+            className="text-muted-foreground"
+          />
+        )
+    }
+  }
+
   const isFromMe = message.is_from_me
 
   return (
     <div
-      className={cn('flex w-full', isFromMe ? 'justify-end' : 'justify-start')}
+      className={cn(
+        'flex w-full items-start gap-3',
+        isFromMe ? 'justify-end' : 'justify-start'
+      )}
     >
+      {!isFromMe && (
+        /* Аватарка слева для входящих сообщений */
+        <div className="flex-shrink-0">
+          <div className="bg-background flex h-8 w-8 items-center justify-center rounded-full">
+            {getSourceIcon(message.message_source)}
+          </div>
+        </div>
+      )}
+
+      {/* Сообщение */}
       <div
         className={cn(
           'max-w-[70%] rounded-2xl px-4 py-2',
-          isFromMe
-            ? 'bg-primary text-primary'
-            : 'bg-background-secondary text-foreground'
+          isFromMe ? 'bg-background-secondary' : 'bg-background'
         )}
       >
         {!isFromMe && message.contact_name && (
@@ -54,7 +88,7 @@ const MessageItem: FC<MessageItemProps> = ({ message }) => {
         <div
           className={cn(
             'mt-1 flex items-center justify-end gap-1 text-xs',
-            isFromMe ? 'text-white/70' : 'text-muted-foreground'
+            isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
           )}
         >
           <span>{formatTimestamp(message.timestamp)}</span>
@@ -62,13 +96,20 @@ const MessageItem: FC<MessageItemProps> = ({ message }) => {
             <Icon
               type="check"
               size="xxs"
-              className={cn(
-                isFromMe ? 'text-white/70' : 'text-muted-foreground'
-              )}
+              className="text-primary-foreground/70"
             />
           )}
         </div>
       </div>
+
+      {isFromMe && (
+        /* Аватарка справа для исходящих сообщений */
+        <div className="flex-shrink-0">
+          <div className="bg-background flex h-8 w-8 items-center justify-center rounded-full">
+            {getSourceIcon(message.message_source)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,95 +1,105 @@
 'use client'
-
 import { usePlaygroundStore } from '@/store'
 import { ChatArea, MessengerChatArea } from '@/components/playground/ChatArea'
-import AgentCreator from '@/components/playground/AgentCreator'
-import ToolCreator from '@/components/playground/ToolCreator'
-import MessengerInstanceEditor from '@/components/playground/MessengerProvider/MessengerInstanceEditor'
-import MessengerInstanceManager from '@/components/playground/MessengerProvider/MessengerInstanceManager'
-import {
-  AgentSelectBlankState,
-  ChatSelectBlankState,
-  ChatCreateBlankState,
-  InstanceSelectBlankState,
-  InstanceCreateBlankState,
-  ToolBlankState
-} from './Sidebar/BlankStates'
+import { Suspense, lazy } from 'react'
 import { useQueryState } from 'nuqs'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
-const MainContent = () => {
+// Lazy loading для тяжелых компонентов
+const AgentCreator = lazy(() =>
+  import('@/components/playground/AgentCreator').then((module) => ({
+    default: module.AgentCreator
+  }))
+)
+const ToolCreator = lazy(() => import('@/components/playground/ToolCreator'))
+const MessengerInstanceEditor = lazy(
+  () =>
+    import('@/components/playground/MessengerProvider/MessengerInstanceEditor')
+)
+const MessengerInstanceManager = lazy(
+  () =>
+    import('@/components/playground/MessengerProvider/MessengerInstanceManager')
+)
+
+// Компонент загрузки для lazy components
+const LazyComponentLoader = ({ children }: { children: React.ReactNode }) => (
+  <Suspense
+    fallback={
+      <div className="flex h-full items-center justify-center">
+        <LoadingSpinner message="Загрузка компонента..." size="lg" />
+      </div>
+    }
+  >
+    {children}
+  </Suspense>
+)
+
+export default function MainContent() {
   const {
-    // Mode states
+    isChatMode,
     isAgentCreationMode,
     isToolCreationMode,
     isMessengerInstanceEditorMode,
-    setIsMessengerInstanceEditorMode,
-    isChatMode,
-    activeTab,
     isMessengerManagerMode,
-
-    // Data states
-    agents,
-    messengerInstances,
+    editingMessengerInstance,
     selectedChatId,
     selectedInstanceId,
-    editingMessengerInstance,
     setEditingMessengerInstance,
-    setIsMessengerManagerMode,
-    toolsCache
+    setIsMessengerInstanceEditorMode,
+    setIsMessengerManagerMode
   } = usePlaygroundStore()
 
   const [agentId] = useQueryState('agent')
 
-  const handleCloseMessengerEditor = () => {
-    setIsMessengerInstanceEditorMode(false)
-    setEditingMessengerInstance(null)
-    setIsMessengerManagerMode(false)
-  }
-
-  const handleCreateInstance = () => {
-    setEditingMessengerInstance(null)
-    setIsMessengerInstanceEditorMode(true)
-  }
-
-  const handleCreateTool = () => {
-    const { setIsToolCreationMode } = usePlaygroundStore.getState()
-    setIsToolCreationMode(true)
-  }
-
-  // Agent creation mode
-  if (isAgentCreationMode) {
-    return <AgentCreator />
-  }
-
-  // Tool creation mode
-  if (isToolCreationMode) {
-    return <ToolCreator />
-  }
-
-  // Messenger instance editing mode
-  if (isMessengerInstanceEditorMode) {
+  // Определяем, какой компонент показать
+  if (isAgentCreationMode || agentId === 'new') {
     return (
-      <MessengerInstanceEditor
-        editingInstance={editingMessengerInstance}
-        onClose={handleCloseMessengerEditor}
-      />
+      <LazyComponentLoader>
+        <AgentCreator />
+      </LazyComponentLoader>
     )
   }
 
-  // Messenger manager mode (only when explicitly activated)
+  if (isToolCreationMode) {
+    return (
+      <LazyComponentLoader>
+        <ToolCreator />
+      </LazyComponentLoader>
+    )
+  }
+
+  if (isMessengerInstanceEditorMode && editingMessengerInstance) {
+    return (
+      <LazyComponentLoader>
+        <MessengerInstanceEditor
+          editingInstance={editingMessengerInstance}
+          onClose={() => {
+            usePlaygroundStore
+              .getState()
+              .setIsMessengerInstanceEditorMode(false)
+            usePlaygroundStore.getState().setEditingMessengerInstance(null)
+          }}
+        />
+      </LazyComponentLoader>
+    )
+  }
+
   if (isMessengerManagerMode) {
     return (
-      <MessengerInstanceManager
-        onEditInstance={(instance) => {
-          setEditingMessengerInstance(instance)
-          setIsMessengerInstanceEditorMode(true)
-        }}
-      />
+      <LazyComponentLoader>
+        <MessengerInstanceManager
+          onEditInstance={(instance) => {
+            setEditingMessengerInstance(instance)
+            setIsMessengerInstanceEditorMode(true)
+          }}
+          onClose={() => setIsMessengerManagerMode(false)}
+        />
+      </LazyComponentLoader>
     )
   }
 
-  // Messenger chat mode
-  if (isChatMode && selectedChatId && selectedInstanceId) {
+  // Основной контент чата
+  if (isChatMode) {
     return (
       <MessengerChatArea
         chatId={selectedChatId}
@@ -98,63 +108,6 @@ const MainContent = () => {
     )
   }
 
-  // Blank states by tabs depending on state
-  switch (activeTab) {
-    case 'agents':
-      if (agents.length === 0) {
-        return <AgentSelectBlankState />
-      }
-      // If there are agents but no agentId is selected, try to select the first one
-      if (!agentId && agents.length > 0) {
-        return <AgentSelectBlankState />
-      }
-      // Regular playground mode with agent
-      return <ChatArea />
-
-    case 'tools':
-      // Get all tools from cache
-      const allTools = [
-        ...toolsCache.dynamicTools,
-        ...toolsCache.customTools,
-        ...toolsCache.mcpServers
-      ]
-
-      if (allTools.length === 0) {
-        return <ToolBlankState onCreateTool={handleCreateTool} />
-      }
-      // Show tools selection blank state by default
-      return <ToolBlankState onCreateTool={handleCreateTool} />
-
-    case 'chats':
-      if (messengerInstances.length === 0) {
-        return <ChatCreateBlankState onCreateInstance={handleCreateInstance} />
-      }
-      if (!selectedChatId) {
-        return <ChatSelectBlankState />
-      }
-      return (
-        <MessengerChatArea
-          chatId={selectedChatId}
-          instanceId={selectedInstanceId}
-        />
-      )
-
-    case 'instances':
-      if (messengerInstances.length === 0) {
-        return (
-          <InstanceCreateBlankState onCreateInstance={handleCreateInstance} />
-        )
-      }
-      return <InstanceSelectBlankState />
-
-    default:
-      // By default show agents
-      if (agents.length === 0) {
-        return <AgentSelectBlankState />
-      }
-      // If there are agents, show the chat area (it will handle agent selection internally)
-      return <ChatArea />
-  }
+  // Обычный режим чата (по умолчанию)
+  return <ChatArea />
 }
-
-export default MainContent

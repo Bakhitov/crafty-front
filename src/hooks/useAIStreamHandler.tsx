@@ -3,6 +3,7 @@ import { useCallback } from 'react'
 import { APIRoutes } from '@/api/routes'
 
 import useChatActions from '@/hooks/useChatActions'
+import useSessionLoader from '@/hooks/useSessionLoader'
 import { usePlaygroundStore } from '../store'
 import {
   RunEvent,
@@ -23,6 +24,7 @@ import { useAuthContext } from '@/components/AuthProvider'
 const useAIChatStreamHandler = () => {
   const setMessages = usePlaygroundStore((state) => state.setMessages)
   const { addMessage, focusChatInput } = useChatActions()
+  const { autoRenameSession } = useSessionLoader()
   const [agentId] = useQueryState('agent')
   const [sessionId, setSessionId] = useQueryState('session')
   const selectedEndpoint = usePlaygroundStore((state) => state.selectedEndpoint)
@@ -209,9 +211,10 @@ const useAIChatStreamHandler = () => {
                 (!sessionId || sessionId !== chunk.session_id) &&
                 chunk.session_id
               ) {
+                const userMessage = formData.get('message') as string
                 const sessionData = {
                   session_id: chunk.session_id as string,
-                  title: formData.get('message') as string,
+                  title: userMessage,
                   created_at: chunk.created_at
                 }
                 setSessionsData((prevSessionsData) => {
@@ -223,6 +226,22 @@ const useAIChatStreamHandler = () => {
                   }
                   return [sessionData, ...(prevSessionsData ?? [])]
                 })
+
+                // Автоматически переименовываем сессию на сообщение пользователя
+                if (agentId && userMessage && userMessage !== 'Новый чат') {
+                  console.log(
+                    '🏷️ AI Handler: Auto-renaming new session with user message'
+                  )
+                  setTimeout(() => {
+                    if (agentId && chunk.session_id) {
+                      autoRenameSession(
+                        agentId,
+                        chunk.session_id as string,
+                        userMessage
+                      )
+                    }
+                  }, 1000)
+                }
               }
             } else if (chunk.event === RunEvent.ToolCallStarted) {
               setMessages((prevMessages) => {
@@ -333,13 +352,21 @@ const useAIChatStreamHandler = () => {
                 ) {
                   const transcript = chunk.response_audio.transcript
                   // Создаем новый объект сообщения вместо мутации
+                  // Обрабатываем response_audio с учетом того, что он может быть string или ResponseAudio
+                  const currentResponseAudio = lastMessage.response_audio
+                  const existingTranscript =
+                    typeof currentResponseAudio === 'object' &&
+                    currentResponseAudio?.transcript
+                      ? currentResponseAudio.transcript
+                      : ''
+
                   newMessages[lastMessageIndex] = {
                     ...lastMessage,
                     response_audio: {
-                      ...lastMessage.response_audio,
-                      transcript:
-                        (lastMessage.response_audio?.transcript || '') +
-                        transcript
+                      ...(typeof currentResponseAudio === 'object'
+                        ? currentResponseAudio
+                        : {}),
+                      transcript: existingTranscript + transcript
                     }
                   }
                 }
@@ -488,7 +515,8 @@ const useAIChatStreamHandler = () => {
       setSessionId,
       hasStorage,
       processChunkToolCalls,
-      user?.id
+      user?.id,
+      autoRenameSession
     ]
   )
 

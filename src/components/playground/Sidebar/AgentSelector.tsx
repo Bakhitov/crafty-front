@@ -16,12 +16,12 @@ import useChatActions from '@/hooks/useChatActions'
 
 export function AgentSelector() {
   const { agents, setSelectedModel, setHasStorage } = usePlaygroundStore()
-  const { focusChatInput, clearChat } = useChatActions()
+  const { focusChatInput, startAgentSwitch } = useChatActions()
   const [agentId, setAgentId] = useQueryState('agent', {
     parse: (value) => value || undefined,
     history: 'push'
   })
-  useQueryState('session')
+  const [, setSessionId] = useQueryState('session')
 
   // Set the model when the component mounts if an agent is already selected
   useEffect(() => {
@@ -47,12 +47,34 @@ export function AgentSelector() {
   const handleOnValueChange = (value: string) => {
     const newAgent = value === agentId ? '' : value
     const selectedAgent = agents.find((agent) => agent.value === newAgent)
+
+    console.log('🔄 AgentSelector: Switching agent:', {
+      from: agentId,
+      to: newAgent,
+      agentName: selectedAgent?.label
+    })
+
+    // Начинаем переключение агента (очищает чат и устанавливает флаг)
+    startAgentSwitch()
+
+    // СИНХРОННО очищаем sessionId из URL чтобы предотвратить загрузку старой сессии
+    const url = new URL(window.location.href)
+    url.searchParams.delete('session')
+    window.history.replaceState({}, '', url.toString())
+    console.log('🧹 AgentSelector: Cleared sessionId from URL synchronously')
+
+    setSessionId(null)
+
+    // Затем устанавливаем нового агента
     setSelectedModel(selectedAgent?.model.provider || '')
     setHasStorage(
       !!(selectedAgent?.storage || selectedAgent?.storage_config?.enabled)
     )
     setAgentId(newAgent)
-    clearChat()
+
+    // НЕ завершаем переключение агента здесь - это должно происходить после загрузки сессий
+    // completeAgentSwitch() будет вызван в Sessions.tsx после загрузки сессий
+
     if (selectedAgent?.model.provider) {
       focusChatInput()
     }

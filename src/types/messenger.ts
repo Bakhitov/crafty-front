@@ -8,6 +8,7 @@ export type ProviderType =
   | 'discord'
   | 'slack'
   | 'messenger'
+  | 'instagram'
 
 export type InstanceStatus =
   | 'created'
@@ -22,12 +23,12 @@ export type InstanceType = 'api' | 'mcp'
 // Base instance interface
 export interface BaseMessengerInstance {
   instance_id: string
-  user_id: string
   provider: ProviderType
   type_instance: InstanceType[]
   status: InstanceStatus
   port?: number
   api_key?: string
+  company_id: string // Теперь обязательное поле
   created_at: string
   updated_at: string
 
@@ -38,6 +39,7 @@ export interface BaseMessengerInstance {
     agnoUrl: string
     enabled: boolean
     agent_id: string
+    session_id?: string
   }
 
   // Webhook Configuration
@@ -146,7 +148,7 @@ export interface RealInstanceResponse
 
 // Instance creation payloads
 export interface CreateWhatsAppWebInstancePayload {
-  user_id: string
+  company_id: string
   provider: 'whatsappweb'
   type_instance: InstanceType[]
   agno_config?: BaseMessengerInstance['agno_config']
@@ -154,27 +156,29 @@ export interface CreateWhatsAppWebInstancePayload {
 }
 
 export interface CreateTelegramInstancePayload {
-  user_id: string
+  company_id: string
   provider: 'telegram'
   type_instance: InstanceType[]
   token: string
+  bot_username?: string
   agno_config?: BaseMessengerInstance['agno_config']
   api_webhook_schema?: BaseMessengerInstance['api_webhook_schema']
 }
 
 export interface CreateWhatsAppOfficialInstancePayload {
-  user_id: string
+  company_id: string
   provider: 'whatsapp-official'
   type_instance: InstanceType[]
   phone_number_id: string
   access_token: string
   webhook_verify_token: string
+  business_account_id?: string
   agno_config?: BaseMessengerInstance['agno_config']
   api_webhook_schema?: BaseMessengerInstance['api_webhook_schema']
 }
 
 export interface CreateDiscordInstancePayload {
-  user_id: string
+  company_id: string
   provider: 'discord'
   type_instance: InstanceType[]
   bot_token: string
@@ -185,18 +189,19 @@ export interface CreateDiscordInstancePayload {
 }
 
 export interface CreateSlackInstancePayload {
-  user_id: string
+  company_id: string
   provider: 'slack'
   type_instance: InstanceType[]
   bot_token: string
   app_token?: string
   signing_secret?: string
+  workspace_id?: string
   agno_config?: BaseMessengerInstance['agno_config']
   api_webhook_schema?: BaseMessengerInstance['api_webhook_schema']
 }
 
 export interface CreateMessengerInstancePayload {
-  user_id: string
+  company_id: string
   provider: 'messenger'
   type_instance: InstanceType[]
   page_access_token: string
@@ -218,7 +223,7 @@ export interface CreateInstanceResponse {
 
 export interface CreateInstanceResponseWithStatus
   extends CreateInstanceResponse {
-  instanceFoundInList: boolean
+  status: string
 }
 
 export interface InstanceListResponse {
@@ -499,6 +504,7 @@ export interface MessageInstance {
     model?: string
     stream?: boolean
     agnoUrl?: string
+    session_id?: string
   } | null
 }
 

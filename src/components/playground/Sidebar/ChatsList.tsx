@@ -6,23 +6,38 @@ import Icon from '@/components/ui/icon'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { Chat, ProviderType, MessageInstance } from '@/types/messenger'
+import { ProviderType, MessageInstance } from '@/types/messenger'
 import { toast } from 'sonner'
 import { usePlaygroundStore } from '@/store'
-import { ChatSelectBlankState, ChatCreateBlankState } from './BlankStates'
+import { useCompanyContext } from '@/components/CompanyProvider'
+
+// Интерфейс для чата, полученного из таблицы messages
+interface ChatFromMessages {
+  chat_id: string
+  instance_id: string
+  contact_name: string | null
+  from_number: string | null
+  is_group: boolean
+  group_id: string | null
+  last_message: string | null
+  last_message_timestamp: number | null
+  updated_at: string
+  provider: ProviderType
+  session_id: string | null
+}
 
 interface ChatItemProps {
-  chat: Chat
+  chat: ChatFromMessages
   instance: MessageInstance | null
   isSelected: boolean
   onClick: () => void
 }
 
 const ChatItem = ({ chat, instance, isSelected, onClick }: ChatItemProps) => {
-  const formatTimestamp = (timestamp: string | null) => {
+  const formatTimestamp = (timestamp: number | null) => {
     if (!timestamp) return ''
 
-    const date = new Date(timestamp)
+    const date = new Date(timestamp * 1000) // timestamp в секундах
     const now = new Date()
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
 
@@ -101,9 +116,9 @@ const ChatItem = ({ chat, instance, isSelected, onClick }: ChatItemProps) => {
     >
       <div className="flex h-8 w-8 items-center justify-center">
         <Icon
-          type={getProviderIcon(instance?.provider || 'whatsappweb')}
+          type={getProviderIcon(chat.provider)}
           size="lg"
-          className={getProviderColor(instance?.provider || 'whatsappweb')}
+          className={getProviderColor(chat.provider)}
         />
       </div>
 
@@ -144,7 +159,7 @@ const ChatItem = ({ chat, instance, isSelected, onClick }: ChatItemProps) => {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-muted text-xxs">
-              {formatTimestamp(chat.updated_at)}
+              {formatTimestamp(chat.last_message_timestamp)}
             </span>
           </div>
         </div>
@@ -174,9 +189,10 @@ const ChatsSkeletonList = ({ count = 5 }: { count?: number }) => (
 )
 
 const ChatsList = () => {
-  const [chats, setChats] = useState<Chat[]>([])
+  const [chats, setChats] = useState<ChatFromMessages[]>([])
   const [instances, setInstances] = useState<MessageInstance[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const { company } = useCompanyContext()
   const {
     selectedChatId,
     setSelectedChatId,
@@ -206,85 +222,140 @@ const ChatsList = () => {
     try {
       setIsLoading(true)
 
-      // Load instances and chats in parallel
-      const [instancesData, chatsResponse] = await Promise.all([
-        fetchInstancesData(),
-        supabase
+      // Загружаем инстансы
+      const instancesData = await fetchInstancesData()
+      setInstances(instancesData)
+
+      // Оптимизированный запрос для получения чатов из таблицы messages
+      // Используем window function для получения последнего сообщения для каждого чата
+      const { data: chatsData, error } = await supabase.rpc(
+        'get_latest_chats',
+        {
+          p_company_id: company?.id || null,
+          p_instance_id: null,
+          p_limit: 100
+        }
+      )
+
+      if (error) {
+        console.error('Error fetching chats:', error)
+
+        // Fallback: используем обычный запрос если RPC функция не доступна
+        let fallbackQuery = supabase
           .from('messages')
           .select(
             `
             chat_id,
             instance_id,
-            session_id,
             contact_name,
             from_number,
             is_group,
             group_id,
             message_body,
             timestamp,
-            created_at,
             updated_at,
-            is_from_me,
-            message_type,
-            message_source
+            session_id,
+            message_instances!inner (
+              company_id
+            )
           `
           )
-          .not('session_id', 'is', null) // Группируем по session_id, поэтому он должен быть не null
-          .order('updated_at', { ascending: false })
-      ])
+          .not('chat_id', 'is', null)
+          .order('timestamp', { ascending: false })
+          .limit(1000) // Ограничиваем для производительности
 
-      setInstances(instancesData)
-
-      const { data: chatsData, error } = chatsResponse
-
-      if (error) {
-        console.error('Error fetching chats from Supabase:', error)
-        toast.error(`Failed to load chats: ${error.message || 'Unknown error'}`)
-        return
-      }
-
-      if (!chatsData) {
-        setChats([])
-        return
-      }
-
-      // Group by session_id (вместо chat_id и instance_id)
-      const sessionMap = new Map<string, Chat>()
-
-      for (const message of chatsData) {
-        const sessionKey = message.session_id
-
-        if (!sessionMap.has(sessionKey)) {
-          // Find corresponding instance
-          const instance = instancesData.find(
-            (inst) => inst.id === message.instance_id
+        // Добавляем фильтрацию по компании если есть company_id
+        if (company?.id) {
+          fallbackQuery = fallbackQuery.eq(
+            'message_instances.company_id',
+            company.id
           )
-
-          sessionMap.set(sessionKey, {
-            chat_id: message.chat_id,
-            instance_id: message.instance_id,
-            session_id: message.session_id,
-            contact_name: message.contact_name,
-            from_number: message.from_number,
-            is_group: message.is_group,
-            group_id: message.group_id,
-            last_message: message.message_body,
-            last_message_timestamp: message.timestamp,
-            updated_at: message.updated_at,
-            unread_count: 0, // Убираем подсчет, всегда 0
-            provider: (instance?.provider as ProviderType) || 'whatsappweb'
-          })
         }
+
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery
+
+        if (fallbackError) {
+          console.error('Fallback query also failed:', fallbackError)
+          toast.error(`Failed to load chats: ${fallbackError.message}`)
+          return
+        }
+
+        // Группируем вручную по chat_id + instance_id
+        const chatMap = new Map<string, ChatFromMessages>()
+
+        if (fallbackData) {
+          for (const message of fallbackData) {
+            const chatKey = `${message.instance_id}-${message.chat_id}`
+
+            if (!chatMap.has(chatKey)) {
+              const instance = instancesData.find(
+                (inst) => inst.id === message.instance_id
+              )
+
+              chatMap.set(chatKey, {
+                chat_id: message.chat_id,
+                instance_id: message.instance_id,
+                contact_name: message.contact_name,
+                from_number: message.from_number,
+                is_group: message.is_group,
+                group_id: message.group_id,
+                last_message: message.message_body,
+                last_message_timestamp: message.timestamp,
+                updated_at: message.updated_at,
+                provider: (instance?.provider as ProviderType) || 'whatsappweb',
+                session_id: message.session_id
+              })
+            }
+          }
+        }
+
+        const chatsList = Array.from(chatMap.values()).sort((a, b) => {
+          const timeA = a.last_message_timestamp || 0
+          const timeB = b.last_message_timestamp || 0
+          return timeB - timeA
+        })
+
+        setChats(chatsList)
+        return
       }
 
-      // Convert to array and sort by updated_at (сначала новые)
-      const chatsList = Array.from(sessionMap.values()).sort((a, b) => {
-        const timeA = a.updated_at ? new Date(a.updated_at).getTime() : 0
-        const timeB = b.updated_at ? new Date(b.updated_at).getTime() : 0
-        return timeB - timeA
-      })
+      // Если RPC функция работает, используем её результат
+      if (chatsData) {
+        const processedChats: ChatFromMessages[] = chatsData.map(
+          (chat: {
+            chat_id: string
+            instance_id: string
+            contact_name: string | null
+            from_number: string | null
+            is_group: boolean
+            group_id: string | null
+            last_message: string | null
+            last_message_timestamp: number | null
+            updated_at: string
+            session_id: string | null
+          }) => {
+            const instance = instancesData.find(
+              (inst) => inst.id === chat.instance_id
+            )
 
-      setChats(chatsList)
+            return {
+              chat_id: chat.chat_id,
+              instance_id: chat.instance_id,
+              contact_name: chat.contact_name,
+              from_number: chat.from_number,
+              is_group: chat.is_group,
+              group_id: chat.group_id,
+              last_message: chat.last_message,
+              last_message_timestamp: chat.last_message_timestamp,
+              updated_at: chat.updated_at,
+              provider: (instance?.provider as ProviderType) || 'whatsappweb',
+              session_id: chat.session_id
+            }
+          }
+        )
+
+        setChats(processedChats)
+      }
     } catch (error) {
       console.error('Error in fetchChats:', error)
       toast.error(
@@ -293,13 +364,13 @@ const ChatsList = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [fetchInstancesData])
+  }, [fetchInstancesData, company?.id])
 
   useEffect(() => {
     fetchChats()
   }, [fetchChats])
 
-  // Subscribe to changes in messages table
+  // Подписываемся на изменения в таблице messages
   useEffect(() => {
     const subscription = supabase
       .channel('chats_changes')
@@ -311,7 +382,7 @@ const ChatsList = () => {
           table: 'messages'
         },
         () => {
-          // Refresh chat list when messages change
+          // Обновляем список чатов при изменении сообщений
           fetchChats()
         }
       )
@@ -322,10 +393,10 @@ const ChatsList = () => {
     }
   }, [fetchChats])
 
-  const handleChatClick = (chat: Chat) => {
+  const handleChatClick = (chat: ChatFromMessages) => {
     setSelectedChatId(chat.chat_id)
     setSelectedInstanceId(chat.instance_id)
-    setIsChatMode(true) // Activate chat mode
+    setIsChatMode(true)
   }
 
   const getInstanceById = (instanceId: string) => {
@@ -375,34 +446,17 @@ const ChatsList = () => {
       </div>
 
       <div className="[&::-webkit-scrollbar-thumb]:bg-border flex-1 overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
-        {chats.length === 0 ? (
-          instances.length === 0 ? (
-            <ChatCreateBlankState
-              onCreateInstance={() => {
-                const {
-                  setIsMessengerInstanceEditorMode,
-                  setEditingMessengerInstance
-                } = usePlaygroundStore.getState()
-                setEditingMessengerInstance(null)
-                setIsMessengerInstanceEditorMode(true)
-              }}
+        <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
+          {chats.map((chat) => (
+            <ChatItem
+              key={`${chat.instance_id}-${chat.chat_id}`}
+              chat={chat}
+              instance={getInstanceById(chat.instance_id)}
+              isSelected={selectedChatId === chat.chat_id}
+              onClick={() => handleChatClick(chat)}
             />
-          ) : (
-            <ChatSelectBlankState />
-          )
-        ) : (
-          <div className="flex flex-col gap-y-1 pb-[10px] pr-1">
-            {chats.map((chat) => (
-              <ChatItem
-                key={`${chat.instance_id}-${chat.session_id}`}
-                chat={chat}
-                instance={getInstanceById(chat.instance_id)}
-                isSelected={selectedChatId === chat.chat_id}
-                onClick={() => handleChatClick(chat)}
-              />
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   )

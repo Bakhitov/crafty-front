@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import Icon from '@/components/ui/icon'
 import { IconType } from '@/components/ui/icon/types'
@@ -136,7 +135,10 @@ const InstanceItem = ({ instance, onEdit, isSelected }: InstanceItemProps) => {
         <div className="flex items-center gap-2">
           <div className="flex h-4 w-4 items-center justify-center">
             {instance.status === 'running' ? (
-              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <div className="relative">
+                <div className="h-2 w-2 rounded-full bg-green-500" />
+                <div className="absolute -inset-1 animate-pulse rounded-full bg-green-400 opacity-20" />
+              </div>
             ) : (
               <Icon
                 type={getStatusIcon(instance.status)}
@@ -177,6 +179,23 @@ const InstanceItem = ({ instance, onEdit, isSelected }: InstanceItemProps) => {
   )
 }
 
+const SkeletonList = ({ skeletonCount }: { skeletonCount: number }) => (
+  <div className="flex flex-col gap-y-1">
+    {Array.from({ length: skeletonCount }).map((_, index) => (
+      <div
+        key={index}
+        className="bg-background-secondary flex items-center gap-2 rounded-lg px-3 py-2"
+      >
+        <Skeleton className="h-4 w-4 rounded" />
+        <div className="flex-1 space-y-1">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-2 w-16" />
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
 const MessengerProviderList = () => {
   const { instances, isLoading, error, fetchInstances } = useMessengerProvider()
   const {
@@ -201,6 +220,25 @@ const MessengerProviderList = () => {
     setIsMessengerManagerMode(true)
   }
 
+  if (isLoading) {
+    return (
+      <div className="w-full">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-primary text-xs font-medium uppercase">
+            Messengers
+          </div>
+        </div>
+        <div className="mb-3 flex gap-2">
+          <Skeleton className="border-primary/20 h-9 flex-1 rounded-xl border-dashed" />
+          <Skeleton className="border-primary/20 h-9 flex-1 rounded-xl border-dashed" />
+        </div>
+        <div className="[&::-webkit-scrollbar-thumb]:bg-border h-full overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1">
+          <SkeletonList skeletonCount={5} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full w-full flex-col">
       {/* Header */}
@@ -212,52 +250,27 @@ const MessengerProviderList = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-2">
+        <div className="flex gap-2">
           <Button
             size="lg"
             variant="outline"
-            className="border-primary/20 text-primary hover:bg-primary/10 h-9 w-full rounded-xl border-dashed text-xs font-medium"
+            className="border-primary/20 text-primary hover:bg-primary/10 h-9 flex-1 rounded-xl border-dashed text-xs font-medium"
             onClick={handleCreateNew}
           >
             <Icon type="plus-icon" size="xs" className="text-primary" />
-            <span className="uppercase">Create Instance</span>
+            <span className="uppercase">Create</span>
           </Button>
           <Button
             size="lg"
             variant="outline"
-            className="border-primary/20 text-primary hover:bg-primary/10 h-9 w-full rounded-xl text-xs font-medium"
+            className="border-primary/20 text-primary hover:bg-primary/10 h-9 flex-1 rounded-xl text-xs font-medium"
             onClick={handleOpenManager}
           >
             <Icon type="settings" size="xs" className="text-primary" />
-            <span className="uppercase">Instance Manager</span>
+            <span className="uppercase">Manager</span>
           </Button>
         </div>
       </div>
-
-      {/* Loading State */}
-      {isLoading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="bg-background-secondary border-0">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-3 w-3 rounded-full" />
-                  <div className="space-y-1">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-16" />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
 
       {/* Error State */}
       {error && (
@@ -273,8 +286,9 @@ const MessengerProviderList = () => {
               variant="outline"
               size="sm"
               className="mt-2"
-              onClick={fetchInstances}
+              onClick={() => fetchInstances()}
             >
+              <Icon type="refresh-cw" size="xs" />
               Retry
             </Button>
           </div>
@@ -283,7 +297,7 @@ const MessengerProviderList = () => {
 
       {/* Empty State */}
       {!isLoading && !error && instances.length === 0 && (
-        <InstanceCreateBlankState onCreateInstance={handleCreateNew} />
+        <InstanceCreateBlankState />
       )}
 
       {/* Instances List */}
@@ -295,7 +309,7 @@ const MessengerProviderList = () => {
                 <InstanceItem
                   key={
                     instance.instance_id ||
-                    `instance-${index}-${instance.provider}-${instance.user_id}`
+                    `instance-${index}-${instance.provider}-${instance.company_id}`
                   }
                   instance={instance}
                   onEdit={handleEditInstance}

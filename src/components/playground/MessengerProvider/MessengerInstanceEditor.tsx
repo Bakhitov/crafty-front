@@ -33,9 +33,9 @@ import {
 import { X, Save, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { IconType } from '@/components/ui/icon/types'
-import { usePlaygroundStore } from '@/store'
 import { useMessengerProvider } from '@/hooks/useMessengerProvider'
 import { useAuthContext } from '@/components/AuthProvider'
+import { useCompanyContext } from '@/components/CompanyProvider'
 import { generateQRCodeImage, isWhatsAppQRCode } from '@/lib/qrcode'
 import { messengerAPI } from '@/lib/messengerApi'
 import { formatLogsWithAnsi } from '@/lib/ansiToHtml'
@@ -64,7 +64,8 @@ const providerConfigs = [
     color: '#25D366',
     requiresAuth: true,
     authType: 'qr' as const,
-    dockerRequired: true
+    dockerRequired: true,
+    disabled: false
   },
   {
     id: 'telegram' as ProviderType,
@@ -74,7 +75,19 @@ const providerConfigs = [
     color: '#0088CC',
     requiresAuth: true,
     authType: 'token' as const,
-    dockerRequired: true
+    dockerRequired: true,
+    disabled: false
+  },
+  {
+    id: 'instagram' as ProviderType,
+    name: 'Instagram',
+    description: 'Connect via Instagram Direct API',
+    icon: 'instagram' as IconType,
+    color: '#E4405F',
+    requiresAuth: true,
+    authType: 'token' as const,
+    dockerRequired: true,
+    disabled: true
   },
   {
     id: 'whatsapp-official' as ProviderType,
@@ -84,7 +97,8 @@ const providerConfigs = [
     color: '#25D366',
     requiresAuth: true,
     authType: 'api_key' as const,
-    dockerRequired: true
+    dockerRequired: true,
+    disabled: true
   },
   {
     id: 'discord' as ProviderType,
@@ -94,7 +108,8 @@ const providerConfigs = [
     color: '#5865F2',
     requiresAuth: true,
     authType: 'token' as const,
-    dockerRequired: true
+    dockerRequired: true,
+    disabled: true
   },
   {
     id: 'slack' as ProviderType,
@@ -104,7 +119,8 @@ const providerConfigs = [
     color: '#4A154B',
     requiresAuth: true,
     authType: 'token' as const,
-    dockerRequired: true
+    dockerRequired: true,
+    disabled: true
   },
   {
     id: 'messenger' as ProviderType,
@@ -114,7 +130,8 @@ const providerConfigs = [
     color: '#006AFF',
     requiresAuth: true,
     authType: 'token' as const,
-    dockerRequired: true
+    dockerRequired: true,
+    disabled: true
   }
 ]
 
@@ -150,7 +167,7 @@ export default function MessengerInstanceEditor({
 }: MessengerInstanceEditorProps) {
   const { createInstance, deleteInstance, isLoading } = useMessengerProvider()
   const { user } = useAuthContext()
-  const { selectedEndpoint } = usePlaygroundStore()
+  const { company } = useCompanyContext()
   const [availableAgents, setAvailableAgents] = useState<ComboboxAgent[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -207,44 +224,81 @@ export default function MessengerInstanceEditor({
 
   // Load available agents
   const loadAvailableAgents = useCallback(async () => {
-    if (!selectedEndpoint) return
-
     try {
-      const response = await fetch(`${selectedEndpoint}/v1/agents/detailed`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      })
+      // Используем прямое обращение к Supabase вместо API клиента
+      const { supabase } = await import('@/lib/supabase')
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch agents')
+      // Получаем текущего пользователя
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        console.log('MessengerInstanceEditor: User not authenticated')
+        setAvailableAgents([])
+        return
       }
 
-      const allAgents = await response.json()
+      let query = supabase
+        .from('agents')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
 
-      const agentOptions: ComboboxAgent[] = allAgents.map(
+      // Логика фильтрации по доступности (аналогично useAgents)
+      if (company?.id) {
+        // Если есть компания, показываем агентов компании + публичные
+        query = query.or(`company_id.eq.${company.id},is_public.eq.true`)
+      } else {
+        // Если нет компании, но есть пользователь, показываем агентов пользователя + публичные агенты
+        query = query.or(`user_id.eq.${user.id},is_public.eq.true`)
+      }
+
+      const { data: agents, error } = await query
+
+      if (error) {
+        throw new Error(`Failed to fetch agents: ${error.message}`)
+      }
+
+      const agentOptions: ComboboxAgent[] = (agents || []).map(
         (agent: {
           agent_id: string
           name?: string
+          model_config?: { provider?: string }
           model_configuration?: { provider?: string }
           storage_config?: { enabled?: boolean }
+          is_public?: boolean
+          company_id?: string
+          category?: string
+          photo?: string
         }) => ({
           value: agent.agent_id,
           label: agent.name || agent.agent_id,
-          model: { provider: agent.model_configuration?.provider || '' },
+          model: {
+            provider:
+              agent.model_config?.provider ||
+              agent.model_configuration?.provider ||
+              ''
+          },
           storage: agent.storage_config?.enabled || false,
-          storage_config: agent.storage_config
+          storage_config: agent.storage_config,
+          is_public: agent.is_public,
+          company_id: agent.company_id,
+          category: agent.category,
+          photo: agent.photo
         })
       )
 
+      console.log(
+        'MessengerInstanceEditor: Loaded agents:',
+        agentOptions.length
+      )
       setAvailableAgents(agentOptions)
-
-      // Keep "none" as default for new instances
     } catch (error) {
       console.error('Error loading agents:', error)
       toast.error('Failed to load agents')
     }
-  }, [selectedEndpoint])
-
+  }, [company?.id])
   // Load instance data for editing
   const loadInstanceData = useCallback(() => {
     if (!editingInstance) return
@@ -337,7 +391,7 @@ export default function MessengerInstanceEditor({
       setAppSecret('')
       setWebhookEnabled(false)
     }
-  }, [isEditMode, loadInstanceData, loadAvailableAgents, selectedEndpoint])
+  }, [isEditMode, loadInstanceData, loadAvailableAgents])
 
   const handleViewQR = useCallback(async () => {
     if (!editingInstance?.instance_id) return
@@ -425,14 +479,14 @@ export default function MessengerInstanceEditor({
   ])
 
   const buildInstancePayload = () => {
-    if (!user?.id) {
-      throw new Error('User not authenticated')
+    if (!company?.id) {
+      throw new Error('Company not found')
     }
 
     const basePayload = {
-      user_id: user.id,
       provider: selectedProvider,
       type_instance: instanceTypes,
+      company_id: company.id, // Только ID компании
       agno_config:
         selectedAgentId && selectedAgentId !== 'none'
           ? {
@@ -1125,10 +1179,10 @@ export default function MessengerInstanceEditor({
                   <Card className="bg-background-secondary border-none">
                     <CardHeader>
                       <CardTitle className="font-dmmono text-xs font-medium uppercase">
-                        Instance Configuration
+                        Messenger Configuration
                       </CardTitle>
                       <CardDescription className="text-xs text-zinc-400">
-                        Basic instance settings and provider configuration
+                        Basic messenger settings and provider configuration
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1155,29 +1209,49 @@ export default function MessengerInstanceEditor({
                                 <SelectItem
                                   key={provider.id}
                                   value={provider.id}
+                                  disabled={provider.disabled}
                                 >
-                                  <div className="flex items-center space-x-2">
-                                    <Icon
-                                      type={provider.icon}
-                                      size="xxs"
-                                      className={
-                                        provider.id === 'whatsappweb' ||
-                                        provider.id === 'whatsapp-official'
-                                          ? 'text-green-500'
-                                          : provider.id === 'telegram'
-                                            ? 'text-blue-500'
-                                            : provider.id === 'discord'
-                                              ? 'text-indigo-600'
-                                              : provider.id === 'slack'
-                                                ? 'text-purple-600'
-                                                : provider.id === 'messenger'
-                                                  ? 'text-blue-600'
-                                                  : 'text-gray-500'
-                                      }
-                                    />
-                                    <span className="font-dmmono text-xs font-medium uppercase">
-                                      {provider.name}
-                                    </span>
+                                  <div className="flex w-full items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                      <Icon
+                                        type={provider.icon}
+                                        size="xxs"
+                                        className={
+                                          provider.disabled
+                                            ? 'text-gray-400'
+                                            : provider.id === 'whatsappweb' ||
+                                                provider.id ===
+                                                  'whatsapp-official'
+                                              ? 'text-green-500'
+                                              : provider.id === 'telegram'
+                                                ? 'text-blue-500'
+                                                : provider.id === 'instagram'
+                                                  ? 'text-pink-500'
+                                                  : provider.id === 'discord'
+                                                    ? 'text-indigo-600'
+                                                    : provider.id === 'slack'
+                                                      ? 'text-purple-600'
+                                                      : provider.id ===
+                                                          'messenger'
+                                                        ? 'text-blue-600'
+                                                        : 'text-gray-500'
+                                        }
+                                      />
+                                      <span
+                                        className={`font-dmmono text-xs font-medium uppercase ${
+                                          provider.disabled
+                                            ? 'text-gray-400'
+                                            : ''
+                                        }`}
+                                      >
+                                        {provider.name}
+                                      </span>
+                                    </div>
+                                    {provider.disabled && (
+                                      <span className="ml-2 text-xs text-gray-400">
+                                        coming soon
+                                      </span>
+                                    )}
                                   </div>
                                 </SelectItem>
                               ))}
@@ -1356,7 +1430,7 @@ export default function MessengerInstanceEditor({
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="font-dmmono text-xs font-medium uppercase">
-                      Instance Preview
+                      Messenger Preview
                     </CardTitle>
                     {isEditMode && editingInstance && (
                       <Button
@@ -1364,7 +1438,7 @@ export default function MessengerInstanceEditor({
                         size="sm"
                         onClick={handleDelete}
                         className="text-destructive hover:text-destructive/80 h-7 w-7 p-0"
-                        title="Delete Instance"
+                        title="Delete Messenger"
                       >
                         <Icon type="trash" size="xs" />
                       </Button>

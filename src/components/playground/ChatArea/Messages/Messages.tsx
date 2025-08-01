@@ -1,6 +1,7 @@
 import type { PlaygroundChatMessage } from '@/types/playground'
 
-import { AgentMessage, UserMessage } from './MessageItem'
+import MessageItem from './MessageItem'
+import ChatBlankState from './ChatBlankState'
 import Tooltip from '@/components/ui/tooltip'
 import { memo } from 'react'
 import {
@@ -10,7 +11,6 @@ import {
   Reference
 } from '@/types/playground'
 import React, { type FC } from 'react'
-import ChatBlankState from './ChatBlankState'
 import Icon from '@/components/ui/icon'
 import { usePlaygroundStore } from '@/store'
 import Heading from '@/components/ui/typography/Heading'
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/accordion'
 import Paragraph from '@/components/ui/typography/Paragraph'
 import { CheckCircle, AlertCircle, HelpCircle } from 'lucide-react'
+import { useQueryState } from 'nuqs'
 
 interface MessageListProps {
   messages: PlaygroundChatMessage[]
@@ -71,7 +72,7 @@ const References: FC<ReferenceProps> = ({ references }) => (
 const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
   return (
     <div className="flex flex-col gap-y-6">
-      <AgentMessage message={message} />
+      <MessageItem message={message} />
       {message.extra_data?.reasoning_steps &&
         (Array.isArray(message.extra_data.reasoning_steps)
           ? message.extra_data.reasoning_steps.length > 0
@@ -256,16 +257,53 @@ const ToolComponent = memo(({ tools }: ToolCallProps) => (
 ))
 ToolComponent.displayName = 'ToolComponent'
 
+// Скелетон для загрузки сессии (только при клике пользователя на сессию)
+const SessionLoadingSkeleton = () => (
+  <div className="animate-pulse space-y-6">
+    {/* User message skeleton */}
+    <div className="flex items-start justify-end gap-3">
+      <div className="max-w-lg flex-1">
+        <div className="bg-background-secondary space-y-2 rounded-lg p-3">
+          <div className="bg-primary/20 ml-auto h-4 w-3/4 rounded"></div>
+          <div className="bg-primary/20 ml-auto h-4 w-1/2 rounded"></div>
+        </div>
+      </div>
+      <div className="bg-primary/20 h-8 w-8 rounded-full"></div>
+    </div>
+
+    {/* Agent message skeleton */}
+    <div className="flex items-start gap-3">
+      <div className="bg-primary/20 h-8 w-8 rounded-full"></div>
+      <div className="flex-1 space-y-2">
+        <div className="bg-background-secondary space-y-2 rounded-lg p-3">
+          <div className="bg-primary/20 h-4 w-2/3 rounded"></div>
+          <div className="bg-primary/20 h-4 w-4/5 rounded"></div>
+          <div className="bg-primary/20 h-4 w-1/3 rounded"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+)
+
 const Messages = ({ messages }: MessageListProps) => {
-  const { selectedAgent } = usePlaygroundStore()
+  const [agentId] = useQueryState('agent')
+  const { agents, isSessionLoading } = usePlaygroundStore()
+
+  // Если пользователь кликнул на сессию и она загружается, показываем скелетон
+  if (isSessionLoading) {
+    return <SessionLoadingSkeleton />
+  }
+
+  // Если нет сообщений, показываем заглушку "начать новый чат"
   if (messages.length === 0) {
+    const selectedAgent = agents.find((agent) => agent.value === agentId)
     return <ChatBlankState agentName={selectedAgent?.label} />
   }
 
   return (
     <>
       {messages.map((message, index) => {
-        const key = `${message.role}-${message.created_at}-${index}`
+        const key = `${message.role}-${index}-${message.created_at}`
         const isLastMessage = index === messages.length - 1
 
         if (message.role === 'agent') {
@@ -277,7 +315,7 @@ const Messages = ({ messages }: MessageListProps) => {
             />
           )
         }
-        return <UserMessage key={key} message={message} />
+        return <MessageItem key={key} message={message} />
       })}
     </>
   )

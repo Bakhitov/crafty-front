@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useQueryState } from 'nuqs'
 import { motion } from 'framer-motion'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Card,
@@ -33,13 +32,26 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { X, Save, Play } from 'lucide-react'
+import { X, Save, Loader2, Shield } from 'lucide-react'
 import { usePlaygroundStore } from '@/store'
 import { toast } from 'sonner'
 import useChatActions from '@/hooks/useChatActions'
-import { APIRoutes } from '@/api/routes'
-import { Agent } from '@/types/playground'
+import { useCompany } from '@/hooks/useCompany'
+
 import Icon from '@/components/ui/icon'
+
+import { SupabaseAgentsAPI } from '@/lib/supabaseAgents'
+import { AgentTemplate, AgentTemplateManager } from '@/lib/agentTemplates'
+import { AgentConfigValidator } from '@/lib/agentValidation'
+import {
+  ExtendedAgentConfig,
+  ModelConfig,
+  ModelProvider,
+  ValidationResult
+} from '@/types/agentConfig'
+import { APIAgent } from '@/types/playground'
+import AgentTemplateSelector from './AgentTemplateSelector'
+import { ValidationContent } from './AgentValidationPanel'
 
 // LLM Providers with supported models
 const llmProviders = [
@@ -204,6 +216,60 @@ const FormField = ({
   </div>
 )
 
+// Интерфейс для agent_config
+interface AgentConfig {
+  storage?: {
+    enabled?: boolean
+    table_name?: string
+    schema?: string
+  }
+  memory?: {
+    enabled?: boolean
+  }
+  knowledge?: {
+    enabled?: boolean
+  }
+  reasoning?: {
+    enabled?: boolean
+    min_steps?: number
+    max_steps?: number
+  }
+  team?: {
+    enabled?: boolean
+  }
+  history?: {
+    read_chat_history?: boolean
+    num_history_runs?: number
+  }
+  show_tool_calls?: boolean
+  tool_call_limit?: number
+  tool_choice?: string
+  enable_agentic_memory?: boolean
+  enable_user_memories?: boolean
+  enable_session_summaries?: boolean
+  add_memory_references?: boolean
+  add_references?: boolean
+  search_knowledge?: boolean
+  update_knowledge?: boolean
+  references_format?: string
+  respond_directly?: boolean
+  add_transfer_instructions?: boolean
+  markdown?: boolean
+  add_datetime_to_instructions?: boolean
+  timezone_identifier?: string
+  stream?: boolean
+  store_events?: boolean
+  debug_mode?: boolean
+  monitoring?: boolean
+  introduction?: string
+  additional_context?: string
+  add_context?: boolean
+  use_json_mode?: boolean
+  retries?: number
+  delay_between_retries?: number
+  exponential_backoff?: boolean
+}
+
 export default function AgentCreator() {
   const {
     setIsAgentCreationMode,
@@ -212,12 +278,21 @@ export default function AgentCreator() {
     setEditingAgentId,
     setSelectedAgent
   } = usePlaygroundStore()
-  const { refreshAgentsList } = useChatActions()
+  const { refreshAgentsList, clearChat } = useChatActions()
+  const { company } = useCompany()
+  const [, setAgentId] = useQueryState('agent')
+  const [, setSessionId] = useQueryState('session')
 
   // Loading states
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  // Template and validation states
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false)
+  const [validationResult, setValidationResult] =
+    useState<ValidationResult | null>(null)
+  const [isValidating, setIsValidating] = useState(false)
 
   // Dynamic tools states
   const [dynamicToolsFromAPI, setDynamicToolsFromAPI] = useState<DynamicTool[]>(
@@ -231,127 +306,302 @@ export default function AgentCreator() {
   const [agentName, setAgentName] = useState('')
   const [agentPhoto, setAgentPhoto] = useState('')
   const [agentDescription, setAgentDescription] = useState('')
-  const [instructions, setInstructions] = useState('')
+  const [instructions, setInstructions] = useState('Ты простой ассистент') // Дефолтная инструкция
   const [isActive, setIsActive] = useState(true)
-  const [isActiveApi, setIsActiveApi] = useState(true)
   const [isPublic, setIsPublic] = useState(false)
 
-  // === PREVIEW STATES (for sidebar display only) ===
-  const [previewAgentName, setPreviewAgentName] = useState('')
-  const [previewAgentDescription, setPreviewAgentDescription] = useState('')
-
-  // Update preview states with debounce
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setPreviewAgentName(agentName)
-      setPreviewAgentDescription(agentDescription)
-    }, 300)
-
-    return () => window.clearTimeout(timer)
-  }, [agentName, agentDescription])
-
-  // === MODEL CONFIGURATION ===
+  // === MODEL CONFIGURATION === (минимальные настройки)
   const [selectedProvider, setSelectedProvider] = useState('openai')
-  const [selectedModel, setSelectedModel] = useState('gpt-4.1')
+  const [selectedModel, setSelectedModel] = useState('gpt-4.1-mini-2025-04-14') // более дешевая модель по умолчанию
   const [temperature, setTemperature] = useState(0.7)
-  const [maxTokens, setMaxTokens] = useState(4000)
+  const [maxTokens, setMaxTokens] = useState(2000) // уменьшил лимит
   const [topP, setTopP] = useState(0.9)
-  const [frequencyPenalty, setFrequencyPenalty] = useState(0.1)
-  const [presencePenalty, setPresencePenalty] = useState(0.1)
+  const [frequencyPenalty, setFrequencyPenalty] = useState(0) // отключил штрафы
+  const [presencePenalty, setPresencePenalty] = useState(0) // отключил штрафы
   const [stopSequences, setStopSequences] = useState('')
   const [seed, setSeed] = useState('')
   const [timeout, setTimeout] = useState(60)
-  const [maxRetries, setMaxRetries] = useState(3)
+  const [maxRetries, setMaxRetries] = useState(2) // уменьшил ретраи
 
-  // === TOOLS ===
+  // === TOOLS === (ВСЕ ОТКЛЮЧЕНО)
   const [toolsEnabled, setToolsEnabled] = useState(false)
-  const [showToolCalls, setShowToolCalls] = useState(true)
-  const [toolCallLimit, setToolCallLimit] = useState(10)
+  const [showToolCalls, setShowToolCalls] = useState(false) // отключил
+  const [toolCallLimit, setToolCallLimit] = useState(5) // уменьшил лимит
   const [toolChoice, setToolChoice] = useState('auto')
   const [selectedDynamicTools, setSelectedDynamicTools] = useState<string[]>([])
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>([])
   const [selectedMcpServers, setSelectedMcpServers] = useState<string[]>([])
 
-  // === MEMORY ===
+  // === MEMORY === (ВСЕ ОТКЛЮЧЕНО)
   const [memoryEnabled, setMemoryEnabled] = useState(false)
   const [memoryType, setMemoryType] = useState('postgres')
-  const [enableAgenticMemory, setEnableAgenticMemory] = useState(true)
-  const [enableUserMemories, setEnableUserMemories] = useState(true)
-  const [enableSessionSummaries, setEnableSessionSummaries] = useState(true)
-  const [addMemoryReferences, setAddMemoryReferences] = useState(true)
-  const [memorySchema, setMemorySchema] = useState('ai')
-  const [memoryDbUrl, setMemoryDbUrl] = useState(
-    'postgresql://postgres:Ginifi51!@db.wyehpfzafbjfvyjzgjss.supabase.co:5432/postgres'
-  )
+  const [enableAgenticMemory, setEnableAgenticMemory] = useState(false) // отключил
+  const [enableUserMemories, setEnableUserMemories] = useState(false) // отключил
+  const [enableSessionSummaries, setEnableSessionSummaries] = useState(false) // отключил
+  const [addMemoryReferences, setAddMemoryReferences] = useState(false) // отключил
+  const [memorySchema, setMemorySchema] = useState('public') // упростил
+  const [memoryDbUrl, setMemoryDbUrl] = useState('') // очистил
   const [memoryTopics, setMemoryTopics] = useState('')
   const [memoryMinImportance, setMemoryMinImportance] = useState(0.7)
 
-  // === KNOWLEDGE BASE ===
+  // === KNOWLEDGE BASE === (ВСЕ ОТКЛЮЧЕНО)
   const [knowledgeEnabled, setKnowledgeEnabled] = useState(false)
-  const [addReferences, setAddReferences] = useState(true)
-  const [searchKnowledge, setSearchKnowledge] = useState(true)
+  const [addReferences, setAddReferences] = useState(false) // отключил
+  const [searchKnowledge, setSearchKnowledge] = useState(false) // отключил
   const [updateKnowledge, setUpdateKnowledge] = useState(false)
-  const [maxReferences, setMaxReferences] = useState(5)
+  const [maxReferences, setMaxReferences] = useState(3) // уменьшил
   const [similarityThreshold, setSimilarityThreshold] = useState(0.75)
   const [referencesFormat, setReferencesFormat] = useState('json')
   const [knowledgeFilters, setKnowledgeFilters] = useState('')
 
-  // === STORAGE ===
-  const [storageEnabled, setStorageEnabled] = useState(false)
+  // === STORAGE === (ВКЛЮЧЕНО ПО УМОЛЧАНИЮ)
+  const [storageEnabled, setStorageEnabled] = useState(true) // Включено по умолчанию
   const [storageType, setStorageType] = useState('postgres')
   const [storageDbUrl, setStorageDbUrl] = useState(
-    'postgresql://postgres:Ginifi51!@db.wyehpfzafbjfvyjzgjss.supabase.co:5432/postgres'
+    'postgresql://postgres:your_password@your_host:5432/postgres'
   )
   const [storageTableName, setStorageTableName] = useState('sessions')
-  const [storageSchema, setStorageSchema] = useState('ai')
-  const [storeEvents, setStoreEvents] = useState(true)
+  const [storageSchema, setStorageSchema] = useState('public')
+  const [storeEvents, setStoreEvents] = useState(true) // Включено для storage
 
-  // === REASONING ===
+  // === REASONING === (ОТКЛЮЧЕНО)
   const [reasoning, setReasoning] = useState(false)
   const [reasoningGoal, setReasoningGoal] = useState('')
-  const [reasoningMinSteps, setReasoningMinSteps] = useState(2)
-  const [reasoningMaxSteps, setReasoningMaxSteps] = useState(8)
-  const [streamReasoning, setStreamReasoning] = useState(true)
-  const [saveReasoningSteps, setSaveReasoningSteps] = useState(true)
+  const [reasoningMinSteps, setReasoningMinSteps] = useState(1) // уменьшил
+  const [reasoningMaxSteps, setReasoningMaxSteps] = useState(5) // уменьшил
+  const [streamReasoning, setStreamReasoning] = useState(false) // отключил
+  const [saveReasoningSteps, setSaveReasoningSteps] = useState(false) // отключил
 
-  // === ADDITIONAL SETTINGS ===
+  // === ADDITIONAL SETTINGS === (МИНИМАЛЬНЫЕ)
   const [systemMessage, setSystemMessage] = useState('')
   const [introduction, setIntroduction] = useState('')
   const [debugMode, setDebugMode] = useState(false)
-  const [stream, setStream] = useState(true)
-  const [markdown, setMarkdown] = useState(true)
+  const [stream, setStream] = useState(false) // отключил стриминг по умолчанию
+  const [markdown, setMarkdown] = useState(true) // Включен по умолчанию
   const [addDatetimeToInstructions, setAddDatetimeToInstructions] =
-    useState(true)
-  const [readChatHistory, setReadChatHistory] = useState(true)
-  const [numHistoryRuns, setNumHistoryRuns] = useState(5)
+    useState(false) // отключил
+  const [readChatHistory, setReadChatHistory] = useState(true) // Включен для storage
+  const [numHistoryRuns, setNumHistoryRuns] = useState(3) // уменьшил
   const [tags, setTags] = useState('')
   const [timezoneIdentifier, setTimezoneIdentifier] = useState('UTC')
-  const [retries, setRetries] = useState(3)
-  const [delayBetweenRetries, setDelayBetweenRetries] = useState(2)
-  const [exponentialBackoff, setExponentialBackoff] = useState(true)
+  const [retries, setRetries] = useState(1) // уменьшил
+  const [delayBetweenRetries, setDelayBetweenRetries] = useState(1) // уменьшил
+  const [exponentialBackoff, setExponentialBackoff] = useState(false) // отключил
   const [useJsonMode, setUseJsonMode] = useState(false)
-  const [monitoring, setMonitoring] = useState(true)
+  const [monitoring, setMonitoring] = useState(false) // отключил
 
-  // === CONTEXT SETTINGS ===
+  // === CONTEXT SETTINGS === (ОЧИЩЕНО)
   const [contextPairs, setContextPairs] = useState<
     Array<{ key: string; value: string }>
-  >([
-    { key: 'company', value: 'TechCorp' },
-    { key: 'department', value: 'Analytics' },
-    { key: 'access_level', value: 'senior' }
-  ])
-  const [additionalContext, setAdditionalContext] = useState(
-    'User works in analytics department'
-  )
-  const [addContext, setAddContext] = useState(true)
+  >([]) // очистил предустановленные пары
+  const [additionalContext, setAdditionalContext] = useState('') // очистил
+  const [addContext, setAddContext] = useState(false) // отключил
 
-  // === TEAM SETTINGS ===
-  const [teamMode, setTeamMode] = useState('')
+  // === TEAM SETTINGS === (ОТКЛЮЧЕНО)
   const [teamRole, setTeamRole] = useState('')
-  const [respondDirectly, setRespondDirectly] = useState(true)
-  const [addTransferInstructions, setAddTransferInstructions] = useState(true)
+  const [respondDirectly, setRespondDirectly] = useState(false) // отключил
+  const [addTransferInstructions, setAddTransferInstructions] = useState(false) // отключил
 
   const isEditMode = !!editingAgentId
+
+  // Template functions
+  const handleSelectTemplate = (template: AgentTemplate) => {
+    const applied = AgentTemplateManager.applyTemplate(template.id)
+    if (!applied) return
+
+    // Apply template to form state
+    setAgentName(applied.name)
+    setAgentDescription(applied.description)
+    setInstructions(applied.systemInstructions.join('\n'))
+
+    // Apply model config
+    setSelectedProvider(applied.modelConfig.provider)
+    setSelectedModel(applied.modelConfig.id)
+    setTemperature(applied.modelConfig.temperature || 0.7)
+    setMaxTokens(applied.modelConfig.max_tokens || 2000)
+    setTopP(applied.modelConfig.top_p || 0.9)
+    setFrequencyPenalty(applied.modelConfig.frequency_penalty || 0)
+    setPresencePenalty(applied.modelConfig.presence_penalty || 0)
+
+    // Apply agent config
+    const config = applied.agentConfig as ExtendedAgentConfig
+
+    // Storage
+    if (config.storage?.enabled) {
+      setStorageEnabled(true)
+      setStorageTableName(config.storage.table_name || 'sessions')
+      setStorageSchema(config.storage.schema || 'public')
+    }
+
+    // Memory
+    if (config.memory?.enabled) {
+      setMemoryEnabled(true)
+      setEnableAgenticMemory(config.enable_agentic_memory || false)
+      setEnableUserMemories(config.enable_user_memories || false)
+      setEnableSessionSummaries(config.enable_session_summaries || false)
+      setAddMemoryReferences(config.add_memory_references || false)
+    }
+
+    // Knowledge
+    if (config.knowledge?.enabled) {
+      setKnowledgeEnabled(true)
+      setSearchKnowledge(config.search_knowledge || false)
+      setAddReferences(config.add_references || false)
+      setReferencesFormat(config.references_format || 'json')
+    }
+
+    // Tools
+    if (config.show_tool_calls) {
+      setToolsEnabled(true)
+      setShowToolCalls(config.show_tool_calls)
+      setToolCallLimit(config.tool_call_limit || 10)
+      setToolChoice((config.tool_choice as string) || 'auto')
+    }
+
+    // Reasoning
+    if (config.reasoning?.enabled) {
+      setReasoning(true)
+      setReasoningMinSteps(config.reasoning.min_steps || 1)
+      setReasoningMaxSteps(config.reasoning.max_steps || 10)
+    }
+
+    // Other settings
+    setMarkdown(config.markdown || false)
+    setAddDatetimeToInstructions(config.add_datetime_to_instructions || false)
+    setStream(config.stream || false)
+    setDebugMode(config.debug_mode || false)
+    setMonitoring(config.monitoring || false)
+
+    toast.success(`Шаблон "${template.name}" применен!`)
+    validateConfiguration()
+  }
+
+  // Validation function
+  const validateConfiguration = useCallback(() => {
+    setIsValidating(true)
+
+    try {
+      // Build current model config
+      const currentModelConfig: ModelConfig = {
+        provider: selectedProvider as ModelProvider,
+        id: selectedModel,
+        temperature,
+        max_tokens: maxTokens,
+        top_p: topP,
+        frequency_penalty: frequencyPenalty,
+        presence_penalty: presencePenalty,
+        stop: stopSequences
+          ? stopSequences.split(',').map((s) => s.trim())
+          : [],
+        timeout,
+        max_retries: maxRetries,
+        seed: seed ? parseInt(seed) : undefined
+      }
+
+      // Build current agent config
+      const currentAgentConfig: ExtendedAgentConfig = {
+        storage: storageEnabled
+          ? {
+              enabled: true,
+              table_name: storageTableName,
+              schema: storageSchema
+            }
+          : undefined,
+        memory: memoryEnabled
+          ? {
+              enabled: true,
+              type: 'postgres',
+              db_url: storageDbUrl, // Используем тот же URL что и для storage
+              table_name: 'user_memories',
+              schema: storageSchema || 'public',
+              delete_memories: true,
+              clear_memories: true
+            }
+          : undefined,
+        knowledge: knowledgeEnabled
+          ? {
+              enabled: true,
+              type: 'url'
+            }
+          : undefined,
+        reasoning: reasoning
+          ? {
+              enabled: true,
+              min_steps: reasoningMinSteps,
+              max_steps: reasoningMaxSteps
+            }
+          : undefined,
+        show_tool_calls: toolsEnabled ? showToolCalls : undefined,
+        tool_call_limit: toolsEnabled ? toolCallLimit : undefined,
+        enable_agentic_memory: memoryEnabled ? enableAgenticMemory : undefined,
+        enable_user_memories: memoryEnabled ? enableUserMemories : undefined,
+        search_knowledge: knowledgeEnabled ? searchKnowledge : undefined,
+        add_references: knowledgeEnabled ? addReferences : undefined,
+        markdown,
+        add_datetime_to_instructions: addDatetimeToInstructions,
+        stream,
+        debug_mode: debugMode,
+        monitoring
+      }
+
+      // Get selected tool IDs
+      const currentToolIds = [
+        ...selectedDynamicTools,
+        ...selectedCustomTools,
+        ...selectedMcpServers
+      ]
+
+      // Validate configuration
+      const result = AgentConfigValidator.validateConfig(
+        currentModelConfig,
+        currentAgentConfig,
+        currentToolIds
+      )
+
+      setValidationResult(result)
+    } catch (error) {
+      console.error('Validation error:', error)
+      toast.error('Ошибка валидации конфигурации')
+    } finally {
+      setIsValidating(false)
+    }
+  }, [
+    selectedProvider,
+    selectedModel,
+    temperature,
+    maxTokens,
+    topP,
+    frequencyPenalty,
+    presencePenalty,
+    stopSequences,
+    timeout,
+    maxRetries,
+    seed,
+    storageEnabled,
+    storageDbUrl,
+    storageTableName,
+    storageSchema,
+    memoryEnabled,
+    enableAgenticMemory,
+    enableUserMemories,
+    knowledgeEnabled,
+    searchKnowledge,
+    addReferences,
+    reasoning,
+    reasoningMinSteps,
+    reasoningMaxSteps,
+    toolsEnabled,
+    showToolCalls,
+    toolCallLimit,
+    markdown,
+    addDatetimeToInstructions,
+    stream,
+    debugMode,
+    monitoring,
+    selectedDynamicTools,
+    selectedCustomTools,
+    selectedMcpServers
+  ])
 
   // Context pairs management functions
   const addContextPair = () => {
@@ -481,34 +731,51 @@ export default function AgentCreator() {
 
   // Function to select agent and navigate to chat
   const navigateToAgentChat = useCallback(
-    async (agentId: string) => {
+    async (agentId: string, agentData?: APIAgent) => {
       try {
-        // Refresh agents list to get updated data
-        await refreshAgentsList()
+        console.log('AgentCreator: Navigating to agent chat for:', agentId)
 
-        // Find the agent to set it as selected
-        const url = `${selectedEndpoint}/v1/agents/detailed`
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        })
+        let agent
+        if (agentData) {
+          // Use the provided agent data directly
+          agent = agentData
+          console.log('AgentCreator: Using provided agent data')
+        } else {
+          // Fallback to fetching from Supabase
+          console.log('AgentCreator: Fetching agent from Supabase...')
+          agent = await SupabaseAgentsAPI.getAgent(agentId)
+        }
 
-        if (response.ok) {
-          const allAgents = await response.json()
-          const agent = allAgents.find((a: Agent) => a.agent_id === agentId)
-
-          if (agent) {
-            // Set selected agent for chat
-            setSelectedAgent({
-              value: agent.agent_id,
-              label: agent.name,
-              model: {
-                provider: agent.model_configuration?.provider || 'unknown'
-              },
-              storage: agent.storage_config?.enabled,
-              storage_config: agent.storage_config
-            })
+        if (agent) {
+          // Set selected agent for chat
+          const agentOption = {
+            value: agent.agent_id,
+            label: agent.name,
+            model: {
+              provider: agent.model_config?.provider || 'unknown'
+            },
+            storage: Boolean(
+              (agent.agent_config as AgentConfig)?.storage?.enabled
+            ),
+            storage_config: (agent.agent_config as AgentConfig)?.storage,
+            is_public: agent.is_public,
+            company_id: agent.company_id,
+            description: agent.description,
+            system_instructions: agent.system_instructions
           }
+
+          console.log('AgentCreator: Setting selected agent:', agentOption)
+          setSelectedAgent(agentOption)
+
+          // Set agent ID in URL and clear session/chat
+          await setAgentId(agent.agent_id)
+          setSessionId(null)
+          clearChat()
+
+          console.log('AgentCreator: Successfully navigated to agent chat')
+        } else {
+          console.error('AgentCreator: Agent not found after creation')
+          toast.error('Failed to load the created agent')
         }
 
         // Close agent creator and navigate to playground
@@ -516,17 +783,19 @@ export default function AgentCreator() {
         setEditingAgentId(null)
       } catch (error) {
         console.error('Error navigating to agent chat:', error)
+        toast.error('Failed to open chat with the created agent')
         // Still close the creator even if navigation fails
         setIsAgentCreationMode(false)
         setEditingAgentId(null)
       }
     },
     [
-      selectedEndpoint,
-      refreshAgentsList,
       setSelectedAgent,
       setIsAgentCreationMode,
-      setEditingAgentId
+      setEditingAgentId,
+      setAgentId,
+      setSessionId,
+      clearChat
     ]
   )
 
@@ -544,31 +813,46 @@ export default function AgentCreator() {
     setIsSaving(true)
     try {
       const payload = buildAgentPayload()
-      const url = isEditMode
-        ? APIRoutes.UpdateAgent(selectedEndpoint, editingAgentId!)
-        : APIRoutes.CreateAgent(selectedEndpoint)
 
-      const response = await fetch(url, {
-        method: isEditMode ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to ${isEditMode ? 'update' : 'create'} agent`)
+      // Payload уже в правильном формате для Supabase
+      const agentData = {
+        agent_id: payload.agent_id,
+        name: payload.name,
+        description: payload.description,
+        model_config: payload.model_config,
+        system_instructions: payload.system_instructions,
+        tool_ids: payload.tool_ids,
+        agent_config: payload.agent_config,
+        goal: payload.goal,
+        expected_output: payload.expected_output,
+        role: payload.role,
+        is_public: payload.is_public,
+        photo: payload.photo,
+        category: payload.category,
+        is_active: payload.is_active
       }
 
-      const result = await response.json()
-      const agentId = isEditMode
-        ? editingAgentId!
-        : result.agent_id || payload.agent_id
+      let result
+      if (isEditMode) {
+        result = await SupabaseAgentsAPI.updateAgent(editingAgentId!, agentData)
+      } else {
+        result = await SupabaseAgentsAPI.createAgent(agentData)
+      }
+
+      const agentId = result.agent_id
 
       toast.success(`Agent ${isEditMode ? 'updated' : 'created'} successfully!`)
 
-      // Navigate to agent chat
-      await navigateToAgentChat(agentId)
+      // Invalidate cache to ensure fresh data
+      const { globalDataCache } = await import('@/lib/requestCache')
+      globalDataCache.invalidateAgents(company?.id || undefined)
+
+      // Force refresh agents list to get the newly created agent
+      console.log('AgentCreator: Refreshing agents list after creation...')
+      await refreshAgentsList()
+
+      // Navigate to agent chat - use the result directly instead of searching
+      await navigateToAgentChat(agentId, result)
     } catch (error) {
       console.error('Error saving agent:', error)
       toast.error(`Failed to ${isEditMode ? 'update' : 'create'} agent`)
@@ -577,36 +861,11 @@ export default function AgentCreator() {
     }
   }
 
-  const handleTest = () => {
-    if (!agentName.trim()) {
-      toast.error('Please save the agent first before testing')
-      return
-    }
-    toast.info('Agent testing functionality coming soon!')
-  }
-
-  const handleDelete = () => {
-    if (!isEditMode || !editingAgentId) {
-      return
-    }
-    setShowDeleteDialog(true)
-  }
-
   const confirmDelete = async () => {
     if (!editingAgentId) return
 
     try {
-      const url = APIRoutes.DeleteAgent(selectedEndpoint, editingAgentId)
-      const response = await fetch(url, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to delete agent')
-      }
+      await SupabaseAgentsAPI.deleteAgent(editingAgentId)
 
       toast.success('Agent deleted successfully!')
 
@@ -624,22 +883,12 @@ export default function AgentCreator() {
 
   // Load agent data for editing
   const loadAgentData = useCallback(async () => {
-    if (!editingAgentId || !selectedEndpoint) return
+    if (!editingAgentId) return
 
     setIsLoading(true)
     try {
-      const url = `${selectedEndpoint}/v1/agents/detailed`
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch agent data')
-      }
-
-      const allAgents = await response.json()
-      const agent = allAgents.find((a: Agent) => a.agent_id === editingAgentId)
+      // Get agent from Supabase instead of Agno API
+      const agent = await SupabaseAgentsAPI.getAgent(editingAgentId)
 
       if (!agent) {
         toast.error('Agent not found')
@@ -649,182 +898,108 @@ export default function AgentCreator() {
       // Load basic information
       setAgentName(agent.name || '')
       setAgentDescription(agent.description || '')
-      setInstructions(agent.instructions || '')
+      setInstructions(agent.system_instructions?.[0] || '')
       setIsActive(agent.is_active ?? true)
-      setIsActiveApi(agent.is_active_api ?? true)
       setIsPublic(agent.is_public ?? false)
 
       // Load model configuration
-      if (agent.model_configuration) {
-        setSelectedProvider(agent.model_configuration.provider || '')
-        setSelectedModel(agent.model_configuration.id || '')
-        setTemperature(agent.model_configuration.temperature ?? 0.7)
-        setMaxTokens(agent.model_configuration.max_tokens ?? 4000)
-        setTopP(agent.model_configuration.top_p ?? 0.9)
-        setFrequencyPenalty(agent.model_configuration.frequency_penalty ?? 0.1)
-        setPresencePenalty(agent.model_configuration.presence_penalty ?? 0.1)
-        setStopSequences(agent.model_configuration.stop?.join(',') || '')
-        setSeed(agent.model_configuration.seed?.toString() || '')
-        setTimeout(agent.model_configuration.timeout ?? 60)
-        setMaxRetries(agent.model_configuration.max_retries ?? 3)
+      if (agent.model_config) {
+        setSelectedProvider(agent.model_config.provider || 'openai')
+        setSelectedModel(agent.model_config.id || 'gpt-4.1-mini-2025-04-14')
+        setTemperature(agent.model_config.temperature ?? 0.7)
+        setMaxTokens(agent.model_config.max_tokens ?? 2000)
+        setTopP(agent.model_config.top_p ?? 0.9)
+        setFrequencyPenalty(agent.model_config.frequency_penalty ?? 0)
+        setPresencePenalty(agent.model_config.presence_penalty ?? 0)
+        setStopSequences(agent.model_config.stop?.join(', ') || '')
+        setTimeout(agent.model_config.timeout ?? 60)
+        setMaxRetries(agent.model_config.max_retries ?? 3)
+        setSeed(agent.model_config.seed?.toString() || '')
       }
 
-      // Load tools configuration
-      if (agent.tools_config && Object.keys(agent.tools_config).length > 0) {
-        setToolsEnabled(true)
-        setShowToolCalls(agent.tools_config.show_tool_calls ?? true)
-        setToolCallLimit(agent.tools_config.tool_call_limit ?? 10)
-        setToolChoice(agent.tools_config.tool_choice || 'auto')
-        setSelectedDynamicTools(agent.tools_config.dynamic_tools || [])
-        setSelectedCustomTools(agent.tools_config.custom_tools || [])
-        setSelectedMcpServers(agent.tools_config.mcp_servers || [])
-      } else {
-        setToolsEnabled(false)
-      }
+      // Load agent_config settings
+      const config = (agent.agent_config || {}) as AgentConfig
 
-      // Load memory configuration
-      if (agent.memory_config && Object.keys(agent.memory_config).length > 0) {
+      // Memory settings
+      if (config.memory?.enabled) {
         setMemoryEnabled(true)
-        setMemoryType(agent.memory_config.memory_type || 'postgres')
-        setEnableAgenticMemory(
-          agent.memory_config.enable_agentic_memory ?? true
-        )
-        setEnableUserMemories(agent.memory_config.enable_user_memories ?? true)
-        setEnableSessionSummaries(
-          agent.memory_config.enable_session_summaries ?? true
-        )
-        setAddMemoryReferences(
-          agent.memory_config.add_memory_references ?? true
-        )
-        setMemorySchema(agent.memory_config.db_schema || 'ai')
-        setMemoryDbUrl(agent.memory_config.db_url || '')
-        const memoryFilters = agent.memory_config.memory_filters as {
-          min_importance?: number
-          topics?: string[]
-        }
-        if (memoryFilters?.min_importance) {
-          setMemoryMinImportance(memoryFilters.min_importance)
-        }
-      } else {
-        setMemoryEnabled(false)
+        setEnableAgenticMemory(Boolean(config.enable_agentic_memory))
+        setEnableUserMemories(Boolean(config.enable_user_memories))
+        setEnableSessionSummaries(Boolean(config.enable_session_summaries))
+        setAddMemoryReferences(Boolean(config.add_memory_references))
       }
 
-      // Load knowledge configuration
-      if (
-        agent.knowledge_config &&
-        Object.keys(agent.knowledge_config).length > 0
-      ) {
+      // Knowledge settings
+      if (config.knowledge?.enabled) {
         setKnowledgeEnabled(true)
-        setAddReferences(agent.knowledge_config.add_references ?? true)
-        setSearchKnowledge(agent.knowledge_config.search_knowledge ?? true)
-        setUpdateKnowledge(agent.knowledge_config.update_knowledge ?? false)
-        setMaxReferences(agent.knowledge_config.max_references ?? 5)
-        setSimilarityThreshold(
-          agent.knowledge_config.similarity_threshold ?? 0.75
-        )
-        setReferencesFormat(agent.knowledge_config.references_format || 'json')
-        setKnowledgeFilters(
-          JSON.stringify(
-            agent.knowledge_config.knowledge_filters || {},
-            null,
-            2
-          )
-        )
-      } else {
-        setKnowledgeEnabled(false)
+        setAddReferences(Boolean(config.add_references))
+        setSearchKnowledge(Boolean(config.search_knowledge ?? true))
+        setUpdateKnowledge(Boolean(config.update_knowledge))
+        setReferencesFormat(String(config.references_format || 'json'))
       }
 
-      // Load storage configuration
-      if (
-        agent.storage_config &&
-        Object.keys(agent.storage_config).length > 0
-      ) {
+      // Storage settings
+      if (config.storage) {
         setStorageEnabled(true)
-        setStorageType(agent.storage_config.storage_type || 'postgres')
-        setStorageDbUrl(agent.storage_config.db_url || '')
-        setStorageTableName(agent.storage_config.table_name || 'sessions')
-        setStorageSchema(agent.storage_config.db_schema || 'ai')
-        setStoreEvents(agent.storage_config.store_events ?? true)
-      } else {
-        setStorageEnabled(false)
+        setStorageTableName(String(config.storage.table_name || 'sessions'))
+        setStorageSchema(String(config.storage.schema || 'public'))
       }
 
-      // Load reasoning configuration
-      if (agent.reasoning_config) {
-        setReasoning(agent.reasoning_config.reasoning ?? false)
-        setReasoningGoal(agent.reasoning_config.goal || '')
-        setReasoningMinSteps(agent.reasoning_config.reasoning_min_steps ?? 2)
-        setReasoningMaxSteps(agent.reasoning_config.reasoning_max_steps ?? 8)
-        setStreamReasoning(agent.reasoning_config.stream_reasoning ?? true)
-        setSaveReasoningSteps(
-          agent.reasoning_config.save_reasoning_steps ?? true
-        )
+      // Tools settings
+      if (config.show_tool_calls !== undefined) {
+        setToolsEnabled(true)
+        setShowToolCalls(Boolean(config.show_tool_calls))
+        setToolCallLimit(Number(config.tool_call_limit || 10))
+        setToolChoice(String(config.tool_choice || 'auto'))
       }
 
-      // Load settings
-      if (agent.settings) {
-        setSystemMessage(agent.settings.system_message || '')
-        setIntroduction(agent.settings.introduction || '')
-        setDebugMode(agent.settings.debug_mode ?? false)
-        setStream(agent.settings.stream ?? true)
-        setMarkdown(agent.settings.markdown ?? true)
-        setAddDatetimeToInstructions(
-          agent.settings.add_datetime_to_instructions ?? true
-        )
-        setReadChatHistory(agent.settings.read_chat_history ?? true)
-        setNumHistoryRuns(agent.settings.num_history_runs ?? 5)
-        setTags(
-          Array.isArray(agent.settings.tags)
-            ? agent.settings.tags.join(', ')
-            : ''
-        )
-        setTimezoneIdentifier(agent.settings.timezone_identifier || 'UTC')
-        setRetries(agent.settings.retries ?? 3)
-        setDelayBetweenRetries(agent.settings.delay_between_retries ?? 2)
-        setExponentialBackoff(agent.settings.exponential_backoff ?? true)
-        setUseJsonMode(agent.settings.use_json_mode ?? false)
-        setMonitoring(agent.settings.monitoring ?? true)
-
-        // Load context settings
-        if (agent.settings.context) {
-          const contextObject = agent.settings.context
-          const pairs = Object.entries(contextObject).map(([key, value]) => ({
-            key,
-            value: String(value)
-          }))
-          setContextPairs(
-            pairs.length > 0
-              ? pairs
-              : [
-                  { key: 'company', value: 'TechCorp' },
-                  { key: 'department', value: 'Analytics' },
-                  { key: 'access_level', value: 'senior' }
-                ]
-          )
-        }
-        setAdditionalContext(
-          agent.settings.additional_context ||
-            'User works in analytics department'
-        )
-        setAddContext(agent.settings.add_context ?? true)
+      // Reasoning settings
+      if (config.reasoning?.enabled) {
+        setReasoning(true)
+        setReasoningMinSteps(Number(config.reasoning.min_steps || 1))
+        setReasoningMaxSteps(Number(config.reasoning.max_steps || 10))
       }
 
-      // Load team configuration
-      if (agent.team_config) {
-        setTeamMode(agent.team_config.team_mode || '')
-        setTeamRole(agent.team_config.role || '')
-        setRespondDirectly(agent.team_config.respond_directly ?? true)
+      // Team settings
+      if (config.team?.enabled) {
+        setTeamRole('assistant') // Исправляю тип - должна быть строка
+        setRespondDirectly(Boolean(config.respond_directly))
         setAddTransferInstructions(
-          agent.team_config.add_transfer_instructions ?? true
+          Boolean(config.add_transfer_instructions ?? true)
         )
       }
+
+      // Other settings
+      setMarkdown(Boolean(config.markdown))
+      setAddDatetimeToInstructions(Boolean(config.add_datetime_to_instructions))
+      setTimezoneIdentifier(String(config.timezone_identifier || ''))
+      setStream(Boolean(config.stream))
+      setStoreEvents(Boolean(config.store_events))
+      setDebugMode(Boolean(config.debug_mode))
+      setMonitoring(Boolean(config.monitoring))
+      setIntroduction(String(config.introduction || ''))
+      setAdditionalContext(String(config.additional_context || ''))
+      setAddContext(Boolean(config.add_context))
+      setReadChatHistory(Boolean(config.history?.read_chat_history))
+      setNumHistoryRuns(Number(config.history?.num_history_runs || 3))
+      setUseJsonMode(Boolean(config.use_json_mode))
+      setRetries(Number(config.retries || 0))
+      setDelayBetweenRetries(Number(config.delay_between_retries || 1))
+      setExponentialBackoff(Boolean(config.exponential_backoff))
+
+      // Load natively stored fields
+      setReasoningGoal(agent.goal || '')
+      setTeamRole(agent.role || '')
+
+      // Load tool IDs
+      setSelectedDynamicTools(agent.tool_ids || [])
     } catch (error) {
       console.error('Error loading agent data:', error)
       toast.error('Failed to load agent data')
     } finally {
       setIsLoading(false)
     }
-  }, [editingAgentId, selectedEndpoint])
+  }, [editingAgentId])
 
   // Generate agent ID for new agents
   const generateAgentId = (name: string): string => {
@@ -885,22 +1060,185 @@ export default function AgentCreator() {
       ? editingAgentId
       : generateAgentId(agentName)
 
-    return {
-      id: isEditMode ? undefined : Date.now(),
-      name: agentName,
-      agent_id: agentIdValue,
-      description: agentDescription,
-      instructions: instructions,
-      is_active: isActive,
-      is_active_api: isActiveApi,
-      is_public: isPublic,
-      company_id: null,
-      created_at: isEditMode ? undefined : new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    // Строим agent_config согласно документации Agno
+    // ТОЛЬКО ВКЛЮЧЕННЫЕ БЛОКИ добавляются в конфигурацию
+    const agent_config: Record<string, unknown> = {}
 
-      model_configuration: {
-        id: selectedModel,
-        provider: selectedProvider,
+    // 1. Хранилище и сессии (ТОЛЬКО если включено)
+    if (storageEnabled) {
+      agent_config.storage = {
+        enabled: true,
+        type: storageType || 'postgres',
+        db_url: storageDbUrl,
+        table_name: storageTableName || 'sessions',
+        schema: storageSchema || 'public',
+        mode: 'agent'
+      }
+      agent_config.cache_session = true
+
+      // История (только если включено хранилище)
+      if (readChatHistory) {
+        agent_config.history = {
+          add_history_to_messages: true,
+          num_history_runs: numHistoryRuns || 3,
+          read_chat_history: true
+        }
+        agent_config.search_previous_sessions_history = true
+        agent_config.num_history_sessions = 5
+      }
+    }
+
+    // 2. Контекст (ТОЛЬКО если есть данные)
+    if (addContext && (contextPairs.length > 0 || additionalContext)) {
+      if (contextPairs.length > 0) {
+        agent_config.context = contextPairs.reduce(
+          (acc, pair) => {
+            if (pair.key && pair.value) {
+              acc[pair.key] = pair.value
+            }
+            return acc
+          },
+          {} as Record<string, string>
+        )
+      }
+      agent_config.add_context = addContext
+      agent_config.resolve_context = true
+      if (additionalContext) {
+        agent_config.additional_context = additionalContext
+      }
+    }
+
+    // 3. Память v2 (ТОЛЬКО если включена)
+    if (memoryEnabled) {
+      agent_config.memory = {
+        enabled: true,
+        type: memoryType || 'postgres',
+        db_url: memoryDbUrl || storageDbUrl, // Используем URL хранилища если не задан отдельный
+        table_name: 'user_memories',
+        schema: memorySchema || 'public',
+        delete_memories: true,
+        clear_memories: true
+      }
+
+      if (enableAgenticMemory) {
+        agent_config.enable_agentic_memory = true
+      }
+      if (enableUserMemories) {
+        agent_config.enable_user_memories = true
+      }
+      if (addMemoryReferences) {
+        agent_config.add_memory_references = true
+      }
+      if (enableSessionSummaries) {
+        agent_config.enable_session_summaries = true
+        agent_config.add_session_summary_references = true
+      }
+    }
+
+    // 4. База знаний (ТОЛЬКО если включена)
+    if (knowledgeEnabled) {
+      agent_config.knowledge = {
+        enabled: true,
+        type: 'url',
+        table_name: 'knowledge'
+      }
+
+      if (searchKnowledge) {
+        agent_config.search_knowledge = true
+      }
+      if (addReferences) {
+        agent_config.add_references = true
+        agent_config.references_format = referencesFormat || 'json'
+      }
+      if (updateKnowledge) {
+        agent_config.update_knowledge = true
+      }
+      if (knowledgeFilters) {
+        try {
+          agent_config.knowledge_filters = JSON.parse(knowledgeFilters)
+        } catch {
+          // Игнорируем невалидный JSON
+        }
+      }
+    }
+
+    // 5. Инструменты (ТОЛЬКО если включены)
+    if (toolsEnabled) {
+      agent_config.show_tool_calls = showToolCalls
+      if (toolCallLimit && toolCallLimit > 0) {
+        agent_config.tool_call_limit = toolCallLimit
+      }
+      if (toolChoice && toolChoice !== 'auto') {
+        agent_config.tool_choice = toolChoice
+      }
+      if (readChatHistory) {
+        agent_config.read_tool_call_history = true
+      }
+    }
+
+    // 6. Рассуждения (ТОЛЬКО если включены)
+    if (reasoning) {
+      agent_config.reasoning = {
+        enabled: true,
+        model_id: selectedModel, // Используем выбранную модель
+        min_steps: reasoningMinSteps || 1,
+        max_steps: reasoningMaxSteps || 10
+      }
+
+      if (streamReasoning) {
+        agent_config.stream_intermediate_steps = true
+      }
+    }
+
+    // 7. Системное сообщение (только базовые настройки)
+    if (markdown) {
+      agent_config.markdown = true
+    }
+    if (addDatetimeToInstructions) {
+      agent_config.add_datetime_to_instructions = true
+    }
+
+    // 8. Ответы и стриминг (только если включены)
+    if (stream) {
+      agent_config.stream = true
+    }
+    if (retries && retries > 1) {
+      agent_config.retries = retries
+      agent_config.delay_between_retries = delayBetweenRetries || 1
+      if (exponentialBackoff) {
+        agent_config.exponential_backoff = true
+      }
+    }
+
+    // 9. Отладка и мониторинг (только если включены)
+    if (debugMode) {
+      agent_config.debug_mode = true
+    }
+    if (monitoring) {
+      agent_config.monitoring = true
+    }
+    agent_config.telemetry = true // всегда включена для улучшения фреймворка
+
+    // 10. Команда (только если настроена)
+    if (addTransferInstructions || !respondDirectly) {
+      if (addTransferInstructions) {
+        agent_config.add_transfer_instructions = true
+      }
+      if (!respondDirectly) {
+        agent_config.respond_directly = false
+      }
+    }
+
+    // Возвращаем структуру для Supabase
+    return {
+      agent_id: agentIdValue,
+      name: agentName,
+      description: agentDescription,
+
+      // Конфигурация модели (model_config)
+      model_config: {
+        provider: selectedProvider || 'openai',
+        id: selectedModel || 'gpt-4.1-mini-2025-04-14',
         temperature: temperature,
         max_tokens: maxTokens,
         top_p: topP,
@@ -911,197 +1249,38 @@ export default function AgentCreator() {
           : [],
         timeout: timeout,
         max_retries: maxRetries,
-        seed: seed ? parseInt(seed) : undefined,
-        user: 'production-user',
-        metadata: {
-          environment: 'production',
-          version: '1.0'
-        }
+        seed: seed ? parseInt(seed) : undefined
       },
 
-      tools_config: toolsEnabled
-        ? {
-            show_tool_calls: showToolCalls,
-            tool_call_limit: toolCallLimit,
-            tool_choice: toolChoice,
-            tools: [],
-            dynamic_tools: selectedDynamicTools,
-            custom_tools: selectedCustomTools,
-            mcp_servers: selectedMcpServers,
-            tool_hooks: [],
-            function_declarations: []
-          }
-        : {},
+      // Системные инструкции
+      system_instructions: instructions ? [instructions] : [],
 
-      memory_config: memoryEnabled
-        ? {
-            memory_type: memoryType,
-            enable_agentic_memory: enableAgenticMemory,
-            enable_user_memories: enableUserMemories,
-            enable_session_summaries: enableSessionSummaries,
-            add_memory_references: addMemoryReferences,
-            add_session_summary_references: true,
-            memory_filters: {
-              topics: memoryTopics
-                ? memoryTopics.split(',').map((t) => t.trim())
-                : [],
-              min_importance: memoryMinImportance
-            },
-            db_url:
-              memoryDbUrl ||
-              'postgresql://postgres:Ginifi51!@db.wyehpfzafbjfvyjzgjss.supabase.co:5432/postgres',
-            table_name: 'agent_memory',
-            db_schema: memorySchema || 'ai'
-          }
-        : {},
+      // ID инструментов (только если инструменты включены)
+      tool_ids: toolsEnabled
+        ? [
+            ...(selectedDynamicTools || []),
+            ...(selectedCustomTools || []),
+            ...(selectedMcpServers || [])
+          ]
+        : [],
 
-      knowledge_config: knowledgeEnabled
-        ? {
-            add_references: addReferences,
-            search_knowledge: searchKnowledge,
-            update_knowledge: updateKnowledge,
-            max_references: maxReferences,
-            similarity_threshold: similarityThreshold,
-            references_format: referencesFormat,
-            knowledge_filters: knowledgeFilters
-              ? JSON.parse(knowledgeFilters)
-              : {},
-            enable_agentic_knowledge_filters: true
-          }
-        : {},
+      // Основная конфигурация агента (только активные блоки)
+      agent_config: agent_config,
 
-      storage_config: storageEnabled
-        ? {
-            storage_type: storageType,
-            enabled: storageEnabled,
-            db_url:
-              storageDbUrl ||
-              'postgresql://postgres:Ginifi51!@db.wyehpfzafbjfvyjzgjss.supabase.co:5432/postgres',
-            table_name: storageTableName || 'sessions',
-            db_schema: storageSchema || 'ai',
-            store_events: storeEvents,
-            extra_data: {
-              retention_days: 90,
-              backup_enabled: true
-            }
-          }
-        : {},
-
-      reasoning_config: reasoning
-        ? {
-            reasoning: reasoning,
-            reasoning_min_steps: reasoningMinSteps,
-            reasoning_max_steps: reasoningMaxSteps,
-            goal: reasoningGoal,
-            success_criteria: 'User received complete and accurate answer',
-            expected_output: 'Structured answer with explanation',
-            reasoning_model: 'gpt-4-reasoning',
-            reasoning_agent: 'expert-reasoner',
-            reasoning_prompt: 'Think step by step and explain your actions',
-            reasoning_instructions: [
-              'Break down the task into subtasks',
-              'Analyze each step',
-              'Make reasoned conclusion'
-            ],
-            stream_reasoning: streamReasoning,
-            save_reasoning_steps: saveReasoningSteps,
-            show_full_reasoning: false
-          }
-        : {},
-
-      team_config: teamMode
-        ? {
-            team_mode: teamMode,
-            role: teamRole,
-            respond_directly: respondDirectly,
-            add_transfer_instructions: addTransferInstructions,
-            team_response_separator: '\n---\n',
-            workflow_id: '',
-            team_id: '',
-            members: [],
-            add_member_tools_to_system_message: true,
-            show_members_responses: true,
-            stream_member_events: true,
-            share_member_interactions: true,
-            get_member_information_tool: true
-          }
+      // Нативные поля Agno (только если заданы)
+      goal: reasoningGoal || undefined,
+      expected_output: reasoning
+        ? 'Structured reasoning with explanation'
         : undefined,
+      role: teamRole || undefined,
 
-      settings: {
-        introduction: introduction,
-        system_message: systemMessage,
-        system_message_role: 'system',
-        create_default_system_message: true,
-        user_message_role: 'user',
-        create_default_user_message: true,
-        add_messages: introduction
-          ? [
-              {
-                role: 'assistant',
-                content: introduction
-              }
-            ]
-          : [],
-        context: contextPairs.reduce(
-          (acc, pair) => {
-            if (pair.key && pair.value) {
-              acc[pair.key] = pair.value
-            }
-            return acc
-          },
-          {} as Record<string, string>
-        ),
-        add_context: addContext,
-        resolve_context: true,
-        additional_context: additionalContext,
-        add_state_in_messages: true,
-        add_history_to_messages: true,
-        num_history_runs: numHistoryRuns,
-        search_previous_sessions_history: true,
-        num_history_sessions: 3,
-        read_chat_history: readChatHistory,
-        read_tool_call_history: true,
-        markdown: markdown,
-        add_name_to_instructions: true,
-        add_datetime_to_instructions: addDatetimeToInstructions,
-        add_location_to_instructions: false,
-        timezone_identifier: timezoneIdentifier,
-        stream: stream,
-        stream_intermediate_steps: true,
-        response_model: useJsonMode
-          ? {
-              type: 'object',
-              properties: {
-                answer: { type: 'string' },
-                confidence: { type: 'number' },
-                sources: { type: 'array' }
-              }
-            }
-          : undefined,
-        parse_response: false,
-        use_json_mode: useJsonMode,
-        parser_model: 'parser-model-v1',
-        parser_model_prompt: 'Extract structured data from response',
-        retries: retries,
-        delay_between_retries: delayBetweenRetries,
-        exponential_backoff: exponentialBackoff,
-        debug_mode: debugMode,
-        monitoring: monitoring,
-        telemetry: true,
-        store_events: true,
-        events_to_skip: ['ToolCallStarted'],
-        config_version: '2.0',
-        tags: tags ? tags.split(',').map((t) => t.trim()) : [],
-        app_id: 'analytics-platform',
-        extra_data: {
-          created_by: 'admin',
-          environment: 'production',
-          feature_flags: {
-            experimental_reasoning: reasoning,
-            enhanced_memory: enableAgenticMemory
-          }
-        }
-      }
+      // Мультитенантность
+      is_public: isPublic,
+      photo: agentPhoto || undefined,
+      category: undefined,
+
+      // Метаданные
+      is_active: isActive
     }
   }
 
@@ -1118,6 +1297,30 @@ export default function AgentCreator() {
       fetchToolsFromAPI()
     }
   }, [selectedEndpoint, fetchToolsFromAPI])
+
+  // Auto-validate configuration when key settings change
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (agentName && selectedProvider && selectedModel) {
+        validateConfiguration()
+      }
+    }, 1000) // Debounce validation
+
+    return () => window.clearTimeout(timeoutId)
+  }, [
+    agentName,
+    selectedProvider,
+    selectedModel,
+    toolsEnabled,
+    memoryEnabled,
+    knowledgeEnabled,
+    reasoning,
+    storageEnabled,
+    selectedDynamicTools.length,
+    selectedCustomTools.length,
+    selectedMcpServers.length,
+    validateConfiguration
+  ])
 
   return (
     <motion.main
@@ -1148,11 +1351,23 @@ export default function AgentCreator() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleTest}
-              className="text-primary bg-primary"
+              onClick={() => setShowTemplateSelector(true)}
+              className="text-primary border-accent hover:bg-accent/10"
             >
-              <Play className="mr-2 h-3 w-3" />
-              Test Agent
+              <Icon type="bot" size="xs" className="mr-2" />
+              Шаблоны
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                validateConfiguration()
+              }}
+              disabled={isValidating}
+              className="text-primary border-blue-400 hover:bg-blue-400/10"
+            >
+              <Icon type="alert-circle" size="xs" className="mr-2" />
+              {isValidating ? 'Проверка...' : 'Валидация'}
             </Button>
             <Button
               className="text-primary bg-secondary border-primary border-1 border border-dashed"
@@ -1182,7 +1397,43 @@ export default function AgentCreator() {
 
       <div className="flex-1 overflow-hidden">
         <div className="h-full px-3 py-6">
-          <div className="grid h-full grid-cols-1 gap-8 lg:grid-cols-4">
+          <div className="grid h-full grid-cols-1 gap-6 lg:grid-cols-4">
+            {/* LEFT SIDEBAR */}
+            <div className="order-2 lg:order-1 lg:col-span-1">
+              <div className="space-y-6">
+                {/* Validation Panel */}
+                {validationResult && (
+                  <Card className="bg-background-primary border-primary/10">
+                    <CardHeader className="pb-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <h3 className="text-muted-foreground text-sm font-medium">
+                          Валидация конфигурации
+                        </h3>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={validateConfiguration}
+                          disabled={isValidating}
+                          className="h-7 text-xs"
+                        >
+                          {isValidating ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Shield className="mr-1 h-3 w-3" />
+                          )}
+                          {isValidating ? 'Проверка...' : 'Перепроверить'}
+                        </Button>
+                      </div>
+                      <ValidationContent
+                        validationResult={validationResult}
+                        className="text-xs"
+                      />
+                    </CardHeader>
+                  </Card>
+                )}
+              </div>
+            </div>
+
             {/* Main Content */}
             <motion.div
               className="space-y-6 lg:col-span-3"
@@ -1325,15 +1576,15 @@ export default function AgentCreator() {
                           <div className="bg-background-primary flex items-center justify-between rounded-lg p-3">
                             <div className="space-y-1">
                               <Label className="font-dmmono text-xs font-medium uppercase">
-                                API Active
+                                Active
                               </Label>
                               <p className="text-xs text-zinc-400">
-                                Enable API access
+                                Enable access
                               </p>
                             </div>
                             <Switch
-                              checked={isActiveApi}
-                              onCheckedChange={setIsActiveApi}
+                              checked={isActive}
+                              onCheckedChange={setIsActive}
                             />
                           </div>
 
@@ -2864,210 +3115,35 @@ export default function AgentCreator() {
                 </div>
               </Tabs>
             </motion.div>
-
-            {/* Sidebar - Agent Preview */}
-            <motion.div
-              className="space-y-6"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-            >
-              <Card className="bg-background-secondary border-none">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 space-y-3 text-center">
-                      <div className="mx-auto flex h-10 w-10 items-center justify-center overflow-hidden rounded bg-zinc-600">
-                        {agentPhoto ? (
-                          <Image
-                            src={agentPhoto}
-                            alt="Agent"
-                            width={40}
-                            height={40}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-sm text-zinc-300">A</span>
-                        )}
-                      </div>
-                      <div>
-                        <CardTitle className="font-dmmono text-xs font-medium uppercase">
-                          {previewAgentName || 'New Agent'}
-                        </CardTitle>
-                        <CardDescription className="text-muted mt-1 text-xs">
-                          {previewAgentDescription || 'No description provided'}
-                        </CardDescription>
-                      </div>
-                    </div>
-                    {isEditMode && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleDelete}
-                        className="text-muted h-6 w-6 hover:bg-red-950 hover:text-red-400"
-                      >
-                        <Icon type="trash" size="xs" />
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Separator className="bg-accent mb-4" />
-
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Provider:</span>
-                      <span className="text-muted">
-                        {selectedProvider
-                          ? llmProviders.find((p) => p.id === selectedProvider)
-                              ?.displayName
-                          : 'Not selected'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Model:</span>
-                      <span className="text-muted">
-                        {selectedModel || 'Not selected'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Tools:</span>
-                      <span className="text-muted">
-                        {selectedDynamicTools.length +
-                          selectedCustomTools.length +
-                          selectedMcpServers.length}{' '}
-                        active
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Memory:</span>
-                      <span className="text-muted">
-                        {enableAgenticMemory ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Storage:</span>
-                      <span className="text-muted">
-                        {storageEnabled ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Reasoning:</span>
-                      <span className="text-muted">
-                        {reasoning ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Status:</span>
-                      <span
-                        className={`text-xs ${isActive ? 'text-green-400' : 'text-red-400'}`}
-                      >
-                        {isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-secondary">API Access:</span>
-                      <span
-                        className={`text-xs ${isActiveApi ? 'text-green-400' : 'text-red-400'}`}
-                      >
-                        {isActiveApi ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Visibility:</span>
-                      <span className="text-muted">
-                        {isPublic ? 'Public' : 'Private'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {(selectedDynamicTools.length > 0 ||
-                    selectedCustomTools.length > 0 ||
-                    selectedMcpServers.length > 0) && (
-                    <>
-                      <Separator className="my-4 bg-zinc-700" />
-                      <div>
-                        <p className="font-dmmono mb-2 text-xs font-medium uppercase text-zinc-200">
-                          Active Tools:
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedDynamicTools.map((toolId) => {
-                            const tool = availableDynamicTools.find(
-                              (t) => t.id === toolId
-                            )
-                            return (
-                              <Badge
-                                key={toolId}
-                                variant="secondary"
-                                className="bg-zinc-700 text-xs text-zinc-300"
-                              >
-                                {tool?.name}
-                              </Badge>
-                            )
-                          })}
-                          {selectedCustomTools.map((toolId) => {
-                            const tool = availableCustomTools.find(
-                              (t) => t.id === toolId
-                            )
-                            return (
-                              <Badge
-                                key={toolId}
-                                variant="outline"
-                                className="border-zinc-600 text-xs text-zinc-300"
-                              >
-                                {tool?.name}
-                              </Badge>
-                            )
-                          })}
-                          {selectedMcpServers.map((serverId) => {
-                            const server = availableMcpServers.find(
-                              (s) => s.id === serverId
-                            )
-                            return (
-                              <Badge
-                                key={serverId}
-                                variant="destructive"
-                                className="bg-red-900 text-xs text-red-200"
-                              >
-                                {server?.name}
-                              </Badge>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
           </div>
         </div>
       </div>
 
+      {/* Template Selector Dialog */}
+      <AgentTemplateSelector
+        isOpen={showTemplateSelector}
+        onClose={() => setShowTemplateSelector(false)}
+        onSelectTemplate={handleSelectTemplate}
+      />
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="bg-background-primary border-zinc-700">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-dmmono text-xs font-medium uppercase">
-              Delete Agent
-            </DialogTitle>
-            <DialogDescription className="text-xs text-zinc-400">
+            <DialogTitle>Delete Agent</DialogTitle>
+            <DialogDescription>
               Are you sure you want to delete this agent? This action cannot be
               undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex space-x-2">
+          <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setShowDeleteDialog(false)}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              className="bg-red-600 text-white hover:bg-red-700"
-            >
+            <Button variant="destructive" onClick={confirmDelete}>
               Delete
             </Button>
           </DialogFooter>

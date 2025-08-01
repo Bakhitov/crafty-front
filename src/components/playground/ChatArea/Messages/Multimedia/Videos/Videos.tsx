@@ -4,11 +4,35 @@ import { memo } from 'react'
 
 import { toast } from 'sonner'
 
-import { type VideoData } from '@/types/playground'
+import { type VideoData, type AgnoMediaItem } from '@/types/playground'
 import Icon from '@/components/ui/icon'
 
-const VideoItem = memo(({ video }: { video: VideoData }) => {
-  const videoUrl = video.url
+// Тип guard для проверки типа видео
+const isVideoData = (video: VideoData | AgnoMediaItem): video is VideoData => {
+  return 'id' in video && typeof video.id === 'number'
+}
+
+// Функция для получения URL видео
+const getVideoUrl = (video: VideoData | AgnoMediaItem): string => {
+  if (isVideoData(video)) {
+    return video.url
+  }
+  return video.url || video.content || ''
+}
+
+// Функция для получения уникального ключа
+const getVideoKey = (
+  video: VideoData | AgnoMediaItem,
+  index: number
+): string => {
+  if (isVideoData(video)) {
+    return video.id.toString()
+  }
+  return video.url || video.name || `video-${index}`
+}
+
+const VideoItem = memo(({ video }: { video: VideoData | AgnoMediaItem }) => {
+  const videoUrl = getVideoUrl(video)
 
   const handleDownload = async () => {
     try {
@@ -54,8 +78,8 @@ const VideoItem = memo(({ video }: { video: VideoData }) => {
         <button
           type="button"
           onClick={handleDownload}
-          className="absolute right-2 top-2 flex items-center justify-center rounded-sm bg-secondary/80 p-1.5 opacity-0 transition-opacity duration-200 hover:bg-secondary group-hover:opacity-100"
-          aria-label="Download GIF"
+          className="bg-secondary/80 hover:bg-secondary absolute right-2 top-2 flex items-center justify-center rounded-sm p-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+          aria-label="Download Video"
         >
           <Icon type="download" size="xs" />
         </button>
@@ -66,10 +90,10 @@ const VideoItem = memo(({ video }: { video: VideoData }) => {
 
 VideoItem.displayName = 'VideoItem'
 
-const Videos = memo(({ videos }: { videos: VideoData[] }) => (
+const Videos = memo(({ videos }: { videos: (VideoData | AgnoMediaItem)[] }) => (
   <div className="flex flex-col gap-4">
-    {videos.map((video) => (
-      <VideoItem key={video.id} video={video} />
+    {videos.map((video, index) => (
+      <VideoItem key={getVideoKey(video, index)} video={video} />
     ))}
   </div>
 ))

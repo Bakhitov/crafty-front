@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { TextArea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { usePlaygroundStore } from '@/store'
-import useAIChatStreamHandler from '@/hooks/useAIStreamHandler'
+import useAgnoStreamHandler from '@/hooks/useAgnoStreamHandler'
 import { useQueryState } from 'nuqs'
 import Icon from '@/components/ui/icon'
 import Paragraph from '@/components/ui/typography/Paragraph'
@@ -12,7 +12,17 @@ import Paragraph from '@/components/ui/typography/Paragraph'
 const ChatInput = () => {
   const { chatInputRef } = usePlaygroundStore()
 
-  const { handleStreamResponse } = useAIChatStreamHandler()
+  const {
+    handleRequest,
+    // handleStreamResponse,
+    // handleNonStreamResponse,
+    // handleContinueDialog,
+    cancelCurrentRequest,
+    // currentRunId,
+    isRequestActive
+  } = useAgnoStreamHandler()
+
+  // const streamingEnabled = usePlaygroundStore((state) => state.streamingEnabled) // Больше не используется
   const [selectedAgent] = useQueryState('agent')
   const [inputMessage, setInputMessage] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -43,7 +53,9 @@ const ChatInput = () => {
       currentFiles.forEach((file) => {
         formData.append('files', file)
       })
-      await handleStreamResponse(formData)
+
+      // Используем новый handleRequest который автоматически определяет stream/non-stream
+      await handleRequest(formData)
     } catch (error) {
       toast.error(
         `Error in handleSubmit: ${
@@ -51,6 +63,30 @@ const ChatInput = () => {
         }`
       )
     }
+  }
+
+  // Временно скрыты функции управления
+  /*
+  const handleContinue = async () => {
+    if (!currentRunId) {
+      toast.error('Нет активного диалога для продолжения')
+      return
+    }
+
+    try {
+      await handleContinueDialog(currentRunId)
+    } catch (error) {
+      toast.error(
+        `Ошибка при продолжении диалога: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    }
+  }
+  */
+
+  const handleCancel = () => {
+    cancelCurrentRequest()
   }
 
   return (
@@ -73,6 +109,44 @@ const ChatInput = () => {
           ))}
         </div>
       )}
+
+      {/* Кнопка отмены */}
+      {isRequestActive && (
+        <div className="mb-2 flex justify-center gap-2">
+          <Button
+            onClick={handleCancel}
+            variant="outline"
+            size="sm"
+            className="border-accent bg-background text-foreground rounded-xl border px-3 py-1"
+          >
+            <Icon type="square" size="xs" />
+            <Paragraph size="xsmall" className="ml-1">
+              Отменить
+            </Paragraph>
+          </Button>
+        </div>
+      )}
+
+      {/* Временно скрыты остальные кнопки управления
+      {(isRequestActive || (currentRunId && !isStreaming)) && (
+        <div className="mb-2 flex justify-center gap-2">
+          {currentRunId && !isStreaming && (
+            <Button
+              onClick={handleContinue}
+              variant="outline"
+              size="sm"
+              className="border-accent bg-background text-foreground rounded-xl border px-3 py-1"
+            >
+              <Icon type="play" size="xs" />
+              <Paragraph size="xsmall" className="ml-1">
+                Продолжить
+              </Paragraph>
+            </Button>
+          )}
+        </div>
+      )}
+      */}
+
       <div className="flex w-full items-end justify-center gap-x-2">
         <input
           type="file"

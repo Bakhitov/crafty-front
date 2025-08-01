@@ -192,12 +192,14 @@ export class MessengerAPIClient {
     status?: string
     limit?: number
     offset?: number
+    company_id?: string
   }): Promise<InstanceListResponse> {
     const params = new URLSearchParams()
     if (filters?.provider) params.append('provider', filters.provider)
     if (filters?.status) params.append('status', filters.status)
     if (filters?.limit) params.append('limit', filters.limit.toString())
     if (filters?.offset) params.append('offset', filters.offset.toString())
+    if (filters?.company_id) params.append('company_id', filters.company_id)
 
     const url = `${this.baseUrl}/instances${params.toString() ? `?${params.toString()}` : ''}`
     const response = await fetch(url)
@@ -903,6 +905,47 @@ export class MessengerAPIClient {
 
     return response.json()
   }
+
+  // Instance Manager Logs methods
+  async getInstanceManagerLogs(
+    tail: number = 100,
+    level?: 'error' | 'warn' | 'info' | 'http' | 'debug'
+  ): Promise<{
+    success: boolean
+    logs: string[]
+    total: number
+    filtered: number
+    params: { tail: number; level?: string }
+  }> {
+    const params = new URLSearchParams({ tail: tail.toString() })
+    if (level) params.append('level', level)
+
+    const url = `/api/v1/logs?${params.toString()}`
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error('Failed to get instance manager logs')
+    }
+
+    return response.json()
+  }
+
+  async getLatestInstanceManagerLogs(lines: number = 50): Promise<{
+    success: boolean
+    logs: string[]
+    count: number
+    timestamp: string
+    params: { lines: number }
+  }> {
+    const url = `/api/v1/logs/latest?lines=${lines}`
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error('Failed to get latest instance manager logs')
+    }
+
+    return response.json()
+  }
 }
 
 // Create singleton instance
@@ -921,12 +964,12 @@ export const PROVIDER_CONFIGS = {
     dockerRequired: true,
     fields: [
       {
-        key: 'user_id',
-        label: 'User ID',
+        key: 'company_id',
+        label: 'Company ID',
         type: 'text' as const,
         required: true,
-        placeholder: 'Enter user ID',
-        description: 'Unique identifier for the instance'
+        placeholder: 'Enter company ID',
+        description: 'Company identifier for the instance'
       }
     ]
   },
@@ -941,11 +984,11 @@ export const PROVIDER_CONFIGS = {
     dockerRequired: false,
     fields: [
       {
-        key: 'user_id',
-        label: 'User ID',
+        key: 'company_id',
+        label: 'Company ID',
         type: 'text' as const,
         required: true,
-        placeholder: 'Enter user ID'
+        placeholder: 'Enter company ID'
       },
       {
         key: 'token',
@@ -968,11 +1011,11 @@ export const PROVIDER_CONFIGS = {
     dockerRequired: false,
     fields: [
       {
-        key: 'user_id',
-        label: 'User ID',
+        key: 'company_id',
+        label: 'Company ID',
         type: 'text' as const,
         required: true,
-        placeholder: 'Enter user ID'
+        placeholder: 'Enter company ID'
       },
       {
         key: 'phone_number_id',
@@ -1008,11 +1051,11 @@ export const PROVIDER_CONFIGS = {
     dockerRequired: false,
     fields: [
       {
-        key: 'user_id',
-        label: 'User ID',
+        key: 'company_id',
+        label: 'Company ID',
         type: 'text' as const,
         required: true,
-        placeholder: 'Enter user ID'
+        placeholder: 'Enter company ID'
       },
       {
         key: 'bot_token',
@@ -1048,11 +1091,11 @@ export const PROVIDER_CONFIGS = {
     dockerRequired: false,
     fields: [
       {
-        key: 'user_id',
-        label: 'User ID',
+        key: 'company_id',
+        label: 'Company ID',
         type: 'text' as const,
         required: true,
-        placeholder: 'Enter user ID'
+        placeholder: 'Enter company ID'
       },
       {
         key: 'bot_token',
@@ -1088,11 +1131,11 @@ export const PROVIDER_CONFIGS = {
     dockerRequired: false,
     fields: [
       {
-        key: 'user_id',
-        label: 'User ID',
+        key: 'company_id',
+        label: 'Company ID',
         type: 'text' as const,
         required: true,
-        placeholder: 'Enter user ID'
+        placeholder: 'Enter company ID'
       },
       {
         key: 'page_access_token',

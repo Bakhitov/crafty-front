@@ -1,6 +1,5 @@
-import Sidebar from './Sidebar'
-import ToolsList from './ToolsList'
-import ChatsList from './ChatsList'
-
-export default Sidebar
-export { ToolsList, ChatsList }
+export { default as Sidebar } from './Sidebar'
+export { default as ChatsList } from './ChatsList'
+export { default as AgentsList } from './AgentsList'
+export { default as ToolsList } from './ToolsList'
+export { default as TabChatsList } from './TabChatsList'

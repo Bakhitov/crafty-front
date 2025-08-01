@@ -5,6 +5,28 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Получает название сессии из session_data.session_name или возвращает заглушку
+ */
+export function getSessionDisplayName(session: {
+  title?: string
+  session_data?: {
+    session_name?: string
+    [key: string]: unknown
+  }
+}): string {
+  // Приоритет: session_data.session_name > title > заглушка
+  if (session.session_data?.session_name) {
+    return session.session_data.session_name
+  }
+
+  if (session.title) {
+    return session.title
+  }
+
+  return 'Sessions'
+}
+
 export const truncateText = (text: string, limit: number) => {
   if (text) {
     return text.length > limit ? `${text.slice(0, limit)}..` : text
@@ -41,4 +63,23 @@ export const getJsonMarkdown = (content: object = {}) => {
   }
 
   return jsonBlock
+}
+
+// Утилита для условного логирования - только в development
+export const devLog = {
+  log: (...args: unknown[]) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(...args)
+    }
+  },
+  error: (...args: unknown[]) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.error(...args)
+    }
+  },
+  warn: (...args: unknown[]) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(...args)
+    }
+  }
 }

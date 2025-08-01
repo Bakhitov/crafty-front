@@ -1,127 +1,119 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-
-import { usePlaygroundStore } from '../store'
-
+import { usePlaygroundStore } from '@/store'
+import { useCompany } from './useCompany'
+import { useAgents } from './useAgents'
+import { transformAPIAgentsToCombobox } from '@/lib/apiClient'
 import { ComboboxAgent, type PlaygroundChatMessage } from '@/types/playground'
-import { getPlaygroundStatusAPI } from '@/api/playground'
-import { useQueryState } from 'nuqs'
+import { getCachedHealthCheck } from '@/lib/requestCache'
 
 const useChatActions = () => {
-  const { chatInputRef } = usePlaygroundStore()
-  const selectedEndpoint = usePlaygroundStore((state) => state.selectedEndpoint)
-  const [, setSessionId] = useQueryState('session')
-  const setMessages = usePlaygroundStore((state) => state.setMessages)
-  const setIsEndpointActive = usePlaygroundStore(
-    (state) => state.setIsEndpointActive
-  )
-  const setIsEndpointLoading = usePlaygroundStore(
-    (state) => state.setIsEndpointLoading
-  )
-  const setAgents = usePlaygroundStore((state) => state.setAgents)
-  const setSelectedModel = usePlaygroundStore((state) => state.setSelectedModel)
-  const setSelectedAgent = usePlaygroundStore((state) => state.setSelectedAgent)
-  const [agentId, setAgentId] = useQueryState('agent')
-  const setHasStorage = usePlaygroundStore((state) => state.setHasStorage)
+  const {
+    setIsEndpointActive,
+    setIsEndpointLoading,
+    setAgents,
+    // setSelectedModel, // используется напрямую из store в других компонентах
+    // setSelectedAgent, // используется напрямую из store в других компонентах
+    // setHasStorage, // используется напрямую из store в других компонентах
+    setCurrentCompanyId,
+    selectedEndpoint,
+    chatInputRef,
+    setMessages,
+    isAgentSwitching,
+    setIsAgentSwitching
+  } = usePlaygroundStore()
+  const { company } = useCompany()
+  const { agents: supabaseAgents, refreshAgents } = useAgents()
+
+  // Используем ref для предотвращения повторных инициализаций
+  const initializationRef = useRef<{
+    isInitializing: boolean
+    lastEndpoint: string | null
+    lastCompanyId: string | null
+  }>({
+    isInitializing: false,
+    lastEndpoint: null,
+    lastCompanyId: null
+  })
 
   const getStatus = useCallback(async () => {
+    if (!selectedEndpoint) return 503
+
     try {
-      const status = await getPlaygroundStatusAPI(selectedEndpoint)
-      return status
+      // Используем кешированный health check
+      return await getCachedHealthCheck(selectedEndpoint)
     } catch {
       return 503
     }
   }, [selectedEndpoint])
 
-  const getAgents = useCallback(async () => {
+  const getAgents = useCallback(async (): Promise<ComboboxAgent[]> => {
     try {
-      // Получаем агентов напрямую из Agno API через endpoint
-      const url = `${selectedEndpoint}/v1/agents/detailed`
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch agents from Agno API')
-      }
-
-      const data = await response.json()
-
-      if (!data || !Array.isArray(data)) {
-        return []
-      }
-
-      // Преобразуем ответ в ComboboxAgent
-      const agents: ComboboxAgent[] = data.map((item) => {
-        // Извлекаем provider, если он есть в конфигурации модели
-        let provider = ''
-        try {
-          if (
-            item.model_configuration &&
-            typeof item.model_configuration === 'object'
-          ) {
-            const cfg = item.model_configuration as { provider?: string }
-            provider = cfg.provider ?? ''
-          } else if (typeof item.model_configuration === 'string') {
-            const cfg = JSON.parse(item.model_configuration) as {
-              provider?: string
-            }
-            provider = cfg.provider ?? ''
-          }
-        } catch {
-          provider = ''
-        }
-
-        // Определяем наличие storage
-        let storageEnabled = false
-        try {
-          if (item.storage_config && typeof item.storage_config === 'object') {
-            const cfg = item.storage_config as { enabled?: boolean }
-            storageEnabled = cfg.enabled ?? false
-          } else if (typeof item.storage_config === 'string') {
-            const cfg = JSON.parse(item.storage_config) as {
-              enabled?: boolean
-            }
-            storageEnabled = cfg.enabled ?? false
-          }
-        } catch {
-          storageEnabled = false
-        }
-
-        return {
-          value: item.agent_id,
-          label: item.name || item.agent_id,
-          model: { provider },
-          storage: storageEnabled,
-          storage_config: { enabled: storageEnabled }
-        }
-      })
-
-      return agents
+      // Используем агентов из Supabase
+      return transformAPIAgentsToCombobox(supabaseAgents)
     } catch (err) {
-      console.error('Error fetching agents from Agno API:', err)
-      toast.error('Ошибка получения агентов от Agno API')
+      console.error('Error transforming agents:', err)
+      toast.error('Ошибка обработки агентов')
       return []
     }
-  }, [selectedEndpoint])
+  }, [supabaseAgents])
 
   const refreshAgentsList = useCallback(async () => {
     try {
-      const agents = await getAgents()
+      console.log('useChatActions: Starting agents list refresh...')
+
+      // Force refresh agents from Supabase with cache invalidation
+      const freshAgents = await refreshAgents()
+      console.log('useChatActions: Got fresh agents:', freshAgents?.length || 0)
+
+      // Trансформируем свежие данные, полученные из refreshAgents
+      const agents = transformAPIAgentsToCombobox(freshAgents || [])
+      console.log('useChatActions: Transformed agents:', agents.length)
+
+      // Update the store
       setAgents(agents)
+
+      console.log('useChatActions: Successfully refreshed agents list')
       return agents
     } catch (error) {
       console.error('Error refreshing agents list:', error)
+      toast.error('Failed to refresh agents list')
       return []
     }
-  }, [getAgents, setAgents])
+  }, [refreshAgents, setAgents])
 
   const clearChat = useCallback(() => {
-    setMessages([])
-    setSessionId(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    console.log('🧹 useChatActions: Clearing chat messages')
+
+    // Единая синхронная очистка через setState
+    usePlaygroundStore.setState({
+      messages: [],
+      isSessionLoading: false
+    })
+
+    console.log('✅ useChatActions: Chat cleared successfully')
   }, [])
+
+  const startAgentSwitch = useCallback(() => {
+    console.log('🔄 useChatActions: Starting agent switch')
+    setIsAgentSwitching(true)
+
+    // Принудительная синхронная очистка чата и состояния
+    console.log('🧹 useChatActions: Force clearing chat for agent switch')
+
+    // Используем только синхронную очистку через setState для гарантии
+    usePlaygroundStore.setState({
+      messages: [],
+      isSessionLoading: false
+    })
+
+    console.log('✅ useChatActions: Chat cleared for agent switch')
+  }, [setIsAgentSwitching])
+
+  const completeAgentSwitch = useCallback(() => {
+    console.log('✅ useChatActions: Completing agent switch')
+    setIsAgentSwitching(false)
+  }, [setIsAgentSwitching])
 
   const focusChatInput = useCallback(() => {
     setTimeout(() => {
@@ -138,65 +130,84 @@ const useChatActions = () => {
   )
 
   const initializePlayground = useCallback(async () => {
-    setIsEndpointLoading(true)
-    try {
-      const status = await getStatus()
-      let agents: ComboboxAgent[] = []
-      if (status === 200) {
-        setIsEndpointActive(true)
-        agents = await getAgents()
+    console.log('useChatActions: Starting initializePlayground')
 
-        // Только устанавливаем агента если НЕ в режиме создания нового
-        if (agentId !== 'new' && agents.length > 0) {
-          if (!agentId) {
-            const firstAgent = agents[0]
-            setAgentId(firstAgent.value)
-            setSelectedModel(firstAgent.model.provider || '')
-            setSelectedAgent(firstAgent)
-            setHasStorage(
-              !!(firstAgent.storage || firstAgent.storage_config?.enabled)
-            )
-          } else {
-            const currentAgent = agents.find((a) => a.value === agentId)
-            if (currentAgent) {
-              setSelectedAgent(currentAgent)
-              setSelectedModel(currentAgent.model.provider || '')
-              setHasStorage(
-                !!(currentAgent.storage || currentAgent.storage_config?.enabled)
-              )
-            }
-          }
-        }
+    // Проверяем, что endpoint установлен
+    if (!selectedEndpoint) {
+      console.log(
+        'useChatActions: No endpoint selected, skipping initialization'
+      )
+      return
+    }
+
+    // Предотвращаем повторную инициализацию если уже идет процесс
+    // или если endpoint и company не изменились
+    const currentCompanyId = company?.id || null
+    if (
+      initializationRef.current.isInitializing ||
+      (initializationRef.current.lastEndpoint === selectedEndpoint &&
+        initializationRef.current.lastCompanyId === currentCompanyId)
+    ) {
+      console.log(
+        'useChatActions: Initialization already in progress or no changes detected, skipping'
+      )
+      return
+    }
+
+    initializationRef.current.isInitializing = true
+    initializationRef.current.lastEndpoint = selectedEndpoint
+    initializationRef.current.lastCompanyId = currentCompanyId
+
+    setIsEndpointLoading(true)
+
+    // Устанавливаем company_id в стор если компания загружена
+    if (company?.id) {
+      setCurrentCompanyId(company.id)
+    }
+
+    try {
+      // Проверяем статус Agno сервера (для чата)
+      console.log('useChatActions: Checking Agno endpoint status...')
+      const status = await getStatus()
+
+      if (status === 200) {
+        console.log('useChatActions: Agno endpoint is active')
+        setIsEndpointActive(true)
       } else {
+        console.log(
+          'useChatActions: Agno endpoint is not active, status:',
+          status
+        )
         setIsEndpointActive(false)
       }
-      setAgents(agents)
-      return agents
-    } catch {
-      setIsEndpointLoading(false)
+    } catch (error) {
+      console.error('useChatActions: Error during initialization:', error)
+      setIsEndpointActive(false)
+      toast.error('Ошибка проверки статуса Agno сервера')
     } finally {
       setIsEndpointLoading(false)
+      initializationRef.current.isInitializing = false
     }
   }, [
-    getStatus,
-    getAgents,
-    setIsEndpointActive,
+    selectedEndpoint,
+    company?.id,
     setIsEndpointLoading,
-    setAgents,
-    setAgentId,
-    setSelectedModel,
-    setSelectedAgent,
-    setHasStorage,
-    agentId
+    setCurrentCompanyId,
+    getStatus,
+    setIsEndpointActive
   ])
 
   return {
-    clearChat,
-    addMessage,
+    getStatus,
     getAgents,
     refreshAgentsList,
+    clearChat,
     focusChatInput,
-    initializePlayground
+    addMessage,
+    initializePlayground,
+    startAgentSwitch,
+    completeAgentSwitch,
+    isAgentSwitching
   }
 }
 

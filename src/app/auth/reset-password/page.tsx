@@ -16,10 +16,12 @@ export default function ResetPasswordPage() {
   const [isValidSession, setIsValidSession] = useState(false)
 
   useEffect(() => {
-    // Проверяем, есть ли сессия для сброса пароля
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
+    // Проверяем, есть ли пользователь для сброса пароля
+    const checkUser = async () => {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
+      if (user) {
         setIsValidSession(true)
       } else {
         toast.error('Недействительная ссылка для сброса пароля')
@@ -27,12 +29,12 @@ export default function ResetPasswordPage() {
       }
     }
 
-    checkSession()
+    checkUser()
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (password !== confirmPassword) {
       toast.error('Пароли не совпадают')
       return
@@ -63,14 +65,18 @@ export default function ResetPasswordPage() {
     }
   }
 
-  const isFormValid = password && confirmPassword && password === confirmPassword && password.length >= 6
+  const isFormValid =
+    password &&
+    confirmPassword &&
+    password === confirmPassword &&
+    password.length >= 6
 
   if (!isValidSession) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="bg-background flex min-h-screen items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
         >
           <Icon type="agent" size="lg" className="text-primary" />
         </motion.div>
@@ -79,26 +85,26 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="bg-background flex min-h-screen items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <div className="bg-background-secondary/20 border border-border/10 rounded-xl p-8 shadow-sm">
+        <div className="bg-background-secondary/20 border-border/10 rounded-xl border p-8 shadow-sm">
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="mb-8 text-center">
             <motion.div
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, duration: 0.3 }}
               className="mb-4"
             >
-              <Icon type="agent" size="lg" className="mx-auto text-primary" />
+              <Icon type="agent" size="lg" className="text-primary mx-auto" />
             </motion.div>
             <div>
-              <h1 className="text-2xl font-semibold text-foreground mb-2">
+              <h1 className="text-foreground mb-2 text-2xl font-semibold">
                 Новый пароль
               </h1>
               <p className="text-muted-foreground text-sm">
@@ -112,7 +118,10 @@ export default function ResetPasswordPage() {
             <div className="space-y-4">
               {/* Password field */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+                <label
+                  htmlFor="password"
+                  className="text-foreground mb-2 block text-sm font-medium"
+                >
                   Новый пароль
                 </label>
                 <input
@@ -122,7 +131,7 @@ export default function ResetPasswordPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Введите новый пароль"
-                  className="w-full px-4 py-3 rounded-lg border border-border/10 bg-background-secondary/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+                  className="border-border/10 bg-background-secondary/30 text-foreground placeholder:text-muted-foreground focus:ring-primary/50 focus:border-primary/50 w-full rounded-lg border px-4 py-3 transition-colors focus:outline-none focus:ring-2"
                   required
                   minLength={6}
                 />
@@ -130,7 +139,10 @@ export default function ResetPasswordPage() {
 
               {/* Confirm Password field */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground mb-2">
+                <label
+                  htmlFor="confirmPassword"
+                  className="text-foreground mb-2 block text-sm font-medium"
+                >
                   Подтвердите пароль
                 </label>
                 <input
@@ -140,11 +152,13 @@ export default function ResetPasswordPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Подтвердите новый пароль"
-                  className="w-full px-4 py-3 rounded-lg border border-border/10 bg-background-secondary/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+                  className="border-border/10 bg-background-secondary/30 text-foreground placeholder:text-muted-foreground focus:ring-primary/50 focus:border-primary/50 w-full rounded-lg border px-4 py-3 transition-colors focus:outline-none focus:ring-2"
                   required
                 />
                 {confirmPassword && password !== confirmPassword && (
-                  <p className="mt-2 text-sm text-red-500">Пароли не совпадают</p>
+                  <p className="mt-2 text-sm text-red-500">
+                    Пароли не совпадают
+                  </p>
                 )}
               </div>
             </div>
@@ -159,8 +173,12 @@ export default function ResetPasswordPage() {
                 <div className="flex items-center justify-center space-x-2">
                   <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: 'linear'
+                    }}
+                    className="h-4 w-4 rounded-full border-2 border-current border-t-transparent"
                   />
                   <span>Обновление...</span>
                 </div>
@@ -175,7 +193,7 @@ export default function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => router.push('/auth')}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground text-sm transition-colors"
             >
               ← Вернуться к входу
             </button>
@@ -184,4 +202,4 @@ export default function ResetPasswordPage() {
       </motion.div>
     </div>
   )
-} 
+}

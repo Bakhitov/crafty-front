@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import Tooltip from '@/components/ui/tooltip/CustomTooltip'
+import { messengerAPI } from '@/lib/messengerApi'
 
 interface Agent {
   value: string
@@ -23,10 +24,17 @@ interface Agent {
   }
 }
 
+interface AuthStatus {
+  status: string
+  authenticated: boolean
+  is_ready_for_messages?: boolean
+}
+
 const MessengerAgentSidebar = () => {
   const { selectedInstanceId } = usePlaygroundStore()
   const [instance, setInstance] = useState<MessageInstance | null>(null)
   const [agent, setAgent] = useState<Agent | null>(null)
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -66,10 +74,21 @@ const MessengerAgentSidebar = () => {
         })
         setInstance(null)
         setAgent(null)
+        setAuthStatus(null)
         return
       }
 
       setInstance(instanceData)
+
+      // Загружаем статус аутентификации
+      try {
+        const authResponse =
+          await messengerAPI.getInstanceAuthStatus(selectedInstanceId)
+        setAuthStatus(authResponse)
+      } catch (error) {
+        console.error('Error fetching auth status:', error)
+        setAuthStatus(null)
+      }
 
       // Если у инстанса есть agent_id, загружаем информацию об агенте
       const agentId = instanceData?.agno_config?.agent_id
@@ -178,6 +197,7 @@ const MessengerAgentSidebar = () => {
       })
       setInstance(null)
       setAgent(null)
+      setAuthStatus(null)
     } finally {
       setIsLoading(false)
     }
@@ -185,7 +205,16 @@ const MessengerAgentSidebar = () => {
 
   useEffect(() => {
     fetchInstanceAndAgent()
-  }, [fetchInstanceAndAgent])
+
+    // Автоматическое обновление каждые 2 минуты
+    const interval = setInterval(() => {
+      if (selectedInstanceId && !isRefreshing) {
+        fetchInstanceAndAgent()
+      }
+    }, 120000)
+
+    return () => clearInterval(interval)
+  }, [fetchInstanceAndAgent, selectedInstanceId, isRefreshing])
 
   const getProviderIcon = (provider: string) => {
     switch (provider) {
@@ -205,10 +234,50 @@ const MessengerAgentSidebar = () => {
     }
   }
 
+  const getAuthStatusInfo = (status: string | undefined, isReady?: boolean) => {
+    if (status === 'client_ready' || (status === 'authenticated' && isReady)) {
+      return {
+        color: 'text-green-600 dark:text-green-400',
+        bgColor: 'bg-green-500',
+        text: 'Ready to send messages',
+        showPulse: true,
+        canSendMessages: true
+      }
+    } else if (status === 'failed' || status === 'error') {
+      return {
+        color: 'text-red-600 dark:text-red-400',
+        bgColor: 'bg-red-500',
+        text: 'Failed - restart required',
+        showPulse: false,
+        canSendMessages: false
+      }
+    } else if (status === 'pending' || status === 'processing') {
+      return {
+        color: 'text-yellow-600 dark:text-yellow-400',
+        bgColor: 'bg-yellow-500',
+        text: 'Starting up...',
+        showPulse: false,
+        canSendMessages: false
+      }
+    } else {
+      return {
+        color: 'text-gray-600 dark:text-gray-400',
+        bgColor: 'bg-gray-500',
+        text: 'Unknown status',
+        showPulse: false,
+        canSendMessages: false
+      }
+    }
+  }
+
   const hasAgentConfig = Boolean(
     instance?.agno_config?.enabled && instance?.agno_config?.agent_id
   )
   const isAuthenticated = instance?.auth_status === 'authenticated'
+  const statusInfo = getAuthStatusInfo(
+    authStatus?.status || instance?.auth_status || undefined,
+    authStatus?.is_ready_for_messages
+  )
 
   return (
     <motion.aside
@@ -275,8 +344,30 @@ const MessengerAgentSidebar = () => {
               </p>
 
               <h2 className="text-primary text-center text-sm font-bold uppercase">
-                {instance.provider} Instance
+                {instance.provider} Messenger
               </h2>
+
+              {/* Connection Status */}
+              <div className="bg-background-secondary/30 space-y-3 rounded-xl p-4">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="text-primary text-xxs font-semibold uppercase tracking-wide">
+                    Connection Status
+                  </div>
+                  <div className="relative">
+                    <div
+                      className={`h-2 w-2 rounded-full ${statusInfo.bgColor}`}
+                    />
+                    {statusInfo.showPulse && (
+                      <div className="absolute -inset-1 animate-pulse rounded-full bg-green-400 opacity-20" />
+                    )}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <span className={`text-sm font-medium ${statusInfo.color}`}>
+                    {statusInfo.text}
+                  </span>
+                </div>
+              </div>
 
               <div className="flex justify-center gap-x-6 py-2">
                 <div className="flex items-center space-x-2">
@@ -318,7 +409,7 @@ const MessengerAgentSidebar = () => {
                   <div className="flex justify-between">
                     <span className="text-muted">Status:</span>
                     <span className="text-primary font-medium">
-                      {instance.auth_status || 'unknown'}
+                      {authStatus?.status || instance.auth_status || 'unknown'}
                     </span>
                   </div>
                   {instance.account && (

@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
       chatId: string
       message: string
       agent_id?: string
+      session_id?: string
     } = {
       chatId: chatId,
       message: message
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
     if (agent_id) {
       requestPayload.agent_id = agent_id
     }
+
+    // Используем chatId как session_id для уникальных сессий в Agno
+    requestPayload.session_id = `telegram_${chatId}`
 
     const response = await fetch(telegramApiUrl, {
       method: 'POST',

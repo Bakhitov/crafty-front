@@ -6,8 +6,10 @@ import {
   type SessionEntry
 } from '@/types/playground'
 import { MessengerInstanceUnion } from '@/types/messenger'
+import { Agent } from '@/types/playground'
 
-interface Agent {
+// Упрощенный тип для списка агентов в селекторе
+interface AgentOption {
   value: string
   label: string
   model: {
@@ -17,6 +19,10 @@ interface Agent {
   storage_config?: {
     enabled?: boolean
   }
+  is_public?: boolean
+  company_id?: string
+  description?: string
+  system_instructions?: string[]
 }
 
 // Типы инструментов для кеширования
@@ -73,6 +79,9 @@ export interface ToolsCache {
 export interface PlaygroundStore {
   hydrated: boolean
   setHydrated: () => void
+  // Company state
+  currentCompanyId: string | null
+  setCurrentCompanyId: (companyId: string | null) => void
   streamingErrorMessage: string
   setStreamingErrorMessage: (streamingErrorMessage: string) => void
   endpoints: { endpoint: string; id_playground_endpoint: string }[]
@@ -81,10 +90,15 @@ export interface PlaygroundStore {
   ) => void
   isStreaming: boolean
   setIsStreaming: (isStreaming: boolean) => void
+  streamingEnabled: boolean
+  setStreamingEnabled: (enabled: boolean) => void
   isEndpointActive: boolean
   setIsEndpointActive: (isActive: boolean) => void
   isEndpointLoading: boolean
   setIsEndpointLoading: (isLoading: boolean) => void
+  // Agent switching state
+  isAgentSwitching: boolean
+  setIsAgentSwitching: (isSwitching: boolean) => void
   messages: PlaygroundChatMessage[]
   setMessages: (
     messages:
@@ -96,8 +110,8 @@ export interface PlaygroundStore {
   chatInputRef: React.RefObject<HTMLTextAreaElement | null>
   selectedEndpoint: string
   setSelectedEndpoint: (selectedEndpoint: string) => void
-  agents: Agent[]
-  setAgents: (agents: Agent[]) => void
+  agents: AgentOption[]
+  setAgents: (agents: AgentOption[]) => void
   selectedModel: string
   setSelectedModel: (model: string) => void
   sessionsData: SessionEntry[] | null
@@ -108,12 +122,18 @@ export interface PlaygroundStore {
   ) => void
   isSessionsLoading: boolean
   setIsSessionsLoading: (isSessionsLoading: boolean) => void
-  selectedAgent: Agent | null
-  setSelectedAgent: (agent: Agent | null) => void
+  // Добавляем состояние загрузки конкретной сессии
+  isSessionLoading: boolean
+  setIsSessionLoading: (isSessionLoading: boolean) => void
+  selectedAgent: AgentOption | null
+  setSelectedAgent: (agent: AgentOption | null) => void
   isAgentCreationMode: boolean
   setIsAgentCreationMode: (isAgentCreationMode: boolean) => void
   editingAgentId: string | null
   setEditingAgentId: (agentId: string | null) => void
+  // Agent copying state
+  copyingAgentData: Agent | null
+  setCopyingAgentData: (agent: Agent | null) => void
   // Messenger instance editor state
   isMessengerInstanceEditorMode: boolean
   setIsMessengerInstanceEditorMode: (isEditorMode: boolean) => void
@@ -137,8 +157,8 @@ export interface PlaygroundStore {
   isToolCreationMode: boolean
   setIsToolCreationMode: (isToolCreationMode: boolean) => void
   // Navigation modes
-  activeTab: 'agents' | 'tools' | 'chats' | 'instances'
-  setActiveTab: (tab: 'agents' | 'tools' | 'chats' | 'instances') => void
+  activeTab: 'agents' | 'tools' | 'chats'
+  setActiveTab: (tab: 'agents' | 'tools' | 'chats') => void
   // Кеширование инструментов
   toolsCache: {
     dynamicTools: DynamicTool[]
@@ -161,7 +181,14 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
   persist(
     (set) => ({
       hydrated: false,
-      setHydrated: () => set({ hydrated: true }),
+      setHydrated: () => {
+        console.log('Store: setHydrated called')
+        set({ hydrated: true })
+      },
+      // Company state
+      currentCompanyId: null,
+      setCurrentCompanyId: (companyId) =>
+        set(() => ({ currentCompanyId: companyId })),
       streamingErrorMessage: '',
       setStreamingErrorMessage: (streamingErrorMessage) =>
         set(() => ({ streamingErrorMessage })),
@@ -169,12 +196,19 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
       setEndpoints: (endpoints) => set(() => ({ endpoints })),
       isStreaming: false,
       setIsStreaming: (isStreaming) => set(() => ({ isStreaming })),
+      streamingEnabled: true,
+      setStreamingEnabled: (enabled) =>
+        set(() => ({ streamingEnabled: enabled })),
       isEndpointActive: false,
       setIsEndpointActive: (isActive) =>
         set(() => ({ isEndpointActive: isActive })),
-      isEndpointLoading: true,
+      isEndpointLoading: false,
       setIsEndpointLoading: (isLoading) =>
         set(() => ({ isEndpointLoading: isLoading })),
+      // Agent switching state
+      isAgentSwitching: false,
+      setIsAgentSwitching: (isSwitching) =>
+        set(() => ({ isAgentSwitching: isSwitching })),
       messages: [],
       setMessages: (messages) =>
         set((state) => ({
@@ -184,7 +218,7 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
       hasStorage: false,
       setHasStorage: (hasStorage) => set(() => ({ hasStorage })),
       chatInputRef: { current: null },
-      selectedEndpoint: 'https://crafty-v0-0-1.onrender.com',
+      selectedEndpoint: 'http://localhost:8000',
       setSelectedEndpoint: (selectedEndpoint) =>
         set(() => ({ selectedEndpoint })),
       agents: [],
@@ -202,6 +236,10 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
       isSessionsLoading: false,
       setIsSessionsLoading: (isSessionsLoading) =>
         set(() => ({ isSessionsLoading })),
+      // Добавляем состояние загрузки конкретной сессии
+      isSessionLoading: false,
+      setIsSessionLoading: (isSessionLoading) =>
+        set(() => ({ isSessionLoading })),
       selectedAgent: null,
       setSelectedAgent: (agent) => set({ selectedAgent: agent }),
       isAgentCreationMode: false,
@@ -209,6 +247,9 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
         set({ isAgentCreationMode }),
       editingAgentId: null,
       setEditingAgentId: (agentId) => set({ editingAgentId: agentId }),
+      // Agent copying state
+      copyingAgentData: null,
+      setCopyingAgentData: (agent) => set({ copyingAgentData: agent }),
       // Messenger instance editor state
       isMessengerInstanceEditorMode: false,
       setIsMessengerInstanceEditorMode: (isEditorMode) =>
@@ -281,6 +322,7 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
         selectedEndpoint: state.selectedEndpoint
       }),
       onRehydrateStorage: () => (state) => {
+        console.log('Store: onRehydrateStorage called', { state: !!state })
         state?.setHydrated?.()
       }
     }

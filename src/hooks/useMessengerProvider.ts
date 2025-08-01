@@ -5,55 +5,36 @@ import {
   MessengerProviderState,
   ProviderType,
   InstanceStatus,
-  InstanceType,
   CreateInstanceResponse,
-  CreateInstanceResponseWithStatus
+  CreateInstanceResponseWithStatus,
+  CreateWhatsAppWebInstancePayload,
+  CreateTelegramInstancePayload,
+  CreateWhatsAppOfficialInstancePayload,
+  CreateDiscordInstancePayload,
+  CreateSlackInstancePayload,
+  CreateMessengerInstancePayload
 } from '@/types/messenger'
 import { messengerAPI } from '@/lib/messengerApi'
+import { useCompanyContext } from '@/components/CompanyProvider'
+import { InternalAPIRoutes } from '@/api/routes'
 
 type CreateInstancePayload =
-  | { provider: 'whatsappweb'; user_id: string; type_instance: InstanceType[] }
-  | {
-      provider: 'telegram'
-      user_id: string
-      type_instance: InstanceType[]
-      token: string
-    }
-  | {
-      provider: 'whatsapp-official'
-      user_id: string
-      type_instance: InstanceType[]
-      phone_number_id: string
-      access_token: string
-      webhook_verify_token: string
-    }
-  | {
-      provider: 'discord'
-      user_id: string
-      type_instance: InstanceType[]
-      bot_token: string
-      client_id: string
-      guild_id?: string
-    }
-  | {
-      provider: 'slack'
-      user_id: string
-      type_instance: InstanceType[]
-      bot_token: string
-      app_token?: string
-      signing_secret?: string
-    }
-  | {
-      provider: 'messenger'
-      user_id: string
-      type_instance: InstanceType[]
-      page_access_token: string
-      verify_token: string
-      page_id: string
-      app_secret?: string
-    }
+  | CreateWhatsAppWebInstancePayload
+  | CreateTelegramInstancePayload
+  | CreateWhatsAppOfficialInstancePayload
+  | CreateDiscordInstancePayload
+  | CreateSlackInstancePayload
+  | CreateMessengerInstancePayload
+
+// Simple cache for instances
+const instancesCache = new Map<
+  string,
+  { data: MessengerInstanceUnion[]; timestamp: number }
+>()
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
 export function useMessengerProvider() {
+  const { company } = useCompanyContext()
   const [state, setState] = useState<MessengerProviderState>({
     instances: [],
     selectedInstance: null,
@@ -81,43 +62,83 @@ export function useMessengerProvider() {
     stats
   } = state
 
-  // Fetch instances
-  const fetchInstances = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }))
+  // Fetch instances with company filtering
+  const fetchInstances = useCallback(
+    async (useCache = true) => {
+      setState((prev) => ({ ...prev, isLoading: true, error: null }))
 
-    try {
-      const response = await messengerAPI.getInstances({
-        provider: state.filters.provider,
-        status: state.filters.status,
-        limit: state.pagination.limit,
-        offset: (state.pagination.page - 1) * state.pagination.limit
-      })
+      try {
+        // Check cache first
+        const cacheKey = `instances-${company?.id || 'all'}-${JSON.stringify(state.filters)}-${state.pagination.page}`
+        const cached = instancesCache.get(cacheKey)
+        const now = Date.now()
 
-      // Convert API response to internal format
-      const instances: MessengerInstanceUnion[] = response.instances.map(
-        (instance) => ({
-          ...instance,
-          instance_id: instance.id, // Map id to instance_id for compatibility
-          port: instance.port_api || instance.port_mcp // Use api port as primary
-        })
-      ) as MessengerInstanceUnion[]
+        if (useCache && cached && now - cached.timestamp < CACHE_DURATION) {
+          setState((prev) => ({
+            ...prev,
+            instances: cached.data,
+            isLoading: false
+          }))
+          return
+        }
 
-      setState((prev) => ({
-        ...prev,
-        instances,
-        pagination: {
-          ...prev.pagination,
-          total: response.total
-        },
-        isLoading: false
-      }))
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Failed to fetch instances'
-      setState((prev) => ({ ...prev, error: errorMessage, isLoading: false }))
-      toast.error(errorMessage)
-    }
-  }, [state.filters, state.pagination.page, state.pagination.limit])
+        // Используем наш API endpoint вместо прямого вызова messengerAPI
+        const params = new URLSearchParams()
+        if (state.filters.provider)
+          params.append('provider', state.filters.provider)
+        if (state.filters.status) params.append('status', state.filters.status)
+        if (state.pagination.limit)
+          params.append('limit', state.pagination.limit.toString())
+        params.append(
+          'offset',
+          ((state.pagination.page - 1) * state.pagination.limit).toString()
+        )
+        if (company?.id) params.append('company_id', company.id)
+
+        const apiUrl = `${InternalAPIRoutes.GetInstances}${params.toString() ? `?${params.toString()}` : ''}`
+        const response = await fetch(apiUrl)
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch instances')
+        }
+
+        const instancesData = await response.json()
+
+        // Convert API response to internal format
+        const instances: MessengerInstanceUnion[] = instancesData.instances.map(
+          (instance: {
+            id: string
+            port_api?: number
+            port_mcp?: number
+            [key: string]: unknown
+          }) => ({
+            ...instance,
+            instance_id: instance.id, // Map id to instance_id for compatibility
+            port: instance.port_api || instance.port_mcp // Use api port as primary
+          })
+        ) as MessengerInstanceUnion[]
+
+        // Cache the results
+        instancesCache.set(cacheKey, { data: instances, timestamp: now })
+
+        setState((prev) => ({
+          ...prev,
+          instances,
+          pagination: {
+            ...prev.pagination,
+            total: instancesData.total
+          },
+          isLoading: false
+        }))
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Failed to fetch instances'
+        setState((prev) => ({ ...prev, error: errorMessage, isLoading: false }))
+        toast.error(errorMessage)
+      }
+    },
+    [state.filters, state.pagination.page, state.pagination.limit, company?.id]
+  )
 
   // Create instance with auto-close after 10 seconds
   const createInstance = useCallback(
@@ -163,29 +184,34 @@ export function useMessengerProvider() {
 
         // Show success message and auto-close after 10 seconds
         toast.success(
-          `${payload.provider} инстанс создан! Окно закроется через 10 секунд...`,
+          `${payload.provider} Messenger connection established! Fine-tuning in progress... just a couple more minutes and everything will be ready!`,
           {
             id: creatingToastId,
             duration: 10000
           }
         )
 
-        // Refresh instances list
-        await fetchInstances()
+        // Refresh instances list (skip cache)
+        await fetchInstances(false)
 
         setState((prev) => ({ ...prev, isCreating: false }))
 
-        // Return success with auto-close flag
-        return { ...response, instanceFoundInList: true }
-      } catch (err) {
+        return {
+          ...response,
+          status: 'created'
+        }
+      } catch (error) {
         const errorMessage =
-          err instanceof Error ? err.message : 'Failed to create instance'
+          error instanceof Error
+            ? error.message
+            : 'Failed to create messenger instance'
+
         setState((prev) => ({
           ...prev,
           error: errorMessage,
           isCreating: false
         }))
-        toast.error(`Ошибка создания инстанса: ${errorMessage}`)
+        toast.error(errorMessage)
         return null
       }
     },
@@ -194,119 +220,113 @@ export function useMessengerProvider() {
 
   // Delete instance
   const deleteInstance = useCallback(
-    async (instanceId: string) => {
+    async (instanceId: string): Promise<boolean> => {
       try {
         await messengerAPI.deleteInstance(instanceId)
-        toast.success('Instance deleted successfully!')
-        await fetchInstances()
-      } catch (err) {
+        await fetchInstances(false)
+        toast.success('Instance deleted successfully')
+        return true
+      } catch (error) {
         const errorMessage =
-          err instanceof Error ? err.message : 'Failed to delete instance'
+          error instanceof Error ? error.message : 'Failed to delete instance'
         toast.error(errorMessage)
+        return false
       }
     },
     [fetchInstances]
   )
 
-  // Start instance
+  // Instance control methods
   const startInstance = useCallback(
-    async (instanceId: string) => {
+    async (instanceId: string): Promise<boolean> => {
       try {
         await messengerAPI.startInstance(instanceId)
-        toast.success('Instance started successfully!')
-        await fetchInstances()
-      } catch (err) {
+        await fetchInstances(false)
+        toast.success('Instance started successfully')
+        return true
+      } catch (error) {
         const errorMessage =
-          err instanceof Error ? err.message : 'Failed to start instance'
+          error instanceof Error ? error.message : 'Failed to start instance'
         toast.error(errorMessage)
+        return false
       }
     },
     [fetchInstances]
   )
 
-  // Stop instance
   const stopInstance = useCallback(
-    async (instanceId: string) => {
+    async (instanceId: string): Promise<boolean> => {
       try {
         await messengerAPI.stopInstance(instanceId)
-        toast.success('Instance stopped successfully!')
-        await fetchInstances()
-      } catch (err) {
+        await fetchInstances(false)
+        toast.success('Instance stopped successfully')
+        return true
+      } catch (error) {
         const errorMessage =
-          err instanceof Error ? err.message : 'Failed to stop instance'
+          error instanceof Error ? error.message : 'Failed to stop instance'
         toast.error(errorMessage)
+        return false
       }
     },
     [fetchInstances]
   )
 
-  // Restart instance
   const restartInstance = useCallback(
-    async (instanceId: string) => {
+    async (instanceId: string): Promise<boolean> => {
       try {
         await messengerAPI.restartInstance(instanceId)
-        toast.success('Instance restarted successfully!')
-        await fetchInstances()
-      } catch (err) {
+        await fetchInstances(false)
+        toast.success('Instance restarted successfully')
+        return true
+      } catch (error) {
         const errorMessage =
-          err instanceof Error ? err.message : 'Failed to restart instance'
+          error instanceof Error ? error.message : 'Failed to restart instance'
         toast.error(errorMessage)
+        return false
       }
     },
     [fetchInstances]
   )
 
   // Get instance memory data
-  const getInstanceMemory = useCallback(
-    async (
-      instanceId: string
-    ): Promise<import('@/lib/messengerApi').MemoryResponse['data'] | null> => {
-      try {
-        const memoryData = await messengerAPI.getInstanceMemory(instanceId)
-        return memoryData.data
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to get instance memory'
-        toast.error(errorMessage)
-        return null
-      }
-    },
-    []
-  )
+  const getInstanceMemory = useCallback(async (instanceId: string) => {
+    try {
+      return await messengerAPI.getInstanceMemory(instanceId)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to get instance memory'
+      toast.error(errorMessage)
+      return null
+    }
+  }, [])
 
-  // Get instance QR code
-  const getInstanceQR = useCallback(
-    async (
-      instanceId: string
-    ): Promise<{
-      qr_code: string
-      expires_in?: number
-      auth_status?: string
-    } | null> => {
-      try {
-        const qrData = await messengerAPI.getInstanceQR(instanceId)
-        return qrData
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to get QR code'
-        toast.error(errorMessage)
-        return null
-      }
-    },
-    []
-  )
+  // Get QR code for WhatsApp instances
+  const getInstanceQR = useCallback(async (instanceId: string) => {
+    try {
+      return await messengerAPI.getInstanceQR(instanceId)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to get QR code'
+      toast.error(errorMessage)
+      return null
+    }
+  }, [])
 
   // Clear instance errors
   const clearInstanceErrors = useCallback(
-    async (instanceId: string) => {
+    async (instanceId: string): Promise<boolean> => {
       try {
         await messengerAPI.clearInstanceErrors(instanceId)
-        toast.success('Instance errors cleared!')
-        await fetchInstances()
-      } catch (err) {
+        await fetchInstances(false)
+        toast.success('Instance errors cleared')
+        return true
+      } catch (error) {
         const errorMessage =
-          err instanceof Error ? err.message : 'Failed to clear errors'
+          error instanceof Error
+            ? error.message
+            : 'Failed to clear instance errors'
         toast.error(errorMessage)
+        return false
       }
     },
     [fetchInstances]
@@ -427,7 +447,8 @@ export function useProviderConfig(provider: ProviderType) {
     },
     discord: { icon: 'discord', color: '#5865F2', name: 'Discord' },
     slack: { icon: 'slack', color: '#4A154B', name: 'Slack' },
-    messenger: { icon: 'messenger', color: '#006AFF', name: 'Messenger' }
+    messenger: { icon: 'messenger', color: '#006AFF', name: 'Messenger' },
+    instagram: { icon: 'instagram', color: '#E4405F', name: 'Instagram' }
   }
 
   return (

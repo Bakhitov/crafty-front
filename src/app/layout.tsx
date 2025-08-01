@@ -4,6 +4,7 @@ import { DM_Mono } from 'next/font/google'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider } from '@/components/AuthProvider'
+import { CompanyProvider } from '@/components/CompanyProvider'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import './globals.css'
 
@@ -29,8 +30,10 @@ export default function RootLayout({
       <body className={`${GeistSans.variable} ${dmMono.variable} antialiased`}>
         <ThemeProvider>
           <AuthProvider>
-            <NuqsAdapter>{children}</NuqsAdapter>
-            <Toaster />
+            <CompanyProvider>
+              <NuqsAdapter>{children}</NuqsAdapter>
+              <Toaster />
+            </CompanyProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

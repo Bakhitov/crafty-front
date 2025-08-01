@@ -2,15 +2,19 @@
 
 import { memo, useMemo } from 'react'
 
-import { type AudioData } from '@/types/playground'
+import { type AudioData, type AgnoMediaItem } from '@/types/playground'
 import { decodeBase64Audio } from '@/lib/audio'
 
-/**
- * Renders a single audio item with controls
- * @param audio - AudioData object containing url or base64 audio data
- */
-const AudioItem = memo(({ audio }: { audio: AudioData }) => {
-  const audioUrl = useMemo(() => {
+// Тип guard для проверки типа аудио
+const isAudioData = (audio: AudioData | AgnoMediaItem): audio is AudioData => {
+  return (
+    'base64_audio' in audio || 'mime_type' in audio || 'sample_rate' in audio
+  )
+}
+
+// Функция для получения URL аудио
+const getAudioUrl = (audio: AudioData | AgnoMediaItem): string | null => {
+  if (isAudioData(audio)) {
     if (audio?.url) {
       return audio.url
     }
@@ -28,8 +32,44 @@ const AudioItem = memo(({ audio }: { audio: AudioData }) => {
         audio.channels
       )
     }
-    return null
-  }, [audio])
+  } else {
+    // AgnoMediaItem
+    if (audio.url) {
+      return audio.url
+    }
+    if (audio.content) {
+      // Попробуем декодировать как base64
+      try {
+        return decodeBase64Audio(
+          audio.content,
+          audio.content_type || 'audio/wav'
+        )
+      } catch {
+        // Если не получилось, возвращаем как есть
+        return audio.content
+      }
+    }
+  }
+  return null
+}
+
+// Функция для получения уникального ключа
+const getAudioKey = (
+  audio: AudioData | AgnoMediaItem,
+  index: number
+): string => {
+  if (isAudioData(audio)) {
+    return audio.id ?? `audio-${index}`
+  }
+  return audio.url || audio.name || `agno-audio-${index}`
+}
+
+/**
+ * Renders a single audio item with controls
+ * @param audio - AudioData or AgnoMediaItem object containing url or base64 audio data
+ */
+const AudioItem = memo(({ audio }: { audio: AudioData | AgnoMediaItem }) => {
+  const audioUrl = useMemo(() => getAudioUrl(audio), [audio])
 
   if (!audioUrl) return null
 
@@ -47,13 +87,12 @@ AudioItem.displayName = 'AudioItem'
 
 /**
  * Renders a list of audio elements
- * @param audio - Array of AudioData objects
+ * @param audio - Array of AudioData or AgnoMediaItem objects
  */
-const Audios = memo(({ audio }: { audio: AudioData[] }) => (
+const Audios = memo(({ audio }: { audio: (AudioData | AgnoMediaItem)[] }) => (
   <div className="flex flex-col gap-4">
     {audio.map((audio_item, index) => (
-      // TODO :: find a better way to handle the key
-      <AudioItem key={audio_item.id ?? `audio-${index}`} audio={audio_item} />
+      <AudioItem key={getAudioKey(audio_item, index)} audio={audio_item} />
     ))}
   </div>
 ))
