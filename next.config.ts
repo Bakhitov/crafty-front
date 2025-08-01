@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import path from 'path'
 
 const nextConfig: NextConfig = {
   devIndicators: false,
@@ -8,20 +9,8 @@ const nextConfig: NextConfig = {
     optimizePackageImports: [
       '@radix-ui/react-icons',
       'react-icons',
-      'lucide-react',
-      'framer-motion'
-    ],
-    // Оптимизация CSS
-    optimizeCss: true,
-    // Турбо режим для сборки
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js'
-        }
-      }
-    }
+      'lucide-react'
+    ]
   },
 
   // Сжатие и оптимизация
@@ -35,10 +24,22 @@ const nextConfig: NextConfig = {
 
   // Webpack оптимизации
   webpack: (config, { dev, isServer }) => {
+    // Исправление ошибки "self is not defined" для серверной сборки
+    if (isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false
+      }
+    }
+
     // Оптимизации только для production
     if (!dev) {
       // Анализ bundle size в development
       if (process.env.ANALYZE === 'true') {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
         config.plugins.push(
           new BundleAnalyzerPlugin({
@@ -51,53 +52,29 @@ const nextConfig: NextConfig = {
         )
       }
 
-      // Оптимизация разделения кода
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: {
-          chunks: 'all',
-          cacheGroups: {
-            // Vendor библиотеки
-            vendor: {
-              test: /[\\/]node_modules[\\/]/,
-              name: 'vendors',
-              chunks: 'all',
-              priority: 10
-            },
-            // UI компоненты
-            ui: {
-              test: /[\\/]src[\\/]components[\\/]ui[\\/]/,
-              name: 'ui',
-              chunks: 'all',
-              priority: 20
-            },
-            // Playground компоненты
-            playground: {
-              test: /[\\/]src[\\/]components[\\/]playground[\\/]/,
-              name: 'playground',
-              chunks: 'all',
-              priority: 15
-            },
-            // React и связанные библиотеки
-            react: {
-              test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-              name: 'react',
-              chunks: 'all',
-              priority: 30
-            },
-            // Supabase
-            supabase: {
-              test: /[\\/]node_modules[\\/]@supabase[\\/]/,
-              name: 'supabase',
-              chunks: 'all',
-              priority: 25
-            },
-            // Иконки
-            icons: {
-              test: /[\\/]node_modules[\\/](react-icons|lucide-react|@radix-ui\/react-icons)[\\/]/,
-              name: 'icons',
-              chunks: 'all',
-              priority: 20
+      // Более консервативная оптимизация разделения кода
+      if (!isServer) {
+        config.optimization = {
+          ...config.optimization,
+          splitChunks: {
+            chunks: 'async',
+            cacheGroups: {
+              // Vendor библиотеки
+              vendor: {
+                test: /[\\/]node_modules[\\/]/,
+                name: 'vendors',
+                chunks: 'all',
+                priority: 10,
+                enforce: true
+              },
+              // React и связанные библиотеки
+              react: {
+                test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+                name: 'react',
+                chunks: 'all',
+                priority: 30,
+                enforce: true
+              }
             }
           }
         }
@@ -107,7 +84,7 @@ const nextConfig: NextConfig = {
     // Алиасы для оптимизации импортов
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': require('path').resolve(__dirname, 'src')
+      '@': path.resolve(__dirname, 'src')
     }
 
     return config
