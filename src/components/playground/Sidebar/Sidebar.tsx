@@ -404,7 +404,7 @@ const Sidebar = () => {
     try {
       console.log('Sidebar: Loading messenger instances...')
       // Используем наш внутренний API endpoint вместо прямого вызова
-      const response = await fetch('/api/v1/instances')
+      const response = await fetch('/api/v1/instances/list')
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch instances`)

@@ -68,7 +68,7 @@ export default function MainContent() {
     )
   }
 
-  if (isMessengerInstanceEditorMode && editingMessengerInstance) {
+  if (isMessengerInstanceEditorMode) {
     return (
       <LazyComponentLoader>
         <MessengerInstanceEditor
