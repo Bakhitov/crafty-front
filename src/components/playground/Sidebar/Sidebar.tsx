@@ -17,7 +17,7 @@ import ToolsList from './ToolsList'
 import TabChatsList from './TabChatsList'
 import { useTheme } from '@/components/ThemeProvider'
 import { Sun, Moon } from 'lucide-react'
-import { messengerAPI } from '@/lib/messengerApi'
+
 import { MessengerInstanceUnion } from '@/types/messenger'
 import {
   Dialog,
@@ -399,24 +399,34 @@ const Sidebar = () => {
   const [, setAgentId] = useQueryState('agent')
   const [, setSessionId] = useQueryState('session')
 
-  // Загрузка messenger instances
+  // Загрузка messenger instances через прокси API (избегает Mixed Content)
   const loadMessengerInstances = useCallback(async () => {
     try {
       console.log('Sidebar: Loading messenger instances...')
-      const response = await messengerAPI.getInstances()
+      // Используем наш внутренний API endpoint вместо прямого вызова
+      const response = await fetch('/api/v1/instances')
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch instances`)
+      }
+
+      const instancesData = await response.json()
       console.log(
         'Sidebar: Messenger instances loaded:',
-        response.instances.length,
-        response.instances
+        instancesData.instances?.length || 0,
+        instancesData.instances
       )
-      // Преобразуем RealInstanceResponse в MessengerInstanceUnion (id -> instance_id)
-      const convertedInstances = response.instances.map((instance) => {
-        const { id, ...instanceWithoutId } = instance
-        return {
-          ...instanceWithoutId,
-          instance_id: id
-        } as MessengerInstanceUnion
-      })
+
+      // Преобразуем API response в MessengerInstanceUnion format
+      const convertedInstances = (instancesData.instances || []).map(
+        (instance: { id: string; [key: string]: unknown }) => {
+          const { id, ...instanceWithoutId } = instance
+          return {
+            ...instanceWithoutId,
+            instance_id: id
+          } as MessengerInstanceUnion
+        }
+      )
       setMessengerInstances(convertedInstances)
     } catch (error) {
       console.error('Error loading messenger instances:', error)
