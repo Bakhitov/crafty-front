@@ -59,12 +59,13 @@ export interface WhatsAppSendRequest extends SendMessageRequest {
  * - Создание, обновление, удаление инстансов
  * - Получение статуса и логов
  * - Управление процессами (старт/стоп/рестарт)
+ * - Гибкая работа с HTTP и HTTPS протоколами
  */
 
-// Определяем базовый URL в зависимости от окружения
+// Поддерживаем как HTTP, так и HTTPS для гибкой конфигурации
 const getBaseUrl = () => {
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
-  return `${protocol}://13.61.141.6`
+  // Дефолтный HTTP для 13.61.141.6, но можно переопределить через env переменные
+  return 'http://13.61.141.6'
 }
 
 export class InstancesAPIClient {

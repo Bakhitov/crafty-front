@@ -56,7 +56,7 @@ const usePrefetchCriticalData = () => {
     const prefetchHealthCheck = async () => {
       try {
         const { getCachedHealthCheck } = await import('@/lib/requestCache')
-        await getCachedHealthCheck('http://localhost:8000')
+        await getCachedHealthCheck('https://crafty-v0-0-1.onrender.com')
         console.log('Prefetch: Health check preloaded')
       } catch (error) {
         console.log('Prefetch: Failed to preload health check', error)
@@ -79,7 +79,7 @@ function PlaygroundContent() {
 
   // Используем оптимизированный хук для загрузки данных
   const playgroundData = usePlaygroundData({
-    endpoint: 'http://localhost:8000',
+    endpoint: 'https://crafty-v0-0-1.onrender.com',
     autoLoad: true
   })
 

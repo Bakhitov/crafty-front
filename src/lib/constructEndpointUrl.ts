@@ -3,6 +3,7 @@ export const constructEndpointUrl = (
 ): string => {
   if (!value) return ''
 
+  // Если уже есть протокол, используем как есть
   if (
     value.startsWith('http://') ||
     value.startsWith('https://') ||
@@ -11,14 +12,15 @@ export const constructEndpointUrl = (
     return decodeURIComponent(value)
   }
 
-  // Check if the endpoint is localhost or an IP address
+  // Для localhost и IP адресов - определяем протокол автоматически
   if (
     value.startsWith('localhost') ||
     /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(value)
   ) {
+    // Для localhost и IP используем HTTP (обычно development)
     return `http://${decodeURIComponent(value)}`
   }
 
-  // For all other cases, default to HTTPS
+  // Для доменных имен используем HTTPS по умолчанию
   return `https://${decodeURIComponent(value)}`
 }

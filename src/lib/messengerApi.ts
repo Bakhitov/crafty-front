@@ -169,10 +169,9 @@ export class MessengerAPIClient {
   private instanceManagerUrl: string
 
   constructor(instanceManagerUrl?: string) {
-    // Определяем протокол в зависимости от окружения
-    const defaultProtocol =
-      process.env.NODE_ENV === 'production' ? 'https' : 'http'
-    const defaultUrl = `${defaultProtocol}://13.61.141.6:3000`
+    // Используем переданный URL или дефолтный HTTP для 13.61.141.6:3000
+    // Поддерживаем как HTTP, так и HTTPS в зависимости от конфигурации
+    const defaultUrl = 'http://13.61.141.6:3000'
 
     this.instanceManagerUrl = instanceManagerUrl || defaultUrl
     this.baseUrl = `${this.instanceManagerUrl}/api/v1`

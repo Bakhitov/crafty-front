@@ -22,9 +22,18 @@ export const AgnoAPIRoutes = {
 
 // Messenger API - омниканальный мессенджер на сервере 13.61.141.6
 const MESSENGER_SERVER = '13.61.141.6'
-const MESSENGER_PROTOCOL =
-  process.env.NODE_ENV === 'production' ? 'https' : 'http'
-const MESSENGER_BASE_URL = `${MESSENGER_PROTOCOL}://${MESSENGER_SERVER}`
+
+// Функция для определения протокола мессенджер сервера
+const getMessengerProtocol = () => {
+  // Можно переопределить через environment variable
+  if (process.env.MESSENGER_PROTOCOL) {
+    return process.env.MESSENGER_PROTOCOL
+  }
+  // По умолчанию HTTP для 13.61.141.6 (можно изменить в настройках)
+  return 'http'
+}
+
+const MESSENGER_BASE_URL = `${getMessengerProtocol()}://${MESSENGER_SERVER}`
 
 export const MessengerAPIRoutes = {
   // Инстансы мессенджеров (на отдельном сервере)

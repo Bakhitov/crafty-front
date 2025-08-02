@@ -28,18 +28,22 @@
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
-# API Endpoints
-NEXT_PUBLIC_INSTANCES_API_URL=https://13.61.141.6
+# API Endpoints - поддерживает HTTP и HTTPS
+NEXT_PUBLIC_INSTANCES_API_URL=http://13.61.141.6  # или https://your-domain.com
 
 # Node Environment
 NODE_ENV=production
 ```
 
-### Опциональные переменные:
+### Опциональные переменные для гибкой конфигурации:
 
 ```bash
-# Custom messenger server (если используете другой сервер)
-MESSENGER_SERVER_URL=https://your-messenger-server.com
+# Messenger Server Configuration (поддерживает HTTP/HTTPS)
+NEXT_PUBLIC_MESSENGER_PROTOCOL=http  # или https
+NEXT_PUBLIC_MESSENGER_HOST=13.61.141.6:3000  # или your-domain.com
+
+# Backend Protocol Override
+MESSENGER_PROTOCOL=http  # или https для backend API routes
 
 # CORS настройки
 CORS_ORIGIN=https://your-domain.vercel.app
