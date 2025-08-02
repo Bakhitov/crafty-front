@@ -9,7 +9,7 @@ interface LoadingSpinnerProps {
 }
 
 export function LoadingSpinner({
-  message = 'Идет загрузка...',
+  message = 'Loading...',
   size = 'md',
   className = ''
 }: LoadingSpinnerProps) {
@@ -17,7 +17,7 @@ export function LoadingSpinner({
 
   return (
     <div
-      className={`bg-background flex min-h-screen items-center justify-center ${className}`}
+      className={`bg-background fixed inset-0 z-50 flex items-center justify-center ${className}`}
     >
       <div className="flex flex-col items-center space-y-4">
         <Icon

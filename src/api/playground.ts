@@ -42,6 +42,7 @@ export const getPlaygroundAgentsAPI = async (
 export const getPlaygroundStatusAPI = async (base: string): Promise<number> => {
   console.log('getPlaygroundStatusAPI: Checking status for endpoint:', base)
   try {
+    // Используем прокси health check
     const url = APIRoutes.PlaygroundStatus(base)
     console.log('getPlaygroundStatusAPI: Request URL:', url)
 
@@ -50,6 +51,17 @@ export const getPlaygroundStatusAPI = async (base: string): Promise<number> => {
     })
 
     console.log('getPlaygroundStatusAPI: Response status:', response.status)
+
+    // Для прокси эндпоинта нужно проверить body для получения реального статуса
+    if (response.ok) {
+      try {
+        const data = await response.json()
+        return data.status || response.status
+      } catch {
+        return response.status
+      }
+    }
+
     return response.status
   } catch (error) {
     console.error('getPlaygroundStatusAPI: Error:', error)
@@ -63,21 +75,23 @@ export const getAllPlaygroundSessionsAPI = async (
   userId?: string
 ): Promise<SessionEntry[]> => {
   try {
-    const url = new URL(APIRoutes.GetPlaygroundSessions(base, agentId))
+    // Используем прокси для получения сессий
+    const url = APIRoutes.GetPlaygroundSessions(base, agentId)
 
-    // Добавляем user_id как query параметр если передан
+    // Добавляем user_id в URL если передан
+    const finalUrl = new URL(url, window.location.origin)
     if (userId) {
-      url.searchParams.append('user_id', userId)
+      finalUrl.searchParams.set('user_id', userId)
     }
 
-    console.log('🌐 API: Fetching sessions from:', {
-      url: url.toString(),
+    console.log('🌐 API: Fetching sessions from proxy:', {
+      url: finalUrl.toString(),
       agentId,
       userId,
       hasUserId: !!userId
     })
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(finalUrl.toString(), {
       method: 'GET'
     })
 
@@ -120,22 +134,24 @@ export const getPlaygroundSessionAPI = async (
   sessionId: string,
   userId?: string
 ) => {
-  const url = new URL(APIRoutes.GetPlaygroundSession(base, agentId, sessionId))
+  // Используем прокси для получения конкретной сессии
+  const url = APIRoutes.GetPlaygroundSession(base, agentId, sessionId)
 
-  // Добавляем user_id как query параметр если передан
+  // Добавляем user_id в URL если передан
+  const finalUrl = new URL(url, window.location.origin)
   if (userId) {
-    url.searchParams.append('user_id', userId)
+    finalUrl.searchParams.set('user_id', userId)
   }
 
-  console.log('🌐 API: Fetching session from:', {
-    url: url.toString(),
+  console.log('🌐 API: Fetching session from proxy:', {
+    url: finalUrl.toString(),
     agentId,
     sessionId,
     userId,
     hasUserId: !!userId
   })
 
-  const response = await fetch(url.toString(), {
+  const response = await fetch(finalUrl.toString(), {
     method: 'GET'
   })
 
@@ -166,16 +182,16 @@ export const deletePlaygroundSessionAPI = async (
   sessionId: string,
   userId?: string
 ) => {
-  const url = new URL(
-    APIRoutes.DeletePlaygroundSession(base, agentId, sessionId)
-  )
+  // Используем прокси для удаления сессии
+  const url = APIRoutes.DeletePlaygroundSession(base, agentId, sessionId)
 
-  // Добавляем user_id как query параметр если передан
+  // Добавляем user_id в URL если передан
+  const finalUrl = new URL(url, window.location.origin)
   if (userId) {
-    url.searchParams.append('user_id', userId)
+    finalUrl.searchParams.set('user_id', userId)
   }
 
-  const response = await fetch(url.toString(), {
+  const response = await fetch(finalUrl.toString(), {
     method: 'DELETE'
   })
   return response
@@ -203,6 +219,8 @@ export const renamePlaygroundSessionAPI = async (
   newName: string,
   userId?: string
 ) => {
+  // ВАЖНО: Для rename пока используем прямой вызов, так как прокси не поддерживает этот эндпоинт
+  // В будущем можно добавить прокси и для этого эндпоинта
   const url = new URL(
     `${base}/v1/agents/${agentId}/sessions/${sessionId}/rename`
   )

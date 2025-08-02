@@ -37,6 +37,7 @@ import { usePlaygroundStore } from '@/store'
 import { toast } from 'sonner'
 import useChatActions from '@/hooks/useChatActions'
 import { useCompany } from '@/hooks/useCompany'
+import { useTools } from '@/hooks/useTools'
 
 import Icon from '@/components/ui/icon'
 
@@ -138,67 +139,6 @@ const timezones = [
   { id: 'Europe/London', name: 'London (UTC+0)' }
 ]
 
-// Типы инструментов (взято из ToolsList.tsx)
-interface DynamicTool {
-  id: number
-  tool_id: string
-  name: string
-  display_name?: string
-  agno_class: string
-  module_path?: string
-  config?: Record<string, unknown>
-  description?: string
-  category?: string
-  icon?: string
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-interface CustomTool {
-  id: number
-  tool_id: string
-  name: string
-  description?: string
-  source_code: string
-  config: Record<string, unknown>
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-interface McpServer {
-  id: number
-  server_id: string
-  name: string
-  description?: string
-  command?: string | null
-  url?: string | null
-  transport: string
-  env_config?: Record<string, unknown> | null
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-// API response types
-interface DynamicToolsResponse {
-  tools: DynamicTool[]
-  total: number
-}
-
-interface CustomToolsResponse {
-  success: boolean
-  tools: CustomTool[]
-  total: number
-}
-
-interface McpServersResponse {
-  success: boolean
-  servers: McpServer[]
-  total: number
-}
-
 // Move FormField component outside to prevent re-renders
 const FormField = ({
   label,
@@ -274,7 +214,6 @@ export default function AgentCreator() {
   const {
     setIsAgentCreationMode,
     editingAgentId,
-    selectedEndpoint,
     setEditingAgentId,
     setSelectedAgent
   } = usePlaygroundStore()
@@ -294,19 +233,16 @@ export default function AgentCreator() {
     useState<ValidationResult | null>(null)
   const [isValidating, setIsValidating] = useState(false)
 
-  // Dynamic tools states
-  const [dynamicToolsFromAPI, setDynamicToolsFromAPI] = useState<DynamicTool[]>(
-    []
-  )
-  const [customToolsFromAPI, setCustomToolsFromAPI] = useState<CustomTool[]>([])
-  const [mcpServersFromAPI, setMcpServersFromAPI] = useState<McpServer[]>([])
-  const [areToolsLoading, setAreToolsLoading] = useState(false)
+  // Tools from Supabase
+  const { isLoading: areToolsLoading, getToolsByType } = useTools()
 
   // === BASIC INFORMATION ===
   const [agentName, setAgentName] = useState('')
   const [agentPhoto, setAgentPhoto] = useState('')
   const [agentDescription, setAgentDescription] = useState('')
-  const [instructions, setInstructions] = useState('Ты простой ассистент') // Дефолтная инструкция
+  const [instructions, setInstructions] = useState(
+    'You are a helpful assistant'
+  ) // Default instruction
   const [isActive, setIsActive] = useState(true)
   const [isPublic, setIsPublic] = useState(false)
 
@@ -472,7 +408,7 @@ export default function AgentCreator() {
     setDebugMode(config.debug_mode || false)
     setMonitoring(config.monitoring || false)
 
-    toast.success(`Шаблон "${template.name}" применен!`)
+    toast.success(`Template "${template.name}" applied!`)
     validateConfiguration()
   }
 
@@ -561,7 +497,7 @@ export default function AgentCreator() {
       setValidationResult(result)
     } catch (error) {
       console.error('Validation error:', error)
-      toast.error('Ошибка валидации конфигурации')
+      toast.error('Configuration validation error')
     } finally {
       setIsValidating(false)
     }
@@ -650,79 +586,31 @@ export default function AgentCreator() {
     (p) => p.id === selectedProvider
   )
 
-  // Загрузка инструментов из API
-  const fetchToolsFromAPI = useCallback(async () => {
-    if (!selectedEndpoint) return
+  // Получаем списки инструментов из Supabase
+  const availableDynamicTools = getToolsByType('dynamic')
+    .filter((tool) => tool.tool_id || tool.id) // Фильтруем элементы без id
+    .map((tool) => ({
+      id: tool.tool_id || tool.id || '',
+      name: tool.display_name || tool.name,
+      description: tool.description || `${tool.name} tool`,
+      category: tool.category || 'utility'
+    }))
 
-    setAreToolsLoading(true)
-    try {
-      // Динамические инструменты
-      try {
-        const dynamicResponse = await fetch(`${selectedEndpoint}/v1/tools/`)
-        if (dynamicResponse.ok) {
-          const dynamicData: DynamicToolsResponse = await dynamicResponse.json()
-          setDynamicToolsFromAPI(
-            Array.isArray(dynamicData.tools) ? dynamicData.tools : []
-          )
-        }
-      } catch (error) {
-        console.error('Error fetching dynamic tools:', error)
-      }
+  const availableCustomTools = getToolsByType('custom')
+    .filter((tool) => tool.tool_id || tool.id) // Фильтруем элементы без id
+    .map((tool) => ({
+      id: tool.tool_id || tool.id || '',
+      name: tool.name,
+      description: tool.description || 'Custom tool'
+    }))
 
-      // Кастомные инструменты
-      try {
-        const customResponse = await fetch(
-          `${selectedEndpoint}/v1/tools/custom`
-        )
-        if (customResponse.ok) {
-          const customData: CustomToolsResponse = await customResponse.json()
-          if (customData.success && Array.isArray(customData.tools)) {
-            setCustomToolsFromAPI(customData.tools)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching custom tools:', error)
-      }
-
-      // MCP серверы
-      try {
-        const mcpResponse = await fetch(`${selectedEndpoint}/v1/tools/mcp`)
-        if (mcpResponse.ok) {
-          const mcpData: McpServersResponse = await mcpResponse.json()
-          if (mcpData.success && Array.isArray(mcpData.servers)) {
-            setMcpServersFromAPI(mcpData.servers)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching MCP servers:', error)
-      }
-    } catch (error) {
-      console.error('Error fetching tools:', error)
-      toast.error('Error loading tools')
-    } finally {
-      setAreToolsLoading(false)
-    }
-  }, [selectedEndpoint])
-
-  // Получаем объединенные списки инструментов для отображения
-  const availableDynamicTools = dynamicToolsFromAPI.map((tool) => ({
-    id: tool.tool_id,
-    name: tool.display_name || tool.name,
-    description: tool.description || `${tool.agno_class} tool`,
-    category: tool.category || 'utility'
-  }))
-
-  const availableCustomTools = customToolsFromAPI.map((tool) => ({
-    id: tool.tool_id,
-    name: tool.name,
-    description: tool.description || 'Custom Python tool'
-  }))
-
-  const availableMcpServers = mcpServersFromAPI.map((server) => ({
-    id: server.server_id,
-    name: server.name,
-    description: server.description || `${server.transport} server`
-  }))
+  const availableMcpServers = getToolsByType('mcp')
+    .filter((tool) => tool.tool_id || tool.id) // Фильтруем элементы без id
+    .map((tool) => ({
+      id: tool.tool_id || tool.id || '',
+      name: tool.name,
+      description: tool.description || `${tool.name} server`
+    }))
 
   const handleClose = () => {
     setIsAgentCreationMode(false)
@@ -1291,12 +1179,7 @@ export default function AgentCreator() {
     }
   }, [isEditMode, editingAgentId, loadAgentData])
 
-  // Load tools when endpoint changes
-  useEffect(() => {
-    if (selectedEndpoint) {
-      fetchToolsFromAPI()
-    }
-  }, [selectedEndpoint, fetchToolsFromAPI])
+  // Tools are now loaded automatically via useTools hook
 
   // Auto-validate configuration when key settings change
   useEffect(() => {
@@ -1355,7 +1238,7 @@ export default function AgentCreator() {
               className="text-primary border-accent hover:bg-accent/10"
             >
               <Icon type="bot" size="xs" className="mr-2" />
-              Шаблоны
+              Templates
             </Button>
             <Button
               variant="outline"
@@ -1367,7 +1250,7 @@ export default function AgentCreator() {
               className="text-primary border-blue-400 hover:bg-blue-400/10"
             >
               <Icon type="alert-circle" size="xs" className="mr-2" />
-              {isValidating ? 'Проверка...' : 'Валидация'}
+              {isValidating ? 'Validating...' : 'Validation'}
             </Button>
             <Button
               className="text-primary bg-secondary border-primary border-1 border border-dashed"
@@ -1407,7 +1290,7 @@ export default function AgentCreator() {
                     <CardHeader className="pb-3">
                       <div className="mb-2 flex items-center justify-between">
                         <h3 className="text-muted-foreground text-sm font-medium">
-                          Валидация конфигурации
+                          Configuration Validation
                         </h3>
                         <Button
                           variant="ghost"
@@ -1421,7 +1304,7 @@ export default function AgentCreator() {
                           ) : (
                             <Shield className="mr-1 h-3 w-3" />
                           )}
-                          {isValidating ? 'Проверка...' : 'Перепроверить'}
+                          {isValidating ? 'Validating...' : 'Revalidate'}
                         </Button>
                       </div>
                       <ValidationContent

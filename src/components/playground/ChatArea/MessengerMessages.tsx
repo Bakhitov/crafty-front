@@ -121,9 +121,9 @@ const MessengerBlankState = () => (
       size="lg"
       className="text-muted-foreground mb-4"
     />
-    <p className="text-muted-foreground text-lg">Нет сообщений</p>
+    <p className="text-muted-foreground text-lg">No messages</p>
     <p className="text-muted-foreground mt-2 text-sm">
-      Сообщения будут отображаться здесь когда они появятся
+      Messages will appear here when they arrive
     </p>
   </div>
 )

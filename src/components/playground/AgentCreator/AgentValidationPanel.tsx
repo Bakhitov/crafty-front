@@ -78,7 +78,7 @@ export function ValidationContent({
           />
           <div>
             <h3 className="font-dmmono text-primary text-sm font-medium uppercase">
-              Валидация конфигурации
+              Configuration Validation
             </h3>
             <p className={`text-xs ${getValidationColor()}`}>
               {getValidationStatus()}
@@ -369,7 +369,7 @@ export function AgentValidationModal({
   }
 
   const getValidationTitle = () => {
-    if (!validationResult) return 'Валидация конфигурации'
+    if (!validationResult) return 'Configuration Validation'
     const { errors, warnings } = validationResult
     if (errors.length > 0) return 'Найдены ошибки конфигурации'
     if (warnings.length > 0) return 'Есть предупреждения'
@@ -377,7 +377,7 @@ export function AgentValidationModal({
   }
 
   const getValidationDescription = () => {
-    if (!validationResult) return 'Проверка конфигурации агента'
+    if (!validationResult) return 'Agent configuration validation'
     const { errors, warnings, suggestions } = validationResult
 
     const parts = []

@@ -119,10 +119,10 @@ export default function AgentTemplateSelector({
         <DialogContent className="bg-background-secondary h-[80vh] max-w-6xl border-none">
           <DialogHeader>
             <DialogTitle className="font-dmmono text-primary text-lg font-medium uppercase">
-              Выберите шаблон агента
+              Select Agent Template
             </DialogTitle>
             <DialogDescription className="text-muted text-sm">
-              Используйте готовые шаблоны для быстрого создания агентов
+              Use ready-made templates for quick agent creation
             </DialogDescription>
           </DialogHeader>
 
@@ -130,7 +130,7 @@ export default function AgentTemplateSelector({
             {/* Поиск и фильтры */}
             <div className="mb-6 space-y-4">
               <Input
-                placeholder="Поиск шаблонов..."
+                placeholder="Search templates..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="border-secondary bg-background-primary text-primary"
@@ -269,7 +269,7 @@ export default function AgentTemplateSelector({
                     className="text-muted mb-4"
                   />
                   <h3 className="font-dmmono text-primary mb-2 text-sm font-medium uppercase">
-                    Шаблоны не найдены
+                    No templates found
                   </h3>
                   <p className="text-muted text-xs">
                     Попробуйте изменить поисковый запрос или фильтры

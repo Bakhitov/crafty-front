@@ -25,8 +25,10 @@ export const BlankState = ({
         size="lg"
         className="text-muted-foreground mb-6 !size-16"
       />
-      <h2 className="mb-4 text-3xl font-[400] tracking-tight">{title}</h2>
-      <p className="text-muted-foreground font-geist mb-8 text-sm leading-relaxed">
+      <h2 className="text-primary mb-4 text-lg font-bold tracking-tight">
+        {title}
+      </h2>
+      <p className="text-muted-foreground font-dmmono mb-8 text-xs leading-relaxed">
         {description}
       </p>
       {actionButton && (
@@ -34,7 +36,7 @@ export const BlankState = ({
           onClick={actionButton.onClick}
           size="lg"
           variant="outline"
-          className="border-primary/20 text-primary hover:bg-primary/10 h-9 w-48 rounded-xl border-dashed text-xs font-medium"
+          className="border-primary/20 text-primary hover:bg-primary/10 font-dmmono h-9 w-48 rounded-xl border-dashed text-xs font-medium"
         >
           <Icon type="plus-icon" size="xs" className="text-primary mr-2" />
           <span className="uppercase">{actionButton.text}</span>

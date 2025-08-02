@@ -151,33 +151,33 @@ function PlaygroundContent() {
 
   // Показываем загрузку только пока данные действительно загружаются
   if (isLoading) {
-    return <LoadingSpinner message="Загрузка данных..." size="lg" />
+    return <LoadingSpinner message="Loading data..." size="lg" />
   }
 
   // Если система не инициализирована, показываем инициализацию
   if (!isInitialized) {
-    return <LoadingSpinner message="Инициализация..." size="lg" />
+    return <LoadingSpinner message="Initializing..." size="lg" />
   }
 
   // Если пользователь не загружен, показываем загрузку
   if (!user) {
-    return <LoadingSpinner message="Загрузка пользователя..." size="lg" />
+    return <LoadingSpinner message="Loading user..." size="lg" />
   }
 
   // Если компания еще загружается, ждем
   if (!company && isLoading) {
-    return <LoadingSpinner message="Загрузка компании..." size="lg" />
+    return <LoadingSpinner message="Loading company..." size="lg" />
   }
 
   // Дополнительная проверка доступа - если компания загружена, но неактивна
   if (company && !company.is_active) {
     window.location.href = '/access-denied'
-    return <LoadingSpinner message="Перенаправление..." size="lg" />
+    return <LoadingSpinner message="Redirecting..." size="lg" />
   }
 
   // Показываем загрузку данных playground
   if (playgroundData.isLoading) {
-    return <LoadingSpinner message="Загрузка агентов..." size="lg" />
+    return <LoadingSpinner message="Loading agents..." size="lg" />
   }
 
   const shouldShowMessengerSidebar =
@@ -220,7 +220,7 @@ function PlaygroundContent() {
 
 export default function PlaygroundPage() {
   return (
-    <Suspense fallback={<LoadingSpinner message="Загрузка..." size="lg" />}>
+    <Suspense fallback={<LoadingSpinner message="Loading..." size="lg" />}>
       <PlaygroundContent />
     </Suspense>
   )

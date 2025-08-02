@@ -11,6 +11,7 @@ import useAgnoResponseStream from './useAgnoResponseStream'
 import { useAgents } from './useAgents'
 import type { AgnoStreamEvent } from '@/types/playground'
 import { constructEndpointUrl } from '@/lib/constructEndpointUrl'
+import { AgnoProxyRoutes } from '@/api/routes'
 
 /**
  * Генерирует UUID для новой сессии
@@ -150,7 +151,6 @@ const useAgnoStreamHandler = () => {
         }
       }
 
-      formData.append('session_id', currentSessionId || '')
       formData.append('stream', 'false') // Отключаем стрим
 
       // Добавляем сообщение пользователя
@@ -162,8 +162,8 @@ const useAgnoStreamHandler = () => {
       })
 
       try {
-        const endpointUrl = constructEndpointUrl(selectedEndpoint)
-        const agnoApiUrl = `${endpointUrl}/v1/agents/${agentId}/runs`
+        // Используем прокси вместо прямого вызова к агно
+        const agnoApiUrl = AgnoProxyRoutes.AgentRun(agentId, selectedEndpoint)
 
         const response = await fetch(agnoApiUrl, {
           method: 'POST',
@@ -338,10 +338,10 @@ const useAgnoStreamHandler = () => {
       setAbortController(controller)
 
       try {
-        const endpointUrl = constructEndpointUrl(selectedEndpoint)
-        const agnoApiUrl = `${endpointUrl}/v1/agents/${agentId}/runs`
+        // Используем прокси вместо прямого вызова к агно
+        const agnoApiUrl = AgnoProxyRoutes.AgentRun(agentId, selectedEndpoint)
 
-        console.log('📡 Отправка запроса к Agno API:', {
+        console.log('📡 Отправка запроса к Agno API через прокси:', {
           url: agnoApiUrl,
           user_id: user.id,
           session_id: currentSessionId,

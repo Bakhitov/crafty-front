@@ -17,12 +17,14 @@ const ChatBlankState = ({ agentName }: ChatBlankStateProps) => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="text-3xl font-[400] tracking-tight"
+          className="text-primary text-3xl font-medium tracking-tight"
         >
           <div className="flex items-center justify-center gap-x-2 whitespace-nowrap">
             <span className="flex items-center">Start chat!</span>
           </div>
-          <p>with {agentName || 'Crafty agents'}</p>
+          <p className="text-muted-foreground font-geist mt-2 text-xs">
+            with {agentName || 'Crafty agents'}
+          </p>
         </motion.h1>
       </div>
     </section>
