@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider } from '@/components/AuthProvider'
 import { CompanyProvider } from '@/components/CompanyProvider'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { CookieErrorHandler } from '@/components/CookieErrorHandler'
 import './globals.css'
 
 const dmMono = DM_Mono({
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${GeistSans.variable} ${dmMono.variable} antialiased`}>
+        <CookieErrorHandler />
         <ThemeProvider>
           <AuthProvider>
             <CompanyProvider>

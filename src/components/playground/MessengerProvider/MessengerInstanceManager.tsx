@@ -596,7 +596,10 @@ const MessengerInstanceManager = ({
 
   const loadSystemResources = useCallback(async () => {
     try {
-      const response = await fetch('http://13.61.141.6:3000/api/v1/resources')
+      const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+      const response = await fetch(
+        `${protocol}://13.61.141.6:3000/api/v1/resources`
+      )
       const resources: SystemResourcesData = await response.json()
       setSystemResources(resources)
     } catch (error) {

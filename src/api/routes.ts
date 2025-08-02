@@ -22,22 +22,26 @@ export const AgnoAPIRoutes = {
 
 // Messenger API - омниканальный мессенджер на сервере 13.61.141.6
 const MESSENGER_SERVER = '13.61.141.6'
+const MESSENGER_PROTOCOL =
+  process.env.NODE_ENV === 'production' ? 'https' : 'http'
+const MESSENGER_BASE_URL = `${MESSENGER_PROTOCOL}://${MESSENGER_SERVER}`
+
 export const MessengerAPIRoutes = {
   // Инстансы мессенджеров (на отдельном сервере)
-  GetInstances: `http://${MESSENGER_SERVER}/api/v1/instances`,
-  CreateInstance: `http://${MESSENGER_SERVER}/api/v1/instances`,
+  GetInstances: `${MESSENGER_BASE_URL}/api/v1/instances`,
+  CreateInstance: `${MESSENGER_BASE_URL}/api/v1/instances`,
   UpdateInstance: (instanceId: string) =>
-    `http://${MESSENGER_SERVER}/api/v1/instances/${instanceId}`,
+    `${MESSENGER_BASE_URL}/api/v1/instances/${instanceId}`,
   DeleteInstance: (instanceId: string) =>
-    `http://${MESSENGER_SERVER}/api/v1/instances/${instanceId}`,
+    `${MESSENGER_BASE_URL}/api/v1/instances/${instanceId}`,
 
   // Отправка сообщений (на отдельном сервере)
-  SendTelegram: `http://${MESSENGER_SERVER}/api/v1/telegram/send`,
-  SendWhatsApp: `http://${MESSENGER_SERVER}/api/v1/whatsapp/send`,
+  SendTelegram: `${MESSENGER_BASE_URL}/api/v1/telegram/send`,
+  SendWhatsApp: `${MESSENGER_BASE_URL}/api/v1/whatsapp/send`,
 
   // Webhook endpoints (на отдельном сервере)
-  TelegramWebhook: `http://${MESSENGER_SERVER}/api/v1/telegram/webhook`,
-  WhatsAppWebhook: `http://${MESSENGER_SERVER}/api/v1/whatsapp/webhook`
+  TelegramWebhook: `${MESSENGER_BASE_URL}/api/v1/telegram/webhook`,
+  WhatsAppWebhook: `${MESSENGER_BASE_URL}/api/v1/whatsapp/webhook`
 }
 
 // Наши внутренние API (только для компаний и прокси к мессенджеру)

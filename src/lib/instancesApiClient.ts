@@ -52,18 +52,28 @@ export interface WhatsAppSendRequest extends SendMessageRequest {
 }
 
 /**
- * Клиент для работы с API инстансов мессенджеров
+ * API клиент для работы с инстансами мессенджеров
  * Обрабатывает все операции с инстансами на сервере 13.61.141.6
+ *
+ * Поддерживает:
+ * - Создание, обновление, удаление инстансов
+ * - Получение статуса и логов
+ * - Управление процессами (старт/стоп/рестарт)
  */
+
+// Определяем базовый URL в зависимости от окружения
+const getBaseUrl = () => {
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+  return `${protocol}://13.61.141.6`
+}
+
 export class InstancesAPIClient {
   private baseUrl: string
 
   constructor(baseUrl?: string) {
-    // Используем переменную окружения или HTTPS по умолчанию
+    // Используем переменную окружения или динамический URL по умолчанию
     this.baseUrl =
-      baseUrl ||
-      process.env.NEXT_PUBLIC_INSTANCES_API_URL ||
-      'https://13.61.141.6'
+      baseUrl || process.env.NEXT_PUBLIC_INSTANCES_API_URL || getBaseUrl()
   }
 
   /**
