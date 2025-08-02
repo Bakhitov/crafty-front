@@ -12,13 +12,16 @@ const config = {
             discardComments: {
               removeAll: true
             },
+            // Отключаем опасные оптимизации которые могут ломать CSS
             normalizeWhitespace: false,
-            // Предотвращаем минификацию CSS переменных
             reduceIdents: false,
-            // Не минифицируем calc() выражения
             calc: false,
-            // Сохраняем важные свойства
-            discardUnused: false
+            discardUnused: false,
+            mergeIdents: false,
+            convertValues: false,
+            // Не трогаем URL и специальные функции
+            normalizeUrl: false,
+            discardEmpty: false
           }
         ]
       }

@@ -14,15 +14,22 @@
     - Обновление CSP для разрешения подключений к Supabase и Render API
   - **CSS Syntax Errors**: Исправлены синтаксические ошибки CSS в production build через оптимизацию PostCSS конфигурации
   - **Vercel Build Errors**: Устранена ошибка `ERR_PNPM_OUTDATED_LOCKFILE` через синхронизацию `pnpm-lock.yaml` с зависимостями
+  - **Messenger Services CSP Issues**: Исправлены проблемы с блокировкой API запросов к сервисам мессенджеров через CSP:
+    - Созданы proxy endpoints `/api/v1/instances/stats` и `/api/v1/instances/health`
+    - Обновлен `MessengerAPIClient` для использования proxy endpoints в браузере
+    - Добавлен `http://13.61.141.6:3000` в CSP `connect-src` для остальных endpoints
 
   Файлы изменены:
 
   - `src/components/AuthProvider.tsx` - использование единого Supabase клиента
   - `src/lib/supabase.ts` - улучшенная обработка base64 cookies и единый client singleton
   - `next.config.ts` - добавлены полные CORS заголовки для production
-  - `vercel.json` - расширенная CORS конфигурация и увеличенные timeouts
+  - `vercel.json` - расширенная CORS конфигурация и обновленная CSP
   - `postcss.config.mjs` - оптимизация для предотвращения CSS ошибок
   - `pnpm-lock.yaml` - синхронизация зависимостей для Vercel deployment
+  - `src/lib/messengerApi.ts` - proxy endpoints для избежания CSP блокировки
+  - `src/app/api/v1/instances/stats/route.ts` - новый proxy endpoint для статистики
+  - `src/app/api/v1/instances/health/route.ts` - новый proxy endpoint для health check
 
 - **Browser Console Errors Resolution**: Исправлены критические ошибки в браузерной консоли для улучшения стабильности приложения
 

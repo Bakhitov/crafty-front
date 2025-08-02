@@ -457,6 +457,19 @@ export class MessengerAPIClient {
 
   // System Resources
   async getSystemPerformance(): Promise<SystemPerformanceResponse> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch('/api/v1/instances/performance')
+
+      if (!response.ok) {
+        throw new Error('Failed to get system performance')
+      }
+
+      const data = await response.json()
+      return data.performance
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(`${this.baseUrl}/resources/performance`)
 
     if (!response.ok) {
@@ -764,6 +777,19 @@ export class MessengerAPIClient {
       stopped: number
     }
   }> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch('/api/v1/instances/resources')
+
+      if (!response.ok) {
+        throw new Error('Failed to get system resources')
+      }
+
+      const data = await response.json()
+      return data.resources
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(`${this.baseUrl}/resources`)
 
     if (!response.ok) {
