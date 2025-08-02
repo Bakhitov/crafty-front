@@ -437,6 +437,18 @@ export class MessengerAPIClient {
   async getInstanceErrors(
     instanceId: string
   ): Promise<{ errors: InstanceError[] }> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/v1/instances/${instanceId}/errors`)
+
+      if (!response.ok) {
+        throw new Error('Failed to get instance errors')
+      }
+
+      return response.json()
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(
       `${this.baseUrl}/instances/${instanceId}/errors`
     )
@@ -449,6 +461,20 @@ export class MessengerAPIClient {
   }
 
   async clearInstanceErrors(instanceId: string): Promise<void> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/v1/instances/${instanceId}/errors`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to clear instance errors')
+      }
+
+      return
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(
       `${this.baseUrl}/instances/${instanceId}/clear-errors`,
       {
@@ -581,11 +607,36 @@ export class MessengerAPIClient {
 
   async getInstanceLogs(
     instanceId: string,
-    options?: { tail?: number }
+    options?: {
+      tail?: number | boolean
+      lines?: number
+      level?: string
+    }
   ): Promise<{ logs: string | Record<string, string> }> {
     const params = new URLSearchParams()
-    if (options?.tail) params.append('tail', options.tail.toString())
+    if (options?.tail !== undefined) {
+      params.append('tail', options.tail.toString())
+    }
+    if (options?.lines) {
+      params.append('lines', options.lines.toString())
+    }
+    if (options?.level) {
+      params.append('level', options.level)
+    }
 
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const url = `/api/v1/instances/${instanceId}/logs${params.toString() ? `?${params.toString()}` : ''}`
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        throw new Error('Failed to get instance logs')
+      }
+
+      return response.json()
+    }
+
+    // На сервере используем прямой запрос
     const url = `${this.baseUrl}/instances/${instanceId}/logs${params.toString() ? `?${params.toString()}` : ''}`
     const response = await fetch(url)
 
@@ -664,6 +715,18 @@ export class MessengerAPIClient {
    * Get instance memory data
    */
   async getInstanceMemory(instanceId: string): Promise<MemoryResponse> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/v1/instances/${instanceId}/memory`)
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch instance memory data')
+      }
+
+      return response.json()
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(
       `${this.baseUrl}/instances/${instanceId}/memory`
     )
