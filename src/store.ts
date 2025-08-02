@@ -218,7 +218,9 @@ export const usePlaygroundStore = create<PlaygroundStore>()(
       hasStorage: false,
       setHasStorage: (hasStorage) => set(() => ({ hasStorage })),
       chatInputRef: { current: null },
-      selectedEndpoint: 'http://localhost:8000',
+      selectedEndpoint:
+        process.env.NEXT_PUBLIC_AGNO_API_URL ||
+        'https://crafty-v0-0-1.onrender.com',
       setSelectedEndpoint: (selectedEndpoint) =>
         set(() => ({ selectedEndpoint })),
       agents: [],
