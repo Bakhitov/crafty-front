@@ -13,6 +13,7 @@
     - Улучшение `vercel.json` конфигурации с полными CORS headers
     - Обновление CSP для разрешения подключений к Supabase и Render API
   - **CSS Syntax Errors**: Исправлены синтаксические ошибки CSS в production build через оптимизацию PostCSS конфигурации
+  - **Vercel Build Errors**: Устранена ошибка `ERR_PNPM_OUTDATED_LOCKFILE` через синхронизацию `pnpm-lock.yaml` с зависимостями
 
   Файлы изменены:
 
@@ -21,6 +22,7 @@
   - `next.config.ts` - добавлены полные CORS заголовки для production
   - `vercel.json` - расширенная CORS конфигурация и увеличенные timeouts
   - `postcss.config.mjs` - оптимизация для предотвращения CSS ошибок
+  - `pnpm-lock.yaml` - синхронизация зависимостей для Vercel deployment
 
 - **Browser Console Errors Resolution**: Исправлены критические ошибки в браузерной консоли для улучшения стабильности приложения
 
