@@ -58,8 +58,12 @@ export interface WhatsAppSendRequest extends SendMessageRequest {
 export class InstancesAPIClient {
   private baseUrl: string
 
-  constructor(baseUrl: string = 'http://13.61.141.6') {
-    this.baseUrl = baseUrl
+  constructor(baseUrl?: string) {
+    // Используем переменную окружения или HTTPS по умолчанию
+    this.baseUrl =
+      baseUrl ||
+      process.env.NEXT_PUBLIC_INSTANCES_API_URL ||
+      'https://13.61.141.6'
   }
 
   /**
@@ -217,7 +221,9 @@ export class InstancesAPIClient {
   async sendTelegramMessage(
     request: TelegramSendRequest
   ): Promise<{ success: boolean; message_id?: string }> {
-    const url = `http://13.61.141.6:${request.port}/api/v1/telegram/send`
+    const protocol = this.baseUrl.startsWith('https') ? 'https' : 'http'
+    const host = this.baseUrl.replace(/^https?:\/\//, '')
+    const url = `${protocol}://${host}:${request.port}/api/v1/telegram/send`
 
     const payload = {
       chatId: request.chatId,
@@ -251,7 +257,9 @@ export class InstancesAPIClient {
   async sendWhatsAppMessage(
     request: WhatsAppSendRequest
   ): Promise<{ success: boolean; message_id?: string }> {
-    const url = `http://13.61.141.6:${request.port}/api/v1/send`
+    const protocol = this.baseUrl.startsWith('https') ? 'https' : 'http'
+    const host = this.baseUrl.replace(/^https?:\/\//, '')
+    const url = `${protocol}://${host}:${request.port}/api/v1/send`
 
     const payload = {
       number: request.number,
@@ -286,7 +294,9 @@ export class InstancesAPIClient {
     instanceId: string,
     port: number
   ): Promise<{ qr?: string; status: string }> {
-    const url = `http://13.61.141.6:${port}/api/v1/qr`
+    const protocol = this.baseUrl.startsWith('https') ? 'https' : 'http'
+    const host = this.baseUrl.replace(/^https?:\/\//, '')
+    const url = `${protocol}://${host}:${port}/api/v1/qr`
 
     const response = await fetch(url, {
       headers: {
@@ -311,7 +321,9 @@ export class InstancesAPIClient {
     instanceId: string,
     port: number
   ): Promise<{ authenticated: boolean; details?: Record<string, unknown> }> {
-    const url = `http://13.61.141.6:${port}/api/v1/auth/status`
+    const protocol = this.baseUrl.startsWith('https') ? 'https' : 'http'
+    const host = this.baseUrl.replace(/^https?:\/\//, '')
+    const url = `${protocol}://${host}:${port}/api/v1/auth/status`
 
     const response = await fetch(url, {
       headers: {
