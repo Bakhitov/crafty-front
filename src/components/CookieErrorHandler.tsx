@@ -1,74 +1,57 @@
 'use client'
 
 import { useEffect } from 'react'
-import { clearCorruptedCookies } from '@/lib/supabase-cookies'
+import {
+  clearCorruptedCookies,
+  withCookieErrorHandling
+} from '@/lib/supabase-cookies'
 
 export function CookieErrorHandler() {
   useEffect(() => {
     // Очищаем поврежденные cookies при загрузке приложения
-    clearCorruptedCookies()
+    withCookieErrorHandling(() => {
+      clearCorruptedCookies()
+    })
 
-    // Обработчик глобальных ошибок для cookie parsing
-    const handleError = (event: ErrorEvent) => {
+    // Обработчик глобальных ошибок для cookie-related проблем
+    const handleGlobalError = (event: ErrorEvent) => {
       if (
-        event.message.includes('Failed to parse cookie string') ||
-        event.message.includes('Unexpected token') ||
-        event.message.includes('base64-eyJ')
+        event.error?.message?.includes('JSON') ||
+        event.error?.message?.includes('cookie') ||
+        event.error?.message?.includes('base64')
       ) {
         console.warn(
-          'Detected cookie parsing error, clearing corrupted cookies'
+          'Global cookie error detected, attempting cleanup:',
+          event.error
         )
         clearCorruptedCookies()
-        // Перезагружаем страницу после очистки
-        setTimeout(() => {
-          window.location.reload()
-        }, 1000)
       }
     }
 
-    // Обработчик необработанных промисов
+    // Обработчик unhandled promise rejections
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      const reason = event.reason
       if (
-        reason?.message?.includes('JSON') ||
-        reason?.message?.includes('cookie') ||
-        reason?.message?.includes('base64')
+        event.reason?.message?.includes('JSON') ||
+        event.reason?.message?.includes('cookie') ||
+        event.reason?.message?.includes('base64')
       ) {
         console.warn(
-          'Detected JSON/cookie parsing error in promise, clearing corrupted cookies'
+          'Unhandled promise rejection with cookie error:',
+          event.reason
         )
         clearCorruptedCookies()
-        // Перезагружаем страницу после очистки
-        setTimeout(() => {
-          window.location.reload()
-        }, 1000)
+        event.preventDefault() // Предотвращаем показ ошибки в консоли
       }
     }
 
-    // Перехватываем console.error для Supabase ошибок
-    const originalConsoleError = console.error
-    console.error = (...args) => {
-      const message = args.join(' ')
-      if (
-        message.includes('Failed to parse cookie string') ||
-        message.includes('Multiple GoTrueClient instances')
-      ) {
-        console.warn('Detected Supabase cookie/client issue, clearing cookies')
-        clearCorruptedCookies()
-        return // Не показываем ошибку в консоли
-      }
-      originalConsoleError.apply(console, args)
-    }
-
-    window.addEventListener('error', handleError)
+    window.addEventListener('error', handleGlobalError)
     window.addEventListener('unhandledrejection', handleUnhandledRejection)
 
     return () => {
-      window.removeEventListener('error', handleError)
+      window.removeEventListener('error', handleGlobalError)
       window.removeEventListener('unhandledrejection', handleUnhandledRejection)
-      console.error = originalConsoleError
     }
   }, [])
 
-  return null
+  return null // Этот компонент не рендерит ничего видимого
 }

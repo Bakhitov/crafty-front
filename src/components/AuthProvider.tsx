@@ -1,9 +1,9 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { User } from '@supabase/supabase-js'
+import { User, Session } from '@supabase/supabase-js'
 import { getCachedAuthUser, globalDataCache } from '@/lib/requestCache'
+import { supabase } from '@/lib/supabase'
 
 interface AuthContextType {
   user: User | null
@@ -21,7 +21,6 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     // Получаем текущую сессию через глобальный кеш
@@ -44,16 +43,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Подписываемся на изменения авторизации
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
+    } = supabase.auth.onAuthStateChange(
+      async (event: string, session: Session | null) => {
+        setUser(session?.user ?? null)
+        setLoading(false)
 
-      // Инвалидируем кеш при изменении авторизации
-      globalDataCache.invalidateAuth()
-    })
+        // Инвалидируем кеш при изменении авторизации
+        globalDataCache.invalidateAuth()
+      }
+    )
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  }, [])
 
   return (
     <AuthContext.Provider value={{ user, loading }}>

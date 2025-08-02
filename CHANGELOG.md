@@ -4,6 +4,42 @@
 
 ### Fixed
 
+- **Production Deployment Critical Issues**: Исправлены критические проблемы после публикации проекта на Vercel + Render
+
+  - **Multiple Supabase Client Instances**: Устранена проблема "Multiple GoTrueClient instances detected" путем унификации всех компонентов на единый singleton экспорт из `lib/supabase.ts`
+  - **Base64 Cookie Parsing Errors**: Исправлены ошибки `"Unexpected token 'b', "base64-eyJ"... is not valid JSON"` через улучшенную обработку localStorage в Supabase storage adapter
+  - **CORS Production Issues**: Решены проблемы с блокировкой запросов `"Access-Control-Allow-Origin" header is present` через:
+    - Обновление `next.config.ts` с правильными CORS заголовками
+    - Улучшение `vercel.json` конфигурации с полными CORS headers
+    - Обновление CSP для разрешения подключений к Supabase и Render API
+  - **CSS Syntax Errors**: Исправлены синтаксические ошибки CSS в production build через оптимизацию PostCSS конфигурации
+
+  Файлы изменены:
+
+  - `src/components/AuthProvider.tsx` - использование единого Supabase клиента
+  - `src/lib/supabase.ts` - улучшенная обработка base64 cookies и единый client singleton
+  - `next.config.ts` - добавлены полные CORS заголовки для production
+  - `vercel.json` - расширенная CORS конфигурация и увеличенные timeouts
+  - `postcss.config.mjs` - оптимизация для предотвращения CSS ошибок
+
+- **Browser Console Errors Resolution**: Исправлены критические ошибки в браузерной консоли для улучшения стабильности приложения
+
+  - **Supabase Multiple Client Instances**: Устранена проблема "Multiple GoTrueClient instances detected" через реализацию singleton паттерна для Supabase клиента
+  - **Cookie Parsing Errors**: Исправлены ошибки парсинга base64 cookies с добавлением безопасной обработки и автоматической очистки поврежденных cookies
+  - **CORS Configuration**: Обновлена конфигурация CORS для лучшей поддержки внешних API запросов с расширенными заголовками
+  - **Health Check Proxy**: Улучшена реализация health-proxy с лучшей обработкой ошибок, таймаутов и CORS
+  - **CSS Processing**: Добавлены autoprefixer и cssnano для предотвращения CSS синтаксических ошибок
+
+  Файлы изменены:
+
+  - `src/lib/supabase.ts` - singleton паттерн для Supabase клиента
+  - `src/lib/supabaseAgents.ts` - удаление дублирующего клиента
+  - `src/components/CookieErrorHandler.tsx` - компонент для обработки cookie ошибок
+  - `src/lib/supabase-cookies.ts` - утилиты для безопасной работы с cookies
+  - `src/lib/cors.ts` - расширенная CORS конфигурация
+  - `src/app/api/v1/health-proxy/route.ts` - улучшенный health-proxy
+  - `postcss.config.mjs` - добавлены autoprefixer и cssnano
+
 - **Playground Performance Optimization**: Кардинально оптимизирован флоу загрузки страницы playground для устранения избыточных запросов
 
   - Устранены множественные дублирующиеся запросы к `/api/v1/companies` (с 15+ до 1 запроса)

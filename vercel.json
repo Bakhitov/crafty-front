@@ -6,13 +6,18 @@
         { "key": "Access-Control-Allow-Origin", "value": "*" },
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
+          "value": "GET, POST, PUT, DELETE, OPTIONS, HEAD"
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization, X-Requested-With"
+          "value": "Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, X-Forwarded-For"
         },
-        { "key": "Access-Control-Max-Age", "value": "86400" }
+        {
+          "key": "Access-Control-Expose-Headers",
+          "value": "Content-Length, X-JSON"
+        },
+        { "key": "Access-Control-Max-Age", "value": "86400" },
+        { "key": "Access-Control-Allow-Credentials", "value": "true" }
       ]
     },
     {
@@ -20,7 +25,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "connect-src 'self' http://13.61.141.6:3000 http://13.61.141.6 https: wss:; default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+          "value": "connect-src 'self' https://crafty-v0-0-1.onrender.com https://*.supabase.co wss://*.supabase.co https: wss:; default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
         }
       ]
     }

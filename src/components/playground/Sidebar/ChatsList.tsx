@@ -289,7 +289,7 @@ const ChatsList = () => {
 
             if (!chatMap.has(chatKey)) {
               const instance = instancesData.find(
-                (inst) => inst.id === message.instance_id
+                (inst: MessageInstance) => inst.id === message.instance_id
               )
 
               chatMap.set(chatKey, {
@@ -335,7 +335,7 @@ const ChatsList = () => {
             session_id: string | null
           }) => {
             const instance = instancesData.find(
-              (inst) => inst.id === chat.instance_id
+              (inst: MessageInstance) => inst.id === chat.instance_id
             )
 
             return {

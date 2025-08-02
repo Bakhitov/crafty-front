@@ -90,7 +90,7 @@ const nextConfig: NextConfig = {
     return config
   },
 
-  // Заголовки для кеширования
+  // Заголовки для кеширования и CORS
   async headers() {
     return [
       {
@@ -106,19 +106,31 @@ const nextConfig: NextConfig = {
         source: '/api/:path*',
         headers: [
           {
+            key: 'Access-Control-Allow-Origin',
+            value: '*'
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS, HEAD'
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value:
+              'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, X-Forwarded-For'
+          },
+          {
+            key: 'Access-Control-Expose-Headers',
+            value: 'Content-Length, X-JSON'
+          },
+          {
+            key: 'Access-Control-Max-Age',
+            value: '86400'
+          },
+          {
             key: 'Cache-Control',
-            value: 'public, max-age=300, s-maxage=300' // 5 минут
+            value: 'public, max-age=60, s-maxage=60' // 1 минута для API
           }
         ]
-      }
-    ]
-  },
-
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'https://crafty-v0-0-1.onrender.com/api/:path*'
       }
     ]
   }

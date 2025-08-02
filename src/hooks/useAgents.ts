@@ -117,7 +117,7 @@ export const useAgents = (options: UseAgentsOptions = {}) => {
             totalAgents: data?.length || 0,
             companyId: company?.id,
             agents:
-              data?.map((agent) => ({
+              data?.map((agent: APIAgent) => ({
                 agent_id: agent.agent_id,
                 name: agent.name,
                 is_public: agent.is_public,

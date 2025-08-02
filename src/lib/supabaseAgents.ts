@@ -1,11 +1,5 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { supabase } from './supabase'
 import { APIAgent } from '@/types/playground'
-
-// Создаем клиент Supabase
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 // Интерфейс для создания агента
 export interface CreateAgentData {
@@ -360,7 +354,11 @@ export class SupabaseAgentsAPI {
 
     // Извлекаем уникальные категории
     const categories = [
-      ...new Set(data?.map((item) => item.category).filter(Boolean))
+      ...new Set(
+        data
+          ?.map((item: { category?: string }) => item.category)
+          .filter(Boolean) as string[]
+      )
     ]
     return categories.sort()
   }
