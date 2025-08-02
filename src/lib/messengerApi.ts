@@ -177,12 +177,23 @@ export class MessengerAPIClient {
     this.baseUrl = `${this.instanceManagerUrl}/api/v1`
   }
 
-  // Health check
+  // Health check - используем proxy endpoint для избежания CSP блокировки
   async checkHealth(): Promise<{
     status: string
     timestamp: string
     uptime: number
   }> {
+    // В браузере используем proxy endpoint
+    if (typeof window !== 'undefined') {
+      const response = await fetch('/api/v1/instances/health')
+      if (!response.ok) {
+        throw new Error('Instance Manager is not available')
+      }
+      const data = await response.json()
+      return data.health
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(`${this.instanceManagerUrl}/health`)
     if (!response.ok) {
       throw new Error('Instance Manager is not available')
@@ -687,6 +698,19 @@ export class MessengerAPIClient {
   }
 
   async getInstanceStats(): Promise<InstanceStatsResponse> {
+    // В браузере используем proxy endpoint для избежания CSP блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch('/api/v1/instances/stats')
+
+      if (!response.ok) {
+        throw new Error('Failed to get instance stats')
+      }
+
+      const data = await response.json()
+      return data.stats
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(`${this.baseUrl}/instances/memory/stats`)
 
     if (!response.ok) {
