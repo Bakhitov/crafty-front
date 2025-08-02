@@ -409,8 +409,21 @@ export const getCachedHealthCheck = async (endpoint: string) => {
   return requestCache.get(
     `health-${endpoint}`,
     async () => {
-      const response = await fetch(`${endpoint}/v1/health`)
-      return response.status
+      try {
+        // Используем mode: 'cors' с правильными заголовками
+        const response = await fetch(`${endpoint}/v1/health`, {
+          method: 'GET',
+          mode: 'cors',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        return response.status
+      } catch (error) {
+        console.warn(`Health check failed for ${endpoint}:`, error)
+        // Возвращаем 503 при ошибках CORS или сети
+        return 503
+      }
     },
     { ttl: 30000, dedupe: true } // 30 секунд с дедупликацией
   )

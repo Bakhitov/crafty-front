@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { handleOptionsRequest, createCorsResponse } from '@/lib/cors'
+
+// OPTIONS handler for preflight requests
+export async function OPTIONS() {
+  return handleOptionsRequest()
+}
 
 // Интерфейс для создания агента
 interface CreateAgentRequest {
@@ -111,7 +117,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({
+    return createCorsResponse({
       success: true,
       agents: agents || [],
       total: agents?.length || 0
