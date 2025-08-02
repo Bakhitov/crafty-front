@@ -15,9 +15,10 @@
   - **CSS Syntax Errors**: Исправлены синтаксические ошибки CSS в production build через оптимизацию PostCSS конфигурации
   - **Vercel Build Errors**: Устранена ошибка `ERR_PNPM_OUTDATED_LOCKFILE` через синхронизацию `pnpm-lock.yaml` с зависимостями
   - **Messenger Services CSP Issues**: Исправлены проблемы с блокировкой API запросов к сервисам мессенджеров через CSP:
-    - Созданы proxy endpoints `/api/v1/instances/stats` и `/api/v1/instances/health`
+    - Созданы полные proxy endpoints: `/api/v1/instances/stats`, `/api/v1/instances/health`, `/api/v1/instances/resources`, `/api/v1/instances/performance`, `/api/v1/instances/providers`
     - Обновлен `MessengerAPIClient` для использования proxy endpoints в браузере
     - Добавлен `http://13.61.141.6:3000` в CSP `connect-src` для остальных endpoints
+    - Исправлены CSS синтаксические ошибки в production build через улучшенную PostCSS конфигурацию
 
   Файлы изменены:
 
@@ -25,9 +26,12 @@
   - `src/lib/supabase.ts` - улучшенная обработка base64 cookies и единый client singleton
   - `next.config.ts` - добавлены полные CORS заголовки для production
   - `vercel.json` - расширенная CORS конфигурация и обновленная CSP
-  - `postcss.config.mjs` - оптимизация для предотвращения CSS ошибок
+  - `postcss.config.mjs` - улучшенная CSS оптимизация для предотвращения синтаксических ошибок
   - `pnpm-lock.yaml` - синхронизация зависимостей для Vercel deployment
-  - `src/lib/messengerApi.ts` - proxy endpoints для избежания CSP блокировки
+  - `src/lib/messengerApi.ts` - обновлен для использования proxy endpoints в браузере
+  - `src/app/api/v1/instances/resources/route.ts` - proxy для системных ресурсов
+  - `src/app/api/v1/instances/performance/route.ts` - proxy для данных производительности
+  - `src/app/api/v1/instances/providers/route.ts` - proxy для активных провайдеров
   - `src/app/api/v1/instances/stats/route.ts` - новый proxy endpoint для статистики
   - `src/app/api/v1/instances/health/route.ts` - новый proxy endpoint для health check
 
