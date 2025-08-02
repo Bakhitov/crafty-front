@@ -216,6 +216,20 @@ export class MessengerAPIClient {
     if (filters?.offset) params.append('offset', filters.offset.toString())
     if (filters?.company_id) params.append('company_id', filters.company_id)
 
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const url = `/api/v1/instances/list${params.toString() ? `?${params.toString()}` : ''}`
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch instances')
+      }
+
+      const data = await response.json()
+      return data
+    }
+
+    // На сервере используем прямой запрос
     const url = `${this.baseUrl}/instances${params.toString() ? `?${params.toString()}` : ''}`
     const response = await fetch(url)
 
@@ -229,6 +243,18 @@ export class MessengerAPIClient {
   async getInstance(
     instanceId: string
   ): Promise<{ instance: MessengerInstanceUnion }> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/v1/instances/${instanceId}`)
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch instance')
+      }
+
+      return response.json()
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(`${this.baseUrl}/instances/${instanceId}`)
 
     if (!response.ok) {
@@ -283,6 +309,28 @@ export class MessengerAPIClient {
       | CreateSlackInstancePayload
       | CreateMessengerInstancePayload
   ): Promise<CreateInstanceResponse> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch('/api/v1/instances/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+
+      if (!response.ok) {
+        const error = await response
+          .json()
+          .catch(() => ({ message: 'Failed to create instance' }))
+        throw new Error(error.message || 'Failed to create instance')
+      }
+
+      const data = await response.json()
+      return data.instance
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(`${this.baseUrl}/instances`, {
       method: 'POST',
       headers: {
@@ -304,6 +352,24 @@ export class MessengerAPIClient {
   async getInstanceQR(
     instanceId: string
   ): Promise<{ qr_code: string; expires_in?: number; auth_status?: string }> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/v1/instances/${instanceId}/qr`)
+
+      if (!response.ok) {
+        throw new Error('Failed to get QR code')
+      }
+
+      const data = await response.json()
+      // Возвращаем нужные поля для QR
+      return {
+        qr_code: data.qr_code,
+        expires_in: data.expires_in,
+        auth_status: data.auth_status
+      }
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(`${this.baseUrl}/instances/${instanceId}/qr`)
 
     if (!response.ok) {
@@ -342,6 +408,21 @@ export class MessengerAPIClient {
   async getInstanceAuthStatus(
     instanceId: string
   ): Promise<{ status: string; authenticated: boolean }> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(
+        `/api/v1/instances/${instanceId}/auth-status`
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to get auth status')
+      }
+
+      const data = await response.json()
+      return data.authStatus
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(
       `${this.baseUrl}/instances/${instanceId}/auth-status`
     )
@@ -382,6 +463,21 @@ export class MessengerAPIClient {
 
   // Instance management methods
   async startInstance(instanceId: string): Promise<{ message: string }> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/v1/instances/${instanceId}/start`, {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to start instance')
+      }
+
+      const data = await response.json()
+      return data.result
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(
       `${this.baseUrl}/instances/${instanceId}/start`,
       {
@@ -397,6 +493,21 @@ export class MessengerAPIClient {
   }
 
   async stopInstance(instanceId: string): Promise<{ message: string }> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/v1/instances/${instanceId}/stop`, {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to stop instance')
+      }
+
+      const data = await response.json()
+      return data.result
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(
       `${this.baseUrl}/instances/${instanceId}/stop`,
       {
@@ -412,6 +523,21 @@ export class MessengerAPIClient {
   }
 
   async restartInstance(instanceId: string): Promise<{ message: string }> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/v1/instances/${instanceId}/restart`, {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to restart instance')
+      }
+
+      const data = await response.json()
+      return data.result
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(
       `${this.baseUrl}/instances/${instanceId}/restart`,
       {
@@ -427,6 +553,21 @@ export class MessengerAPIClient {
   }
 
   async deleteInstance(instanceId: string): Promise<{ message: string }> {
+    // В браузере используем proxy endpoint для избежания Mixed Content блокировки
+    if (typeof window !== 'undefined') {
+      const response = await fetch(`/api/v1/instances/${instanceId}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete instance')
+      }
+
+      const data = await response.json()
+      return data.result
+    }
+
+    // На сервере используем прямой запрос
     const response = await fetch(`${this.baseUrl}/instances/${instanceId}`, {
       method: 'DELETE'
     })
