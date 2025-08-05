@@ -2,75 +2,51 @@
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+- **ReasoningSteps UI Enhancement**: Улучшен дизайн компонента reasoning в чате
+
+  - **Messages.tsx**: Заменена иконка reasoning с `agno` на `brain` с фоном как у tool calls
+  - **Messages.tsx**: Перенесена стрелка разворачивания на уровень заголовка "REASONING"
+  - **ReasoningSteps.tsx**: Заменена кнопка "Show details" на стрелку с анимацией поворота и вынесена логика управления наружу
+
+- **Enhanced Message Display System**: Полностью переработана система отображения сообщений агентов для максимально полного функционала
+
+  - **Messages.tsx**: Обновлена архитектура компонента для интегрированного отображения reasoning, tool calls, references и multimedia контента
+  - **AgentMessageWrapper**: Новая структура с иконками и tooltips для каждого типа контента (reasoning, tools, knowledge sources)
+  - **UserMessageWrapper**: Консистентное отображение пользовательских сообщений с правильным позиционированием
+  - **MessageItem.tsx**: Упрощен для фокуса на основном контенте без дублирования иконок
+  - **ReasoningSteps, ToolCalls, References**: Убраны дублирующиеся заголовки и иконки для интеграции с новой структурой
+  - **Icon System**: Добавлена иконка 'book-open' для отображения Knowledge Sources
+  - **Improved Layout**: Единообразное отображение всех типов контента с правильными отступами и иерархией
+  - **Порядок отображения**: Reasoning steps теперь показываются ДО основного сообщения агента
+  - **Дизайн из example_ui**: Применен компактный дизайн компонентов согласно example_ui:
+    - Простые reasoning steps без сложных accordion
+    - Tool calls как маленькие rounded chips
+    - Компактные reference cards
+
 ### Fixed
 
-- **Production Deployment Critical Issues**: Исправлены критические проблемы после публикации проекта на Vercel + Render
+- **Agent Thinking Loader**: Обновлен дизайн лоадера агента
 
-  - **Multiple Supabase Client Instances**: Устранена проблема "Multiple GoTrueClient instances detected" путем унификации всех компонентов на единый singleton экспорт из `lib/supabase.ts`
-  - **Base64 Cookie Parsing Errors**: Исправлены ошибки `"Unexpected token 'b', "base64-eyJ"... is not valid JSON"` через улучшенную обработку localStorage в Supabase storage adapter
-  - **CORS Production Issues**: Решены проблемы с блокировкой запросов `"Access-Control-Allow-Origin" header is present` через:
-    - Обновление `next.config.ts` с правильными CORS заголовками
-    - Улучшение `vercel.json` конфигурации с полными CORS headers
-    - Обновление CSP для разрешения подключений к Supabase и Render API
-  - **CSS Syntax Errors**: Исправлены синтаксические ошибки CSS в production build через оптимизацию PostCSS конфигурации
-  - **Vercel Build Errors**: Устранена ошибка `ERR_PNPM_OUTDATED_LOCKFILE` через синхронизацию `pnpm-lock.yaml` с зависимостями
-  - **Messenger Services CSP Issues**: Исправлены проблемы с блокировкой API запросов к сервисам мессенджеров через CSP:
-    - Созданы полные proxy endpoints: `/api/v1/instances/stats`, `/api/v1/instances/health`, `/api/v1/instances/resources`, `/api/v1/instances/performance`, `/api/v1/instances/providers`
-    - Обновлен `MessengerAPIClient` для использования proxy endpoints в браузере
-    - Добавлен `http://13.61.141.6:3000` в CSP `connect-src` для остальных endpoints
-    - Исправлены CSS синтаксические ошибки в production build через улучшенную PostCSS конфигурацию
+  - Убрана иконка мозга
+  - Добавлена анимация трех точек как в example_ui
+  - Лоадер теперь появляется только когда отправлен запрос и ожидается ответ (isStreaming=true и content пустой)
+  - Исправлена логика отображения для последнего сообщения
 
-  Файлы изменены:
+- **Reasoning Design**: Обновлен дизайн reasoning секции согласно example_ui
 
-  - `src/components/AuthProvider.tsx` - использование единого Supabase клиента
-  - `src/lib/supabase.ts` - улучшенная обработка base64 cookies и единый client singleton
-  - `next.config.ts` - добавлены полные CORS заголовки для production
-  - `vercel.json` - расширенная CORS конфигурация и обновленная CSP
-  - `postcss.config.mjs` - улучшенная CSS оптимизация для предотвращения синтаксических ошибок
-  - `pnpm-lock.yaml` - синхронизация зависимостей для Vercel deployment
-  - `src/lib/messengerApi.ts` - обновлен для использования proxy endpoints в браузере
-  - `src/app/api/v1/instances/resources/route.ts` - proxy для системных ресурсов
-  - `src/app/api/v1/instances/performance/route.ts` - proxy для данных производительности
-  - `src/app/api/v1/instances/providers/route.ts` - proxy для активных провайдеров
-  - `src/app/api/v1/instances/stats/route.ts` - новый proxy endpoint для статистики
-  - `src/app/api/v1/instances/health/route.ts` - новый proxy endpoint для health check
+  - Изменена иконка с brain на agno
+  - Добавлен заголовок "Reasoning"
+  - Простые шаги по умолчанию с возможностью показать детали
+  - Гибкий дизайн в зависимости от наличия детальной информации
 
-- **Browser Console Errors Resolution**: Исправлены критические ошибки в браузерной консоли для улучшения стабильности приложения
-
-  - **Supabase Multiple Client Instances**: Устранена проблема "Multiple GoTrueClient instances detected" через реализацию singleton паттерна для Supabase клиента
-  - **Cookie Parsing Errors**: Исправлены ошибки парсинга base64 cookies с добавлением безопасной обработки и автоматической очистки поврежденных cookies
-  - **CORS Configuration**: Обновлена конфигурация CORS для лучшей поддержки внешних API запросов с расширенными заголовками
-  - **Health Check Proxy**: Улучшена реализация health-proxy с лучшей обработкой ошибок, таймаутов и CORS
-  - **CSS Processing**: Добавлены autoprefixer и cssnano для предотвращения CSS синтаксических ошибок
-
-  Файлы изменены:
-
-  - `src/lib/supabase.ts` - singleton паттерн для Supabase клиента
-  - `src/lib/supabaseAgents.ts` - удаление дублирующего клиента
-  - `src/components/CookieErrorHandler.tsx` - компонент для обработки cookie ошибок
-  - `src/lib/supabase-cookies.ts` - утилиты для безопасной работы с cookies
-  - `src/lib/cors.ts` - расширенная CORS конфигурация
-  - `src/app/api/v1/health-proxy/route.ts` - улучшенный health-proxy
-  - `postcss.config.mjs` - добавлены autoprefixer и cssnano
-
-- **Playground Performance Optimization**: Кардинально оптимизирован флоу загрузки страницы playground для устранения избыточных запросов
-
-  - Устранены множественные дублирующиеся запросы к `/api/v1/companies` (с 15+ до 1 запроса)
-  - Устранены дублирующиеся запросы к `/auth/v1/user` (с 10+ до необходимого минимума)
-  - Объединены запросы агентов (публичные и приватные) в один запрос вместо двух отдельных
-  - Увеличен TTL кеширования: компании до 10 минут, агенты до 5 минут для стабильности
-  - Переписан `usePlaygroundData.ts` для централизованной загрузки данных с предотвращением race conditions
-  - Удалена дублирующаяся логика загрузки агентов из `PlaygroundContent` компонента
-  - Добавлены глобальные флаги для предотвращения множественных одновременных загрузок
-  - Оптимизированы re-renders через мемоизацию и правильные зависимости useEffect
-
-- **Playground Chat Switching**: Исправлена проблема с переключением между агентами, где чат не очищался должным образом и отображались сообщения от предыдущего агента
-  - Улучшена функция `clearChat()` в `useChatActions.ts` для гарантированной очистки сообщений
-  - Добавлено состояние `isAgentSwitching` в store для предотвращения гонки условий
-  - Обновлена логика в `AgentSelector.tsx`, `AgentsList.tsx` для правильной последовательности очистки
-  - Улучшена логика в `Sessions.tsx` для корректной обработки переключения агентов
-  - Добавлено детальное логирование для отладки процесса переключения агентов
-  - Обновлен `useSessionLoader.tsx` для более надежной загрузки сессий с предварительной очисткой сообщений
+- **Message Alignment**: Исправлено смещение сообщений пользователя и агента
+  - Убраны дублирующиеся отступы (space-y-8 из Messages и space-y-9 из MessageArea)
+  - Исправлены конфликтующие стили у пользовательских сообщений (ml-auto + justify-end)
+  - Правильное выравнивание контента относительно иконок
 
 ## [Previous versions]
 
@@ -1116,3 +1092,32 @@
   - `ConnectionsTabBlankState` - "Создай мессенджер или перейди к текущим чатам"
 - **Enhanced**: Каждая заглушка имеет соответствующую иконку, описание и кнопку действия
 - **Logic**: MainContent теперь показывает разные заглушки в зависимости от `activeTab`
+
+- **Official Agno Events Support**: 100% совместимость с официальной документацией Agno Framework
+  - **RunEvent Types**: Обновлены типы событий согласно официальной документации RunResponse
+  - **New Events Added**: RunPaused, RunContinued, RunCancelled, ReasoningCompleted, MemoryUpdateStarted, MemoryUpdateCompleted
+  - **Removed Unofficial Events**: Убраны неофициальные события RunResponse и UpdatingMemory
+  - **Complete Event Handling**: Добавлена обработка всех официальных событий в useAgnoStreamHandler
+  - **Enhanced UX**: Пользователь видит статус паузы, продолжения, отмены и обновления памяти агента
+  - **Type Safety**: Исправлены конфликты типов между локальными и глобальными интерфейсами AgnoStreamEvent
+
+### Fixed
+
+- **Tool Calls Display**: Исправлено отображение tool calls в реальном времени
+
+  - **Detailed Logging**: Добавлено детальное логирование структуры tool событий для отладки
+  - **Fallback Logic**: Добавлена резервная логика создания tool calls даже при отсутствии стандартных полей
+  - **Real-time Updates**: Tool calls теперь корректно отображаются во время выполнения, а не только после перезагрузки
+  - **Clean Console**: Убрано излишнее debug логирование для production использования
+  - **Rich Tooltips**: При наведении на tool call отображается детальная информация: ID, статус, аргументы, результат, время выполнения
+
+- **Message Layout & Design**: Улучшен дизайн и расположение сообщений
+
+  - **User Message Alignment**: Сообщения пользователя теперь правильно выравнены справа
+  - **Message Spacing**: Добавлены отступы между сообщениями (space-y-6)
+  - **Empty Message Filtering**: Пустые сообщения агента больше не отображаются
+  - **Smart Content Detection**: Сообщения агента показываются только при наличии реального контента или медиа
+
+- **Session Loading**: Исправлена логика загрузки сессий с tool calls
+  - **No Empty Messages**: Устранены пустые сообщения агента после tool calls при перезагрузке чата
+  - **Correct Tool Structure**: Исправлена структура tool calls при загрузке из истории сессий

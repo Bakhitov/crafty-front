@@ -15,12 +15,20 @@ export type ToolChoice =
   | { type: 'function'; function: { name: string } }
 export type ReferencesFormat = 'json' | 'yaml' | 'markdown' | 'text'
 export type RunEvent =
+  | 'run_started' // ✅ Основные события
   | 'run_response_content'
-  | 'tool_call_started'
-  | 'tool_call_completed'
-  | 'reasoning_started'
-  | 'reasoning_step'
+  | 'run_completed'
+  | 'run_paused' // ➕ Добавлено из официальной документации
+  | 'run_continued' // ➕ Добавлено из официальной документации
+  | 'run_cancelled' // ➕ Добавлено из официальной документации
   | 'run_error'
+  | 'tool_call_started' // ✅ События инструментов
+  | 'tool_call_completed'
+  | 'reasoning_started' // ✅ События рассуждений
+  | 'reasoning_step'
+  | 'reasoning_completed' // ➕ Добавлено из официальной документации
+  | 'memory_update_started' // ➕ Добавлено из официальной документации
+  | 'memory_update_completed' // ➕ Добавлено из официальной документации
 
 // Модель конфигурации
 export interface ModelConfig {

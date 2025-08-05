@@ -2,28 +2,17 @@ import type { PlaygroundChatMessage } from '@/types/playground'
 
 import MessageItem from './MessageItem'
 import ChatBlankState from './ChatBlankState'
-import Tooltip from '@/components/ui/tooltip'
-import { memo } from 'react'
-import {
-  ToolCallProps,
-  ReasoningProps,
-  ReferenceData,
-  Reference
-} from '@/types/playground'
-import React, { type FC } from 'react'
-import Icon from '@/components/ui/icon'
+import ReasoningStepsComponent, {
+  hasDetailedReasoningInfo
+} from './ReasoningSteps'
+import ToolCallsSection from './ToolCalls'
+import ReferencesSection from './References'
+import React from 'react'
 import { usePlaygroundStore } from '@/store'
-import Heading from '@/components/ui/typography/Heading'
-import { Badge } from '@/components/ui/badge'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger
-} from '@/components/ui/accordion'
-import Paragraph from '@/components/ui/typography/Paragraph'
-import { CheckCircle, AlertCircle, HelpCircle } from 'lucide-react'
 import { useQueryState } from 'nuqs'
+import Icon from '@/components/ui/icon'
+import Tooltip from '@/components/ui/tooltip'
+import { ChevronDown } from 'lucide-react'
 
 interface MessageListProps {
   messages: PlaygroundChatMessage[]
@@ -31,85 +20,108 @@ interface MessageListProps {
 
 interface MessageWrapperProps {
   message: PlaygroundChatMessage
-  isLastMessage: boolean
+  isLastMessage?: boolean
 }
 
-interface ReferenceProps {
-  references: ReferenceData[]
-}
+// Обновленный компонент для отображения сообщений агента с полным функционалом
+const AgentMessageWrapper = ({
+  message,
+  isLastMessage
+}: MessageWrapperProps) => {
+  const [showDetailedReasoning, setShowDetailedReasoning] =
+    React.useState(false)
+  // Не показываем пустые сообщения агента (только tool calls без контента)
+  const hasContent =
+    message.content?.trim() ||
+    message.response_audio ||
+    message.videos?.length ||
+    message.images?.length ||
+    message.audio?.length ||
+    (message.extra_data?.reasoning_steps &&
+      (Array.isArray(message.extra_data.reasoning_steps)
+        ? message.extra_data.reasoning_steps.length > 0
+        : true)) ||
+    message.extra_data?.references?.length
 
-interface ReferenceItemProps {
-  reference: Reference
-}
+  const hasToolCalls = message.tool_calls && message.tool_calls.length > 0
 
-const ReferenceItem: FC<ReferenceItemProps> = ({ reference }) => (
-  <div className="bg-background-secondary hover:bg-background-secondary/80 relative flex h-[63px] w-[190px] cursor-default flex-col justify-between overflow-hidden rounded-md p-3 transition-colors">
-    <p className="text-primary text-sm font-medium">{reference.name}</p>
-    <p className="text-primary/40 truncate text-xs">{reference.content}</p>
-  </div>
-)
+  // Если нет контента и нет tool calls, не показываем сообщение (кроме последнего при стриминге)
+  if (!hasContent && !hasToolCalls && !isLastMessage) {
+    return null
+  }
 
-const References: FC<ReferenceProps> = ({ references }) => (
-  <div className="flex flex-col gap-4">
-    {references.map((referenceData, index) => (
-      <div
-        key={`${referenceData.query}-${index}`}
-        className="flex flex-col gap-3"
-      >
-        <div className="flex flex-wrap gap-3">
-          {referenceData.references.map((reference, refIndex) => (
-            <ReferenceItem
-              key={`${reference.name}-${reference.meta_data.chunk}-${refIndex}`}
-              reference={reference}
-            />
-          ))}
-        </div>
-      </div>
-    ))}
-  </div>
-)
-
-const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
   return (
     <div className="flex flex-col gap-y-6">
-      <MessageItem message={message} />
+      {/* Reasoning Steps Section - ДО сообщения */}
       {message.extra_data?.reasoning_steps &&
         (Array.isArray(message.extra_data.reasoning_steps)
           ? message.extra_data.reasoning_steps.length > 0
           : true) && (
-          <Accordion
-            type="single"
-            collapsible
-            className="border-accent w-full rounded-lg border"
-          >
-            <AccordionItem value="reasoning" className="border-b-0">
-              <AccordionTrigger className="p-3 hover:no-underline">
-                <div className="flex items-center gap-3">
-                  <Icon type="brain" size="sm" />
-                  <p className="font-geist text-xs uppercase">Reasonings</p>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="p-4 pt-0">
-                <Reasonings reasoning={message.extra_data.reasoning_steps} />
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          <div className="flex items-start gap-4">
+            <Tooltip
+              delayDuration={0}
+              content={<p className="text-accent">Reasoning</p>}
+              side="top"
+            >
+              <Icon
+                type="brain"
+                className="bg-background-secondary rounded-lg p-1"
+                size="sm"
+                color="secondary"
+              />
+            </Tooltip>
+            <div className="flex flex-1 flex-col gap-3">
+              <div className="justify-сenter flex items-start">
+                <p className="text-xs uppercase">Reasoning</p>
+                {hasDetailedReasoningInfo(
+                  message.extra_data.reasoning_steps
+                ) && (
+                  <button
+                    onClick={() =>
+                      setShowDetailedReasoning(!showDetailedReasoning)
+                    }
+                    className="text-primary/60 hover:text-primary flex items-start justify-center transition-transform duration-200"
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform duration-200 ${
+                        showDetailedReasoning ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                )}
+              </div>
+              <ReasoningStepsComponent
+                reasoning={message.extra_data.reasoning_steps}
+                showDetailed={showDetailedReasoning}
+              />
+            </div>
+          </div>
         )}
+
+      {/* References Section */}
       {message.extra_data?.references &&
         message.extra_data.references.length > 0 && (
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-4">
             <Tooltip
               delayDuration={0}
               content={<p className="text-accent">References</p>}
               side="top"
             >
-              <Icon type="link" size="sm" />
+              <Icon
+                type="book-open"
+                className="bg-background-secondary rounded-lg p-1"
+                size="sm"
+                color="secondary"
+              />
             </Tooltip>
             <div className="flex flex-col gap-3">
-              <References references={message.extra_data.references} />
+              <p className="text-xs uppercase">References</p>
+              <ReferencesSection references={message.extra_data.references} />
             </div>
           </div>
         )}
+
+      {/* Tool Calls Section */}
       {message.tool_calls && message.tool_calls.length > 0 && (
         <div className="flex items-start gap-3">
           <Tooltip
@@ -127,14 +139,35 @@ const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
 
           <div className="flex flex-wrap gap-2">
             {message.tool_calls.map((toolCall, index) => (
-              <ToolComponent
-                key={
-                  toolCall.tool_call_id ||
-                  `${toolCall.tool_name}-${toolCall.created_at}-${index}`
-                }
-                tools={toolCall}
+              <ToolCallsSection
+                key={`${toolCall.tool_call_id || toolCall.tool_name}-${toolCall.created_at}-${index}`}
+                toolCalls={[toolCall]}
               />
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main Agent Message Content - ПОСЛЕ всех дополнительных блоков */}
+      {/* Показываем только если есть реальный контент, медиа, или это последнее сообщение и идет стриминг */}
+      {(message.content?.trim() ||
+        message.response_audio ||
+        message.videos?.length ||
+        message.images?.length ||
+        message.audio?.length ||
+        (isLastMessage && message.role === 'agent')) && (
+        <div className="flex items-start gap-4">
+          <Tooltip
+            delayDuration={0}
+            content={<p className="text-accent">Agent Response</p>}
+            side="top"
+          >
+            <div className="bg-background flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow">
+              <Icon type="agent" size="sm" />
+            </div>
+          </Tooltip>
+          <div className="flex-1">
+            <MessageItem message={message} isLastMessage={isLastMessage} />
           </div>
         </div>
       )}
@@ -142,120 +175,28 @@ const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
   )
 }
 
-const getNextActionIcon = (action: string) => {
-  switch (action) {
-    case 'final_answer':
-      return <CheckCircle className="h-3 w-3 text-green-500" />
-    case 'continue':
-      return <HelpCircle className="h-3 w-3 text-yellow-500" />
-    default:
-      return <AlertCircle className="h-3 w-3 text-red-500" />
-  }
-}
-
-const Reasonings: FC<ReasoningProps> = ({ reasoning }) => {
-  if (!reasoning) {
-    return null
-  }
-
-  // Ensure reasoning is an array
-  const reasoningArray = Array.isArray(reasoning) ? reasoning : [reasoning]
-
-  if (reasoningArray.length === 0) {
-    return null
-  }
-
+// User message wrapper для консистентности
+const UserMessageWrapper = ({
+  message,
+  isLastMessage
+}: MessageWrapperProps) => {
   return (
-    <Accordion type="multiple" className="w-full space-y-2">
-      {reasoningArray.map((step, index) => (
-        <AccordionItem
-          key={index}
-          value={`item-${index}`}
-          className="bg-background-secondary/40 rounded-lg border-none"
-        >
-          <AccordionTrigger className="p-2 hover:no-underline">
-            <div className="text-secondary flex w-full items-center gap-3">
-              <div className="border-accent flex h-[30px] w-[65px] items-center rounded-md border p-2">
-                <p className="text-primary/60 text-xs uppercase">
-                  step {index + 1}
-                </p>
-              </div>
-              <p className="text-xs font-semibold">{step.title}</p>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="p-4 pt-0">
-            <div className="space-y-3 px-1 pb-4">
-              <div>
-                <Heading size={6} className="mb-1 font-mono text-xs uppercase">
-                  Action
-                </Heading>
-                <Paragraph size="sm" className="text-muted">
-                  {step.action}
-                </Paragraph>
-              </div>
-              <div>
-                <Heading size={6} className="mb-1 font-mono text-xs uppercase">
-                  Result
-                </Heading>
-                <Paragraph size="sm" className="text-muted">
-                  {step.result}
-                </Paragraph>
-              </div>
-              <div>
-                <Heading size={6} className="mb-1 font-mono text-xs uppercase">
-                  Reasoning
-                </Heading>
-                <Paragraph size="sm" className="text-muted">
-                  {step.reasoning}
-                </Paragraph>
-              </div>
-              <div className="flex items-center justify-between pt-2">
-                {step.next_action ? (
-                  <div className="flex items-center space-x-2">
-                    <Heading size={6} className="font-mono text-xs uppercase">
-                      Next Action:
-                    </Heading>
-                    <Badge
-                      variant="outline"
-                      className="border-accent flex items-center space-x-1"
-                    >
-                      {getNextActionIcon(step.next_action)}
-                      <span>{step.next_action}</span>
-                    </Badge>
-                  </div>
-                ) : (
-                  <div />
-                )}
-                {typeof step.confidence !== 'undefined' ? (
-                  <div className="flex items-center space-x-2">
-                    <Heading size={6} className="font-mono text-xs uppercase">
-                      Confidence:
-                    </Heading>
-                    <Badge
-                      variant={step.confidence > 0.8 ? 'outline' : 'default'}
-                      className="border-accent flex items-center space-x-1"
-                    >
-                      {(step.confidence * 100).toFixed(0)}%
-                    </Badge>
-                  </div>
-                ) : (
-                  <div />
-                )}
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      ))}
-    </Accordion>
+    <div className="flex items-start justify-end gap-4">
+      <div className="flex flex-1 justify-end">
+        <MessageItem message={message} isLastMessage={isLastMessage} />
+      </div>
+      <Tooltip
+        delayDuration={0}
+        content={<p className="text-accent">Your Message</p>}
+        side="top"
+      >
+        <div className="bg-background text-primary-foreground flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow">
+          <Icon type="user" size="sm" />
+        </div>
+      </Tooltip>
+    </div>
   )
 }
-
-const ToolComponent = memo(({ tools }: ToolCallProps) => (
-  <div className="bg-accent cursor-default rounded-full px-2 py-1.5 text-xs">
-    <p className="font-dmmono text-primary/80 uppercase">{tools.tool_name}</p>
-  </div>
-))
-ToolComponent.displayName = 'ToolComponent'
 
 // Скелетон для загрузки сессии (только при клике пользователя на сессию)
 const SessionLoadingSkeleton = () => (
@@ -301,9 +242,10 @@ const Messages = ({ messages }: MessageListProps) => {
   }
 
   return (
-    <>
+    <div className="space-y-6">
       {messages.map((message, index) => {
-        const key = `${message.role}-${index}-${message.created_at}`
+        const key =
+          message.run_id || `${message.role}-${index}-${message.created_at}`
         const isLastMessage = index === messages.length - 1
 
         if (message.role === 'agent') {
@@ -315,9 +257,16 @@ const Messages = ({ messages }: MessageListProps) => {
             />
           )
         }
-        return <MessageItem key={key} message={message} />
+
+        return (
+          <UserMessageWrapper
+            key={key}
+            message={message}
+            isLastMessage={isLastMessage}
+          />
+        )
       })}
-    </>
+    </div>
   )
 }
 

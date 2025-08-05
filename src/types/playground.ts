@@ -319,17 +319,31 @@ interface MessageContext {
 }
 
 export enum RunEvent {
+  // ✅ Основные события run'а
   RunStarted = 'RunStarted',
-  RunResponse = 'RunResponse',
   RunResponseContent = 'RunResponseContent',
   RunCompleted = 'RunCompleted',
+  RunPaused = 'RunPaused', // ➕ Добавлено из официальной документации
+  RunContinued = 'RunContinued', // ➕ Добавлено из официальной документации
+  RunCancelled = 'RunCancelled', // ➕ Добавлено из официальной документации
   RunError = 'RunError',
+
+  // ✅ События инструментов
   ToolCallStarted = 'ToolCallStarted',
   ToolCallCompleted = 'ToolCallCompleted',
-  UpdatingMemory = 'UpdatingMemory',
+
+  // ✅ События рассуждений
   ReasoningStarted = 'ReasoningStarted',
   ReasoningStep = 'ReasoningStep',
-  ReasoningCompleted = 'ReasoningCompleted'
+  ReasoningCompleted = 'ReasoningCompleted', // ➕ Добавлено из официальной документации
+
+  // ✅ События памяти
+  MemoryUpdateStarted = 'MemoryUpdateStarted', // ➕ Добавлено из официальной документации
+  MemoryUpdateCompleted = 'MemoryUpdateCompleted' // ➕ Добавлено из официальной документации
+
+  // ❌ УБРАНЫ неофициальные события:
+  // RunResponse - НЕТ в официальной документации
+  // UpdatingMemory - НЕТ в официальной документации
 }
 
 // Новые типы событий для Agno API
@@ -337,11 +351,17 @@ export type AgnoEvent =
   | 'RunStarted'
   | 'RunResponseContent'
   | 'RunCompleted'
+  | 'RunPaused' // ➕ Добавлено из официальной документации
+  | 'RunContinued' // ➕ Добавлено из официальной документации
+  | 'RunCancelled' // ➕ Добавлено из официальной документации
+  | 'RunError'
   | 'ToolCallStarted'
   | 'ToolCallCompleted'
   | 'ReasoningStarted'
   | 'ReasoningStep'
-  | 'RunError'
+  | 'ReasoningCompleted' // ➕ Добавлено из официальной документации
+  | 'MemoryUpdateStarted' // ➕ Добавлено из официальной документации
+  | 'MemoryUpdateCompleted' // ➕ Добавлено из официальной документации
 
 // Структура события стриминга Agno
 export interface AgnoStreamEvent {
@@ -350,7 +370,13 @@ export interface AgnoStreamEvent {
   agent_id?: string
   run_id?: string
   session_id?: string
-  created_at: number
+  created_at?: number
+
+  // Дополнительные поля для совместимости
+  delta?: string
+  role?: string
+  message?: PlaygroundChatMessage
+  error?: string
 
   // Медиа контент
   images?: AgnoMediaItem[]
@@ -360,11 +386,47 @@ export interface AgnoStreamEvent {
 
   // Информация об инструменте
   tool_name?: string
+  tool_call_id?: string
   tool_input?: unknown
   tool_output?: unknown
+  tool_args?: Record<string, unknown>
+  result?: string
+  metrics?: { time: number }
 
-  // Ошибки
+  // Tool object (официальное поле из Agno документации)
+  tool?: {
+    id?: string
+    name?: string
+    tool_name?: string // ✅ Реальное поле из Agno API
+    tool_call_id?: string // ✅ Реальное поле из Agno API
+    function?: {
+      name?: string
+      arguments?: string
+    }
+    input?: unknown
+    output?: unknown
+    tool_args?: unknown // ✅ Дополнительное поле
+    result?: string // ✅ Результат выполнения
+    metrics?: {
+      // ✅ Метрики выполнения
+      time?: number
+    }
+  }
+
+  // Ошибки и отмены
   error_type?: 'NotFound' | 'RuntimeError' | 'General'
+  reason?: string // ➕ Для RunCancelled события
+
+  // Reasoning
+  step_title?: string // ➕ Для ReasoningStep события
+  reasoning_content?: string // ➕ Для ReasoningStep события
+
+  // Extra data для reasoning steps, references etc
+  extra_data?: {
+    reasoning_steps?: ReasoningSteps[]
+    references?: ReferenceData[] // ✅ Исправлено: используем ReferenceData вместо Reference
+    tool_calls?: ToolCall[]
+  }
 }
 
 // Структура медиа элемента для Agno API
@@ -460,6 +522,7 @@ export interface PlaygroundChatMessage {
   content: string
   streamingError?: boolean
   created_at: number
+  run_id?: string // ID запуска из Agno API для React ключей
   tool_calls?: ToolCall[]
   extra_data?: {
     reasoning_steps?: ReasoningSteps[] | ReasoningSteps

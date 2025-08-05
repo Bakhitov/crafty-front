@@ -236,9 +236,13 @@ function processSessionHistory(
             message.tool_calls && message.tool_calls.length > 0
 
           if (hasToolCalls) {
-            messages.push({
+            // Создаем сообщение агента с tool calls (независимо от наличия контента)
+            const agentMessage: PlaygroundChatMessage = {
               role: 'agent',
-              content: message.content || '',
+              content:
+                message.content && message.content.trim()
+                  ? message.content
+                  : '', // Контент или пустая строка
               created_at: message.created_at,
               tool_calls: message.tool_calls?.map((tc) => ({
                 id: tc.id,
@@ -247,23 +251,20 @@ function processSessionHistory(
                 tool_name: tc.function?.name || '',
                 created_at: message.created_at
               }))
-            })
+            }
 
-            message.tool_calls?.forEach((toolCall) => {
-              if (toolCall.result) {
-                messages.push({
-                  role: 'tool',
-                  content: toolCall.result,
-                  created_at: message.created_at
-                })
-              }
-            })
+            messages.push(agentMessage)
+
+            // НЕ добавляем tool results как отдельные сообщения - они будут в tool_calls
           } else {
-            messages.push({
-              role: 'agent',
-              content: message.content,
-              created_at: message.created_at
-            })
+            // Обычное сообщение агента без tool calls
+            if (message.content && message.content.trim()) {
+              messages.push({
+                role: 'agent',
+                content: message.content,
+                created_at: message.created_at
+              })
+            }
           }
         }
       })

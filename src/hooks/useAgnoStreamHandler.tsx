@@ -1,33 +1,17 @@
-import { useCallback, useRef } from 'react'
-import { useQueryState } from 'nuqs'
 import { toast } from 'sonner'
-
 import { usePlaygroundStore } from '@/store'
-import { useAuthContext } from '@/components/AuthProvider'
 import useAgnoResponseStream from './useAgnoResponseStream'
-import { AgnoProxyRoutes } from '@/api/routes'
-import { type PlaygroundChatMessage } from '@/types/playground'
-import useSessionLoader from './useSessionLoader'
+import { useQueryState } from 'nuqs'
+import { useCallback, useRef } from 'react'
 import { generateSessionId } from '@/lib/utils'
 import { SupabaseAgentsAPI } from '@/lib/supabaseAgents'
+import { useAuthContext } from '@/components/AuthProvider'
+import useSessionLoader from './useSessionLoader'
+import { AgnoProxyRoutes } from '@/api/routes'
+import type { PlaygroundChatMessage } from '@/types/playground'
+import type { AgnoStreamEvent } from '@/types/playground'
 
-interface AgnoStreamEvent {
-  event: string
-  agent_id?: string
-  session_id?: string
-  content?: string
-  created_at?: number
-  delta?: string
-  role?: string
-  message?: PlaygroundChatMessage
-  error?: string
-  // Поля для событий инструментов
-  tool_name?: string
-  tool_input?: unknown
-  tool_output?: unknown
-  // Поля для ошибок
-  error_type?: 'NotFound' | 'RuntimeError' | 'General'
-}
+// Убран локальный интерфейс AgnoStreamEvent - используем глобальный из types/playground
 
 const useAgnoStreamHandler = () => {
   const {
@@ -38,10 +22,10 @@ const useAgnoStreamHandler = () => {
     setSessionsData
   } = usePlaygroundStore()
   const { user } = useAuthContext()
+  const [sessionId, setSessionId] = useQueryState('session_id')
   const [agentId] = useQueryState('agent')
-  const [sessionId, setSessionId] = useQueryState('session')
   const { autoRenameSession } = useSessionLoader()
-  const { streamResponse } = useAgnoResponseStream() // правильное использование хука
+  const { streamResponse } = useAgnoResponseStream()
 
   const createUserMessage = useCallback(
     (content: string): PlaygroundChatMessage => ({
@@ -146,6 +130,17 @@ const useAgnoStreamHandler = () => {
           abortController: cancelController.current || undefined,
           onChunk: (chunk: AgnoStreamEvent) => {
             if (chunk.event === 'RunStarted') {
+              // Обновляем сообщение агента с run_id
+              if (chunk.run_id) {
+                setMessages((prev) =>
+                  prev.map((msg, index) =>
+                    index === prev.length - 1 && msg.role === 'agent'
+                      ? { ...msg, run_id: chunk.run_id }
+                      : msg
+                  )
+                )
+              }
+
               if (chunk.session_id) {
                 if (chunk.session_id !== currentSessionId) {
                   setSessionId(chunk.session_id)
@@ -189,31 +184,284 @@ const useAgnoStreamHandler = () => {
                 setMessages((prev) =>
                   prev.map((msg, index) =>
                     index === prev.length - 1 && msg.role === 'agent'
-                      ? { ...msg, content: msg.content + chunk.content }
+                      ? {
+                          ...msg,
+                          content: msg.content + chunk.content,
+                          // Добавляем extra_data если есть
+                          extra_data: chunk.extra_data
+                            ? {
+                                ...msg.extra_data,
+                                ...chunk.extra_data
+                              }
+                            : msg.extra_data
+                        }
                       : msg
                   )
                 )
               }
             } else if (chunk.event === 'ToolCallStarted') {
-              // Можно добавить индикатор работы инструмента
-              console.log('🔧 Tool started:', chunk.tool_name || 'unknown tool')
+              console.log(
+                '🔧 Tool started:',
+                chunk.tool?.tool_name || 'unknown tool'
+              )
+
+              // Проверяем разные возможные поля для tool name
+              const toolName =
+                chunk.tool_name ||
+                chunk.tool?.tool_name || // ✅ Здесь находится имя!
+                chunk.tool?.name ||
+                chunk.tool?.function?.name
+              const toolCallId =
+                chunk.tool_call_id ||
+                chunk.tool?.tool_call_id || // ✅ Здесь находится ID!
+                chunk.tool?.id ||
+                `tool-${Date.now()}`
+
+              // Добавляем tool call в сообщение с начальным статусом
+              if (toolName) {
+                setMessages((prev) =>
+                  prev.map((msg, index) =>
+                    index === prev.length - 1 && msg.role === 'agent'
+                      ? {
+                          ...msg,
+                          tool_calls: [
+                            ...(msg.tool_calls || []),
+                            {
+                              tool_name: toolName,
+                              tool_call_id: toolCallId,
+                              status: 'running' as const,
+                              created_at:
+                                chunk.created_at ||
+                                Math.floor(Date.now() / 1000),
+                              role: 'tool' as const,
+                              content: null,
+                              tool_args: (chunk.tool_args ||
+                                chunk.tool?.input ||
+                                {}) as Record<string, string>,
+                              tool_call_error: false,
+                              metrics: { time: 0 }
+                            }
+                          ]
+                        }
+                      : msg
+                  )
+                )
+              } else {
+                console.warn('⚠️ No tool name found in ToolCallStarted event')
+                // Fallback: создаем tool call с базовой информацией
+                setMessages((prev) =>
+                  prev.map((msg, index) =>
+                    index === prev.length - 1 && msg.role === 'agent'
+                      ? {
+                          ...msg,
+                          tool_calls: [
+                            ...(msg.tool_calls || []),
+                            {
+                              tool_name: 'Unknown Tool',
+                              tool_call_id: `tool-${Date.now()}`,
+                              status: 'running' as const,
+                              created_at:
+                                chunk.created_at ||
+                                Math.floor(Date.now() / 1000),
+                              role: 'tool' as const,
+                              content: null,
+                              tool_args: {},
+                              tool_call_error: false,
+                              metrics: { time: 0 }
+                            }
+                          ]
+                        }
+                      : msg
+                  )
+                )
+              }
             } else if (chunk.event === 'ToolCallCompleted') {
-              // Можно добавить логирование завершения работы инструмента
               console.log(
                 '✅ Tool completed:',
-                chunk.tool_name || 'unknown tool'
+                chunk.tool?.tool_name || 'unknown tool'
               )
+
+              // Проверяем разные возможные поля
+              const toolName =
+                chunk.tool_name ||
+                chunk.tool?.tool_name || // ✅ Здесь находится имя!
+                chunk.tool?.name ||
+                chunk.tool?.function?.name
+              const toolCallId =
+                chunk.tool_call_id ||
+                chunk.tool?.tool_call_id || // ✅ Здесь находится ID!
+                chunk.tool?.id
+
+              // Обновляем статус tool call
+              if (toolName && toolCallId) {
+                setMessages((prev) =>
+                  prev.map((msg, index) =>
+                    index === prev.length - 1 && msg.role === 'agent'
+                      ? {
+                          ...msg,
+                          tool_calls: msg.tool_calls?.map((tool) =>
+                            tool.tool_call_id === toolCallId
+                              ? {
+                                  ...tool,
+                                  status: 'completed',
+                                  content:
+                                    chunk.result ||
+                                    chunk.content ||
+                                    tool.content,
+                                  tool_output: chunk.result || chunk.content,
+                                  metrics: chunk.metrics || tool.metrics
+                                }
+                              : tool
+                          )
+                        }
+                      : msg
+                  )
+                )
+              } else {
+                console.warn(
+                  '⚠️ Missing tool name or tool_call_id in ToolCallCompleted event',
+                  {
+                    toolName,
+                    toolCallId,
+                    chunk
+                  }
+                )
+                // Fallback: обновляем последний running tool call
+                setMessages((prev) =>
+                  prev.map((msg, index) =>
+                    index === prev.length - 1 && msg.role === 'agent'
+                      ? {
+                          ...msg,
+                          tool_calls: msg.tool_calls?.map((tool, toolIndex) =>
+                            tool.status === 'running' &&
+                            toolIndex ===
+                              (msg.tool_calls || []).findIndex(
+                                (t) => t.status === 'running'
+                              )
+                              ? {
+                                  ...tool,
+                                  status: 'completed' as const,
+                                  content:
+                                    chunk.result ||
+                                    chunk.content ||
+                                    'Tool completed',
+                                  tool_output: chunk.result || chunk.content,
+                                  metrics: chunk.metrics || tool.metrics
+                                }
+                              : tool
+                          )
+                        }
+                      : msg
+                  )
+                )
+              }
             } else if (chunk.event === 'ReasoningStarted') {
-              // Можно добавить индикатор начала рассуждений
               console.log('🧠 Reasoning started')
             } else if (chunk.event === 'ReasoningStep') {
-              // Можно добавить отображение шагов рассуждений
-              console.log('🧠 Reasoning step')
+              console.log(
+                '🧠 Reasoning step:',
+                chunk.step_title || 'processing'
+              )
+              // Обновляем reasoning steps в сообщении
+              if (chunk.extra_data?.reasoning_steps) {
+                setMessages((prev) =>
+                  prev.map((msg, index) =>
+                    index === prev.length - 1 && msg.role === 'agent'
+                      ? {
+                          ...msg,
+                          extra_data: {
+                            ...msg.extra_data,
+                            reasoning_steps: chunk.extra_data!.reasoning_steps
+                          }
+                        }
+                      : msg
+                  )
+                )
+              }
             } else if (chunk.event === 'RunCompleted') {
               setMessages((prev) =>
                 prev.map((msg, index) =>
                   index === prev.length - 1 && msg.role === 'agent'
                     ? { ...msg }
+                    : msg
+                )
+              )
+            } else if (chunk.event === 'RunPaused') {
+              console.log('⏸️ Run paused - waiting for confirmation')
+              // Обрабатываем паузу run'а (обычно для подтверждения tool calls)
+              setMessages((prev) =>
+                prev.map((msg, index) =>
+                  index === prev.length - 1 && msg.role === 'agent'
+                    ? {
+                        ...msg,
+                        content:
+                          msg.content + '\n\n_⏸️ Waiting for confirmation..._'
+                      }
+                    : msg
+                )
+              )
+            } else if (chunk.event === 'RunContinued') {
+              console.log('▶️ Run continued after confirmation')
+              // Убираем сообщение о паузе и продолжаем
+              setMessages((prev) =>
+                prev.map((msg, index) =>
+                  index === prev.length - 1 && msg.role === 'agent'
+                    ? {
+                        ...msg,
+                        content: msg.content.replace(
+                          /\n\n_⏸️ Waiting for confirmation\.\.\._/,
+                          ''
+                        )
+                      }
+                    : msg
+                )
+              )
+            } else if (chunk.event === 'RunCancelled') {
+              console.log(
+                '🛑 Run cancelled:',
+                chunk.reason || 'No reason provided'
+              )
+              setMessages((prev) =>
+                prev.map((msg, index) =>
+                  index === prev.length - 1 && msg.role === 'agent'
+                    ? {
+                        ...msg,
+                        content: `🛑 Run cancelled: ${chunk.reason || 'No reason provided'}`,
+                        streamingError: true
+                      }
+                    : msg
+                )
+              )
+            } else if (chunk.event === 'ReasoningCompleted') {
+              console.log('🧠 Reasoning completed')
+              // Финализируем reasoning - обычно просто логируем
+              // Все reasoning steps уже добавлены через ReasoningStep события
+            } else if (chunk.event === 'MemoryUpdateStarted') {
+              console.log('💾 Memory update started')
+              // Показываем что агент обновляет память
+              setMessages((prev) =>
+                prev.map((msg, index) =>
+                  index === prev.length - 1 && msg.role === 'agent'
+                    ? {
+                        ...msg,
+                        content: msg.content + '\n\n_💾 Updating memory..._'
+                      }
+                    : msg
+                )
+              )
+            } else if (chunk.event === 'MemoryUpdateCompleted') {
+              console.log('💾 Memory update completed')
+              // Убираем сообщение об обновлении памяти
+              setMessages((prev) =>
+                prev.map((msg, index) =>
+                  index === prev.length - 1 && msg.role === 'agent'
+                    ? {
+                        ...msg,
+                        content: msg.content.replace(
+                          /\n\n_💾 Updating memory\.\.\._/,
+                          ''
+                        )
+                      }
                     : msg
                 )
               )
