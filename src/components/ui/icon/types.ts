@@ -58,6 +58,7 @@ export type IconType =
   | 'file-text'
   | 'plus'
   | 'users'
+  | 'book-open'
   | 'whatsapp'
   | 'telegram'
   | 'discord'
@@ -70,6 +71,7 @@ export type IconType =
   | 'server'
   | 'check-circle'
   | 'dot'
+  | 'agno-tag'
 
 export interface IconProps {
   type: IconType

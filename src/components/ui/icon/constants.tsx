@@ -56,7 +56,8 @@ import {
   Database,
   FileText,
   Plus,
-  Users
+  Users,
+  BookOpen
 } from 'lucide-react'
 
 import { PlusIcon } from '@radix-ui/react-icons'
@@ -88,6 +89,7 @@ export const ICONS: IconTypeMap = {
   ollama: OllamaLogo,
   xai: XaiLogo,
   agno: AgnoIcon,
+  'agno-tag': AgnoIcon,
   user: UserIcon,
   agent: AgentIcon,
   sheet: SheetIcon,
@@ -132,6 +134,7 @@ export const ICONS: IconTypeMap = {
   'file-text': FileText,
   plus: Plus,
   users: Users,
+  'book-open': BookOpen,
   whatsapp: BsWhatsapp,
   telegram: BsTelegram,
   discord: BsDiscord,
