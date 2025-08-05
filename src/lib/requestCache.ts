@@ -376,7 +376,21 @@ export const getCachedHealthCheck = async (endpoint: string) => {
     `health-${endpoint}`,
     async () => {
       try {
-        // Попытка 1: Прямой запрос без preflight (убираем Content-Type)
+        // Попытка 1: Через наш прокси API (избегает CORS)
+        const proxyUrl = `/api/v1/health-proxy?endpoint=${encodeURIComponent(endpoint)}`
+        const proxyResponse = await fetch(proxyUrl)
+
+        if (proxyResponse.ok) {
+          const data = await proxyResponse.json()
+          return data.status || 503
+        }
+
+        console.warn(
+          `Health proxy failed for ${endpoint}, trying direct request:`,
+          proxyResponse.status
+        )
+
+        // Попытка 2: Прямой запрос без preflight (только если прокси не работает)
         const response = await fetch(`${endpoint}/v1/health`, {
           method: 'GET',
           mode: 'cors'
@@ -385,25 +399,10 @@ export const getCachedHealthCheck = async (endpoint: string) => {
         return response.status
       } catch (error) {
         console.warn(
-          `Direct health check failed for ${endpoint}, trying proxy:`,
+          `Both health proxy and direct request failed for ${endpoint}:`,
           error
         )
-
-        try {
-          // Попытка 2: Через наш прокси API (избегает CORS)
-          const proxyUrl = `/api/v1/health-proxy?endpoint=${encodeURIComponent(endpoint)}`
-          const proxyResponse = await fetch(proxyUrl)
-
-          if (proxyResponse.ok) {
-            const data = await proxyResponse.json()
-            return data.status || 503
-          }
-
-          return 503
-        } catch (proxyError) {
-          console.warn(`Health proxy also failed for ${endpoint}:`, proxyError)
-          return 503
-        }
+        return 503
       }
     },
     { ttl: 30000, dedupe: true } // 30 секунд с дедупликацией
