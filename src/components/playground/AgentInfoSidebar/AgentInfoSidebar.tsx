@@ -11,7 +11,9 @@ import useChatActions from '@/hooks/useChatActions'
 import { useCompanyContext } from '@/components/CompanyProvider'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import Sessions from '@/components/playground/Sidebar/Sessions'
+import AgentMemory from './AgentMemory'
 import Tooltip from '@/components/ui/tooltip/CustomTooltip'
 import { type Agent as APIAgent } from '@/lib/apiClient'
 
@@ -31,12 +33,28 @@ const AgentInfoSidebar = () => {
     setEditingAgentId,
     setCopyingAgentData,
     streamingEnabled,
-    setStreamingEnabled
+    setStreamingEnabled,
+    selectedAgent
   } = usePlaygroundStore()
   const { company } = useCompanyContext()
   const { clearChat, focusChatInput } = useChatActions()
 
   const isCreatingNewAgent = agentId === 'new'
+
+  // Проверяем возможности агента для табов
+  const agentConfig = selectedAgent?.agent_config
+
+  const hasMemory = !!(
+    agentConfig &&
+    typeof agentConfig === 'object' &&
+    'memory' in agentConfig &&
+    agentConfig.memory &&
+    typeof agentConfig.memory === 'object' &&
+    'enabled' in agentConfig.memory &&
+    agentConfig.memory.enabled === true
+  )
+
+  const hasHistoryStorage = hasStorage // используем существующую логику для History
 
   // Determine edit permissions based on company_id (same logic as left sidebar)
   useEffect(() => {
@@ -97,22 +115,6 @@ const AgentInfoSidebar = () => {
       toast.error('Ошибка при копировании агента')
     }
   }, [agentDetails, agentId, setCopyingAgentData, setIsAgentCreationMode])
-
-  // Определяем возможность редактирования на основе company_id
-  useEffect(() => {
-    if (agentDetails) {
-      // Логика редактирования:
-      // - Агенты своей компании (приватные и публичные) - можно редактировать
-      // - Публичные агенты других компаний - нельзя редактировать
-      // - Приватные агенты других компаний - нельзя редактировать
-      const isOwnAgent = !!(
-        company?.id && agentDetails.company_id === company.id
-      )
-      setCanEdit(isOwnAgent)
-    } else {
-      setCanEdit(false)
-    }
-  }, [agentDetails, company?.id])
 
   // Handler for new chat
   const handleNewChat = () => {
@@ -395,34 +397,76 @@ const AgentInfoSidebar = () => {
                 )}
             </div>
 
-            {isEndpointActive && agentId !== 'new' && (
-              <div className="flex flex-grow flex-col overflow-hidden border-t border-zinc-700 pt-4">
-                {/* Header with New Chat Button */}
-                <div className="flex shrink-0 items-center justify-between pb-3">
-                  <div className="text-primary text-xs font-medium uppercase">
-                    Sessions
-                  </div>
-                  <Button
-                    onClick={handleNewChat}
-                    variant="ghost"
-                    size="icon"
-                    className="bg-background-secondary h-7 w-7 hover:bg-transparent"
-                    title="Создать новый чат"
-                  >
-                    <Icon
-                      type="plus-icon"
-                      size="xs"
-                      className="text-muted-foreground hover:text-primary"
-                    />
-                  </Button>
-                </div>
+            {/* Tabs Section - только если агент активен */}
+            {isEndpointActive &&
+              agentId !== 'new' &&
+              (hasHistoryStorage || hasMemory) && (
+                <div className="border-accent flex flex-grow flex-col overflow-hidden border-t pt-4">
+                  {/* Tabs with Sessions and Memory */}
+                  <div className="flex-grow overflow-hidden">
+                    <Tabs
+                      defaultValue="history"
+                      className="flex h-full flex-col"
+                    >
+                      <TabsList className="bg-background-primary mb-2 grid w-full grid-cols-2">
+                        <TabsTrigger
+                          value="history"
+                          disabled={!hasHistoryStorage}
+                          className="text-xs"
+                        >
+                          History
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="memory"
+                          disabled={!hasMemory}
+                          className="text-xs"
+                        >
+                          Memory
+                        </TabsTrigger>
+                      </TabsList>
 
-                {/* Sessions - теперь с правильной прокруткой */}
-                <div className="flex-grow overflow-hidden">
-                  {hasStorage && <Sessions />}
+                      <TabsContent
+                        value="history"
+                        className="mt-0 flex flex-1 flex-col overflow-hidden"
+                      >
+                        {hasHistoryStorage && (
+                          <>
+                            {/* Header with New Chat Button - внутри таба History */}
+                            <div className="flex shrink-0 items-center justify-between pb-3">
+                              <div className="text-primary text-xs font-medium uppercase">
+                                Sessions
+                              </div>
+                              <Button
+                                onClick={handleNewChat}
+                                variant="ghost"
+                                size="icon"
+                                className="bg-background-secondary h-7 w-7 hover:bg-transparent"
+                                title="Создать новый чат"
+                              >
+                                <Icon
+                                  type="plus-icon"
+                                  size="xs"
+                                  className="text-muted-foreground hover:text-primary"
+                                />
+                              </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                              <Sessions />
+                            </div>
+                          </>
+                        )}
+                      </TabsContent>
+
+                      <TabsContent
+                        value="memory"
+                        className="mt-0 flex-1 overflow-y-auto"
+                      >
+                        {hasMemory && <AgentMemory />}
+                      </TabsContent>
+                    </Tabs>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         )}
 

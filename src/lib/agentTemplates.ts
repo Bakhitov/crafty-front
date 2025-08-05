@@ -545,8 +545,8 @@ export class AgentTemplateManager {
     return [
       this.getTemplateById('basic_assistant')!,
       this.getTemplateById('smart_assistant')!,
-      this.getTemplateById('knowledge_agent')!,
-      this.getTemplateById('tool_master')!
+      this.getTemplateById('analyst_agent')!,
+      this.getTemplateById('knowledge_agent')!
     ].filter(Boolean)
   }
 

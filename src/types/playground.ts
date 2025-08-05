@@ -558,3 +558,10 @@ export interface ChatEntry {
     created_at: number
   }
 }
+
+// Интерфейс для памяти агента (AGNO API)
+export interface AgentMemory {
+  memory: string
+  topics: string[]
+  last_updated: string
+}

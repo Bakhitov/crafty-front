@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
+import { motion, AnimatePresence } from 'framer-motion'
 import { TextArea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { usePlaygroundStore } from '@/store'
@@ -17,9 +18,9 @@ const ChatInput = () => {
     // handleStreamResponse,
     // handleNonStreamResponse,
     // handleContinueDialog,
-    cancelCurrentRequest,
+    cancelCurrentRequest
     // currentRunId,
-    isRequestActive
+    // isRequestActive
   } = useAgnoStreamHandler()
 
   // const streamingEnabled = usePlaygroundStore((state) => state.streamingEnabled) // Больше не используется
@@ -85,10 +86,6 @@ const ChatInput = () => {
   }
   */
 
-  const handleCancel = () => {
-    cancelCurrentRequest()
-  }
-
   return (
     <div className="font-geist relative mx-auto mb-1 flex w-full max-w-2xl flex-col justify-center gap-y-2">
       {files.length > 0 && (
@@ -107,23 +104,6 @@ const ChatInput = () => {
               </button>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Кнопка отмены */}
-      {isRequestActive && (
-        <div className="mb-2 flex justify-center gap-2">
-          <Button
-            onClick={handleCancel}
-            variant="outline"
-            size="sm"
-            className="border-accent bg-background text-foreground rounded-xl border px-3 py-1"
-          >
-            <Icon type="square" size="xs" />
-            <Paragraph size="xsmall" className="ml-1">
-              Отменить
-            </Paragraph>
-          </Button>
         </div>
       )}
 
@@ -184,16 +164,37 @@ const ChatInput = () => {
           ref={chatInputRef}
         />
         <Button
-          onClick={handleSubmit}
+          onClick={isStreaming ? cancelCurrentRequest : handleSubmit}
           disabled={
             !selectedAgent ||
-            (!inputMessage.trim() && files.length === 0) ||
-            isStreaming
+            (!isStreaming && !inputMessage.trim() && files.length === 0)
           }
           size="icon"
-          className="bg-foreground text-background-secondary rounded-xl p-5"
+          className="bg-foreground text-background-secondary rounded-xl p-5 transition-all duration-200 hover:scale-105"
         >
-          <Icon type="send" color="primaryAccent" />
+          <AnimatePresence mode="wait">
+            {isStreaming ? (
+              <motion.div
+                key="stop"
+                initial={{ scale: 0, rotate: 180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                exit={{ scale: 0, rotate: -180 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Icon type="square" color="primaryAccent" />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="send"
+                initial={{ scale: 0, rotate: 180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                exit={{ scale: 0, rotate: -180 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Icon type="send" color="primaryAccent" />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Button>
       </div>
     </div>

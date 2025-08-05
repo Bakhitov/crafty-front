@@ -35,6 +35,7 @@ interface AgentTemplateSelectorProps {
 const getTemplateIcon = (iconName: string): IconType => {
   const iconMap: Record<string, IconType> = {
     'user-circle': 'user',
+    'chat-bubble-left': 'message-circle',
     brain: 'brain',
     'chart-bar': 'cpu',
     'book-open': 'file-text',

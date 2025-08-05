@@ -33,7 +33,7 @@ interface AgentValidationModalProps extends AgentValidationPanelProps {
   trigger?: React.ReactNode
 }
 
-// Основной компонент валидации (для использования внутри модального окна)
+// Main validation component (for use inside modal)
 export function ValidationContent({
   validationResult,
   onApplySuggestion,
@@ -61,22 +61,22 @@ export function ValidationContent({
   }
 
   const getValidationStatus = () => {
-    if (errors.length > 0) return 'Ошибки конфигурации'
-    if (warnings.length > 0) return 'Предупреждения'
-    return 'Конфигурация валидна'
+    if (errors.length > 0) return 'Configuration Errors'
+    if (warnings.length > 0) return 'Warnings'
+    return 'Configuration Valid'
   }
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Заголовок валидации */}
-      <div className="flex items-center justify-between">
+      {/* Validation header */}
+      <div className="space-y-3">
         <div className="flex items-center space-x-3">
           <Icon
             type={getValidationIcon()}
             size="sm"
             className={getValidationColor()}
           />
-          <div>
+          <div className="flex-1">
             <h3 className="font-dmmono text-primary text-sm font-medium uppercase">
               Configuration Validation
             </h3>
@@ -85,10 +85,12 @@ export function ValidationContent({
             </p>
           </div>
         </div>
-        <div className="flex space-x-2">
+
+        {/* Badges row */}
+        <div className="flex flex-wrap gap-2">
           {errors.length > 0 && (
             <Badge variant="destructive" className="text-xs">
-              {errors.length} ошибок
+              {errors.length} errors
             </Badge>
           )}
           {warnings.length > 0 && (
@@ -96,7 +98,7 @@ export function ValidationContent({
               variant="secondary"
               className="bg-yellow-900/20 text-xs text-yellow-400"
             >
-              {warnings.length} предупреждений
+              {warnings.length} warnings
             </Badge>
           )}
           {suggestions.length > 0 && (
@@ -104,13 +106,13 @@ export function ValidationContent({
               variant="outline"
               className="border-blue-400 text-xs text-blue-400"
             >
-              {suggestions.length} предложений
+              {suggestions.length} suggestions
             </Badge>
           )}
         </div>
       </div>
 
-      {/* Ошибки */}
+      {/* Errors */}
       <AnimatePresence>
         {errors.length > 0 && showErrors && (
           <motion.div
@@ -127,7 +129,7 @@ export function ValidationContent({
                 <div className="flex items-center space-x-2">
                   <Icon type="alert-circle" size="xs" />
                   <span className="font-dmmono text-xs font-medium uppercase">
-                    Ошибки ({errors.length})
+                    Errors ({errors.length})
                   </span>
                 </div>
                 <Icon
@@ -145,33 +147,33 @@ export function ValidationContent({
                     transition={{ delay: index * 0.05 }}
                     className="rounded-lg border border-red-800/30 bg-red-950/20 p-3"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="mb-1 flex items-center space-x-2">
-                          <Badge
-                            variant="destructive"
-                            className="bg-red-900/30 text-xs text-red-300"
-                          >
-                            {error.field}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="border-red-600 text-xs text-red-400"
-                          >
-                            {error.type}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-red-300">{error.message}</p>
-                      </div>
-                      {onFixError && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onFixError(error)}
-                          className="ml-3 h-6 border-red-600 px-2 text-xs text-red-400 hover:bg-red-950/30"
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant="destructive"
+                          className="bg-red-900/30 text-xs text-red-300"
                         >
-                          Исправить
-                        </Button>
+                          {error.field}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="border-red-600 text-xs text-red-400"
+                        >
+                          {error.type}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-red-300">{error.message}</p>
+                      {onFixError && (
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onFixError(error)}
+                            className="h-6 border-red-600 px-2 text-xs text-red-400 hover:bg-red-950/30"
+                          >
+                            Fix
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </motion.div>
@@ -182,7 +184,7 @@ export function ValidationContent({
         )}
       </AnimatePresence>
 
-      {/* Предупреждения */}
+      {/* Warnings */}
       <AnimatePresence>
         {warnings.length > 0 && showWarnings && (
           <motion.div
@@ -199,7 +201,7 @@ export function ValidationContent({
                 <div className="flex items-center space-x-2">
                   <Icon type="alert-circle" size="xs" />
                   <span className="font-dmmono text-xs font-medium uppercase">
-                    Предупреждения ({warnings.length})
+                    Warnings ({warnings.length})
                   </span>
                 </div>
                 <Icon
@@ -217,21 +219,25 @@ export function ValidationContent({
                     transition={{ delay: index * 0.05 }}
                     className="rounded-lg border border-yellow-800/30 bg-yellow-950/20 p-3"
                   >
-                    <div className="mb-1 flex items-center space-x-2">
-                      <Badge
-                        variant="secondary"
-                        className="bg-yellow-900/30 text-xs text-yellow-300"
-                      >
-                        {warning.field}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="border-yellow-600 text-xs text-yellow-400"
-                      >
-                        {warning.type}
-                      </Badge>
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant="secondary"
+                          className="bg-yellow-900/30 text-xs text-yellow-300"
+                        >
+                          {warning.field}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="border-yellow-600 text-xs text-yellow-400"
+                        >
+                          {warning.type}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-yellow-300">
+                        {warning.message}
+                      </p>
                     </div>
-                    <p className="text-xs text-yellow-300">{warning.message}</p>
                   </motion.div>
                 ))}
               </div>
@@ -240,7 +246,7 @@ export function ValidationContent({
         )}
       </AnimatePresence>
 
-      {/* Предложения */}
+      {/* Suggestions */}
       <AnimatePresence>
         {suggestions.length > 0 && showSuggestions && (
           <motion.div
@@ -257,7 +263,7 @@ export function ValidationContent({
                 <div className="flex items-center space-x-2">
                   <Icon type="info" size="xs" />
                   <span className="font-dmmono text-xs font-medium uppercase">
-                    Предложения ({suggestions.length})
+                    Suggestions ({suggestions.length})
                   </span>
                 </div>
                 <Icon
@@ -275,47 +281,47 @@ export function ValidationContent({
                     transition={{ delay: index * 0.05 }}
                     className="rounded-lg border border-blue-800/30 bg-blue-950/20 p-3"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="mb-1 flex items-center space-x-2">
-                          <Badge
-                            variant="secondary"
-                            className="bg-blue-900/30 text-xs text-blue-300"
-                          >
-                            {suggestion.field}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="border-blue-600 text-xs text-blue-400"
-                          >
-                            {suggestion.type}
-                          </Badge>
-                        </div>
-                        <p className="mb-2 text-xs text-blue-300">
-                          {suggestion.message}
-                        </p>
-                        {suggestion.suggestedValue !== undefined && (
-                          <div className="text-xs text-blue-200">
-                            <span className="text-blue-400">
-                              Предлагаемое значение:
-                            </span>{' '}
-                            <code className="rounded bg-blue-950/30 px-1">
-                              {typeof suggestion.suggestedValue === 'object'
-                                ? JSON.stringify(suggestion.suggestedValue)
-                                : String(suggestion.suggestedValue)}
-                            </code>
-                          </div>
-                        )}
-                      </div>
-                      {onApplySuggestion && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onApplySuggestion(suggestion)}
-                          className="ml-3 h-6 border-blue-600 px-2 text-xs text-blue-400 hover:bg-blue-950/30"
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant="secondary"
+                          className="bg-blue-900/30 text-xs text-blue-300"
                         >
-                          Применить
-                        </Button>
+                          {suggestion.field}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="border-blue-600 text-xs text-blue-400"
+                        >
+                          {suggestion.type}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-blue-300">
+                        {suggestion.message}
+                      </p>
+                      {suggestion.suggestedValue !== undefined && (
+                        <div className="text-xs text-blue-200">
+                          <span className="text-blue-400">
+                            Suggested value:
+                          </span>{' '}
+                          <code className="break-all rounded bg-blue-950/30 px-1">
+                            {typeof suggestion.suggestedValue === 'object'
+                              ? JSON.stringify(suggestion.suggestedValue)
+                              : String(suggestion.suggestedValue)}
+                          </code>
+                        </div>
+                      )}
+                      {onApplySuggestion && (
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onApplySuggestion(suggestion)}
+                            className="h-6 border-blue-600 px-2 text-xs text-blue-400 hover:bg-blue-950/30"
+                          >
+                            Apply
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </motion.div>
@@ -326,7 +332,7 @@ export function ValidationContent({
         )}
       </AnimatePresence>
 
-      {/* Статус "все хорошо" */}
+      {/* "All good" status */}
       {isValid && errors.length === 0 && warnings.length === 0 && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -339,10 +345,10 @@ export function ValidationContent({
             className="mx-auto mb-2 text-green-400"
           />
           <h3 className="font-dmmono mb-1 text-sm font-medium uppercase text-green-300">
-            Конфигурация валидна
+            Configuration Valid
           </h3>
           <p className="text-xs text-green-400">
-            Все настройки корректны. Агент готов к созданию.
+            All settings are correct. Agent is ready to be created.
           </p>
         </motion.div>
       )}
@@ -350,7 +356,7 @@ export function ValidationContent({
   )
 }
 
-// Модальное окно валидации
+// Validation modal
 export function AgentValidationModal({
   validationResult,
   onApplySuggestion,
@@ -371,9 +377,9 @@ export function AgentValidationModal({
   const getValidationTitle = () => {
     if (!validationResult) return 'Configuration Validation'
     const { errors, warnings } = validationResult
-    if (errors.length > 0) return 'Найдены ошибки конфигурации'
-    if (warnings.length > 0) return 'Есть предупреждения'
-    return 'Конфигурация валидна'
+    if (errors.length > 0) return 'Configuration errors found'
+    if (warnings.length > 0) return 'Warnings found'
+    return 'Configuration valid'
   }
 
   const getValidationDescription = () => {
@@ -381,13 +387,13 @@ export function AgentValidationModal({
     const { errors, warnings, suggestions } = validationResult
 
     const parts = []
-    if (errors.length > 0) parts.push(`${errors.length} ошибок`)
-    if (warnings.length > 0) parts.push(`${warnings.length} предупреждений`)
-    if (suggestions.length > 0) parts.push(`${suggestions.length} предложений`)
+    if (errors.length > 0) parts.push(`${errors.length} errors`)
+    if (warnings.length > 0) parts.push(`${warnings.length} warnings`)
+    if (suggestions.length > 0) parts.push(`${suggestions.length} suggestions`)
 
     return parts.length > 0
-      ? `Обнаружено: ${parts.join(', ')}`
-      : 'Все настройки корректны'
+      ? `Found: ${parts.join(', ')}`
+      : 'All settings are correct'
   }
 
   return (
@@ -427,7 +433,7 @@ export function AgentValidationModal({
   )
 }
 
-// Экспорт по умолчанию (старый компонент для обратной совместимости)
+// Default export (legacy component for backward compatibility)
 export default function AgentValidationPanel({
   validationResult,
   onApplySuggestion,

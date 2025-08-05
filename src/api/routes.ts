@@ -63,6 +63,27 @@ export const AgnoProxyRoutes = {
     return params.toString() ? `${url}?${params.toString()}` : url
   },
 
+  // Прокси для переименования сессии
+  RenameSession: (
+    agentId: string,
+    sessionId: string,
+    agnoEndpoint?: string
+  ) => {
+    const url = `/api/v1/agno-proxy/agents/${agentId}/sessions/${sessionId}/rename`
+    return agnoEndpoint
+      ? `${url}?endpoint=${encodeURIComponent(agnoEndpoint)}`
+      : url
+  },
+
+  // Прокси для получения памяти агента
+  GetMemories: (agentId: string, agnoEndpoint?: string, userId?: string) => {
+    const url = `/api/v1/agno-proxy/agents/${agentId}/memories`
+    const params = new URLSearchParams()
+    if (agnoEndpoint) params.set('endpoint', agnoEndpoint)
+    if (userId) params.set('user_id', userId)
+    return params.toString() ? `${url}?${params.toString()}` : url
+  },
+
   // Прокси для health check (уже существует)
   HealthCheck: (agnoEndpoint: string) =>
     `/api/v1/health-proxy?endpoint=${encodeURIComponent(agnoEndpoint)}`

@@ -424,6 +424,21 @@ export class AgentConfigValidator {
     agentType: string
   ): Partial<ExtendedAgentConfig> {
     const recommendations: Record<string, Partial<ExtendedAgentConfig>> = {
+      basic_with_storage: {
+        storage: { enabled: true, table_name: 'sessions', schema: 'public' },
+        history: {
+          add_history_to_messages: true,
+          num_history_runs: 3,
+          read_chat_history: true
+        },
+        add_datetime_to_instructions: true,
+        markdown: true,
+        stream: true
+      },
+      simple_no_storage: {
+        markdown: true,
+        stream: true
+      },
       basic_assistant: {
         storage: { enabled: true, table_name: 'sessions' },
         history: { add_history_to_messages: true, num_history_runs: 3 },

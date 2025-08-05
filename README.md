@@ -6,6 +6,8 @@ A modern chat interface for AI agents built with Next.js, Tailwind CSS, and Type
 
 ## Features
 
+- 🚀 **Flexible Agent Creation**: Easy agent configuration with storage and memory options
+- 🧩 **Pre-built Templates**: Ready-to-use agent templates for different use cases
 - 💬 **Modern Chat Interface**: Clean design with real-time streaming support
 - 🧩 **Tool Calls Support**: Visualizes agent tool calls and their results
 - 🧠 **Reasoning Steps**: Displays agent reasoning process (when available)

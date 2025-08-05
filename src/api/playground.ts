@@ -1,8 +1,13 @@
 import { toast } from 'sonner'
 
-import { APIRoutes } from './routes'
+import { APIRoutes, AgnoProxyRoutes } from './routes'
 
-import { Agent, ComboboxAgent, SessionEntry } from '@/types/playground'
+import {
+  Agent,
+  ComboboxAgent,
+  SessionEntry,
+  AgentMemory
+} from '@/types/playground'
 
 export const getPlaygroundAgentsAPI = async (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -75,55 +80,48 @@ export const getAllPlaygroundSessionsAPI = async (
   userId?: string
 ): Promise<SessionEntry[]> => {
   try {
-    // Используем прокси для получения сессий
     const url = APIRoutes.GetPlaygroundSessions(base, agentId)
-
-    // Добавляем user_id в URL если передан
     const finalUrl = new URL(url, window.location.origin)
+
     if (userId) {
       finalUrl.searchParams.set('user_id', userId)
     }
-
-    console.log('🌐 API: Fetching sessions from proxy:', {
-      url: finalUrl.toString(),
-      agentId,
-      userId,
-      hasUserId: !!userId
-    })
 
     const response = await fetch(finalUrl.toString(), {
       method: 'GET'
     })
 
     if (!response.ok) {
-      console.error('❌ API: Sessions fetch failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        agentId,
-        userId
-      })
-
       if (response.status === 404) {
-        // Return empty array when storage is not enabled
         return []
       }
       throw new Error(`Failed to fetch sessions: ${response.statusText}`)
     }
 
-    const sessions = await response.json()
-    console.log('✅ API: Sessions fetched successfully:', {
-      count: sessions.length,
-      agentId,
-      userId,
-      sessions: sessions.map((s: SessionEntry) => ({
-        id: s.session_id,
-        title: s.title
-      }))
-    })
+    const rawSessions = await response.json()
+
+    // Трансформируем данные согласно новой структуре AGNO API
+    const sessions: SessionEntry[] = rawSessions.map(
+      (s: {
+        session_id: string
+        title?: string
+        created_at: number
+        session_name?: string
+        session_data?: Record<string, unknown>
+      }) => ({
+        session_id: s.session_id,
+        title:
+          s.session_name || s.title || `Session ${s.session_id.slice(0, 8)}`,
+        created_at: s.created_at,
+        session_data: {
+          session_name: s.session_name,
+          ...s.session_data
+        }
+      })
+    )
 
     return sessions
-  } catch (error) {
-    console.error('❌ API: Sessions fetch error:', error)
+  } catch {
     return []
   }
 }
@@ -134,46 +132,22 @@ export const getPlaygroundSessionAPI = async (
   sessionId: string,
   userId?: string
 ) => {
-  // Используем прокси для получения конкретной сессии
   const url = APIRoutes.GetPlaygroundSession(base, agentId, sessionId)
-
-  // Добавляем user_id в URL если передан
   const finalUrl = new URL(url, window.location.origin)
+
   if (userId) {
     finalUrl.searchParams.set('user_id', userId)
   }
-
-  console.log('🌐 API: Fetching session from proxy:', {
-    url: finalUrl.toString(),
-    agentId,
-    sessionId,
-    userId,
-    hasUserId: !!userId
-  })
 
   const response = await fetch(finalUrl.toString(), {
     method: 'GET'
   })
 
   if (!response.ok) {
-    console.error('❌ API: Session fetch failed:', {
-      status: response.status,
-      statusText: response.statusText,
-      agentId,
-      sessionId,
-      userId
-    })
     throw new Error(`Failed to fetch session: ${response.statusText}`)
   }
 
-  const sessionData = await response.json()
-  console.log('✅ API: Session fetched successfully:', {
-    sessionId: sessionData?.session_id,
-    hasMemory: !!sessionData?.memory,
-    runsCount: sessionData?.memory?.runs?.length || 0
-  })
-
-  return sessionData
+  return await response.json()
 }
 
 export const deletePlaygroundSessionAPI = async (
@@ -182,19 +156,16 @@ export const deletePlaygroundSessionAPI = async (
   sessionId: string,
   userId?: string
 ) => {
-  // Используем прокси для удаления сессии
   const url = APIRoutes.DeletePlaygroundSession(base, agentId, sessionId)
-
-  // Добавляем user_id в URL если передан
   const finalUrl = new URL(url, window.location.origin)
+
   if (userId) {
     finalUrl.searchParams.set('user_id', userId)
   }
 
-  const response = await fetch(finalUrl.toString(), {
+  return await fetch(finalUrl.toString(), {
     method: 'DELETE'
   })
-  return response
 }
 
 export const getAgents = async (url: string): Promise<Agent[]> => {
@@ -219,13 +190,9 @@ export const renamePlaygroundSessionAPI = async (
   newName: string,
   userId?: string
 ) => {
-  // ВАЖНО: Для rename пока используем прямой вызов, так как прокси не поддерживает этот эндпоинт
-  // В будущем можно добавить прокси и для этого эндпоинта
-  const url = new URL(
-    `${base}/v1/agents/${agentId}/sessions/${sessionId}/rename`
-  )
+  const url = AgnoProxyRoutes.RenameSession(agentId, sessionId, base)
 
-  const response = await fetch(url.toString(), {
+  return await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -235,6 +202,32 @@ export const renamePlaygroundSessionAPI = async (
       user_id: userId
     })
   })
+}
 
-  return response
+export const getAgentMemoriesAPI = async (
+  base: string,
+  agentId: string,
+  userId: string
+): Promise<AgentMemory[]> => {
+  try {
+    const url = AgnoProxyRoutes.GetMemories(agentId, base, userId)
+
+    const response = await fetch(url, {
+      method: 'GET'
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        // Агент не имеет памяти
+        return []
+      }
+      throw new Error(`Failed to fetch memories: ${response.statusText}`)
+    }
+
+    const memories = await response.json()
+    return Array.isArray(memories) ? memories : []
+  } catch (error) {
+    console.error('Error fetching agent memories:', error)
+    return []
+  }
 }

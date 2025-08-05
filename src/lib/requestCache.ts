@@ -53,19 +53,16 @@ class GlobalDataCache {
 
     // Проверяем кеш (TTL 10 минут)
     if (cached && now - cached.timestamp < 600000) {
-      console.log('GlobalDataCache: Company data from cache')
       return cached.data
     }
 
     // Проверяем pending запросы
     const pending = this.pendingCompanyRequests.get(userId)
     if (pending) {
-      console.log('GlobalDataCache: Waiting for pending company request')
       return pending
     }
 
     // Создаем новый запрос
-    console.log('GlobalDataCache: Making new company request')
     const requestPromise = fetch('/api/v1/companies', {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
@@ -78,7 +75,6 @@ class GlobalDataCache {
 
         // Сохраняем в кеш
         this.companyData.set(userId, { data, timestamp: now })
-        console.log('GlobalDataCache: Company data cached')
 
         return data
       })
@@ -96,18 +92,15 @@ class GlobalDataCache {
 
     // Проверяем кеш (TTL 5 минут)
     if (this.authData && now - this.authData.timestamp < 300000) {
-      console.log('GlobalDataCache: Auth user from cache')
       return this.authData.user
     }
 
     // Проверяем pending запрос
     if (this.pendingAuthRequest) {
-      console.log('GlobalDataCache: Waiting for pending auth request')
       return this.pendingAuthRequest
     }
 
     // Создаем новый запрос
-    console.log('GlobalDataCache: Making new auth request')
     this.pendingAuthRequest = (async (): Promise<User> => {
       const { createBrowserClient } = await import('@supabase/ssr')
       const supabase = createBrowserClient(
@@ -126,7 +119,6 @@ class GlobalDataCache {
 
       // Сохраняем в кеш
       this.authData = { user: user as User, timestamp: now }
-      console.log('GlobalDataCache: Auth user cached')
 
       return user as User
     })().finally(() => {
@@ -149,21 +141,16 @@ class GlobalDataCache {
 
     // Проверяем кеш (TTL 5 минут)
     if (cached && now - cached.timestamp < 300000) {
-      console.log(`GlobalDataCache: Agents data from cache (${cacheKey})`)
       return cached.data
     }
 
     // Проверяем pending запросы
     const pending = this.pendingAgentsRequests.get(cacheKey)
     if (pending) {
-      console.log(
-        `GlobalDataCache: Waiting for pending agents request (${cacheKey})`
-      )
       return pending
     }
 
     // Создаем новый запрос
-    console.log(`GlobalDataCache: Making new agents request (${cacheKey})`)
     const requestPromise = (async () => {
       const { createBrowserClient } = await import('@supabase/ssr')
       const supabase = createBrowserClient(
@@ -195,9 +182,6 @@ class GlobalDataCache {
 
       // Сохраняем в кеш
       this.agentsCache.set(cacheKey, { data: result, timestamp: now })
-      console.log(
-        `GlobalDataCache: Agents data cached (${cacheKey}), count: ${result.length}`
-      )
 
       return result
     })().finally(() => {
@@ -211,13 +195,11 @@ class GlobalDataCache {
   invalidateCompany(userId: string) {
     this.companyData.delete(userId)
     this.pendingCompanyRequests.delete(userId)
-    console.log('GlobalDataCache: Company data invalidated')
   }
 
   invalidateAuth() {
     this.authData = null
     this.pendingAuthRequest = null
-    console.log('GlobalDataCache: Auth data invalidated')
   }
 
   invalidateAgents(companyId?: string) {
@@ -254,8 +236,6 @@ class GlobalDataCache {
         requestCache.invalidate(`agents-${companyId}`)
       }
     }
-
-    console.log('GlobalDataCache: Agents data invalidated', { companyId })
   }
 }
 
@@ -288,9 +268,6 @@ class RequestCache {
     // Проверяем кеш
     const cached = this.cache.get(key)
     if (cached && !this.isExpired(cached, ttl)) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`RequestCache: Cache hit for ${key}`)
-      }
       return cached.data as T
     }
 
@@ -298,17 +275,11 @@ class RequestCache {
     if (shouldDedupe) {
       const pendingRequest = this.pendingRequests.get(key)
       if (pendingRequest) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`RequestCache: Waiting for pending request ${key}`)
-        }
         return pendingRequest as Promise<T>
       }
     }
 
     // Создаем новый запрос
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`RequestCache: Making new request ${key}`)
-    }
     const requestPromise = fetcher()
 
     if (shouldDedupe) {
@@ -324,9 +295,6 @@ class RequestCache {
         timestamp: Date.now()
       })
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`RequestCache: Cached result for ${key}`)
-      }
       return data
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -346,14 +314,12 @@ class RequestCache {
     const key = this.generateKey(keyOrUrl, options)
     this.cache.delete(key)
     this.pendingRequests.delete(key)
-    console.log(`RequestCache: Invalidated ${key}`)
   }
 
   // Очистить весь кеш
   clear(): void {
     this.cache.clear()
     this.pendingRequests.clear()
-    console.log('RequestCache: Cleared all cache')
   }
 
   // Получить статистику кеша

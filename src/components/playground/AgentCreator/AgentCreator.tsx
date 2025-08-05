@@ -32,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { X, Save, Loader2, Shield } from 'lucide-react'
+import { X, Save, Loader2, Shield, Trash2 } from 'lucide-react'
 import { usePlaygroundStore } from '@/store'
 import { toast } from 'sonner'
 import useChatActions from '@/hooks/useChatActions'
@@ -290,11 +290,11 @@ export default function AgentCreator() {
   const [referencesFormat, setReferencesFormat] = useState('json')
   const [knowledgeFilters, setKnowledgeFilters] = useState('')
 
-  // === STORAGE === (ВКЛЮЧЕНО ПО УМОЛЧАНИЮ)
-  const [storageEnabled, setStorageEnabled] = useState(true) // Включено по умолчанию
+  // === STORAGE === (ВКЛЮЧЕНО ПО УМОЛЧАНИЮ ДЛЯ НОВЫХ АГЕНТОВ)
+  const [storageEnabled, setStorageEnabled] = useState(true) // Включено по умолчанию для новых агентов
   const [storageType, setStorageType] = useState('postgres')
   const [storageDbUrl, setStorageDbUrl] = useState(
-    'postgresql://postgres:your_password@your_host:5432/postgres'
+    'postgresql://postgres:Ginifi51!@db.wyehpfzafbjfvyjzgjss.supabase.co:5432/postgres'
   )
   const [storageTableName, setStorageTableName] = useState('sessions')
   const [storageSchema, setStorageSchema] = useState('public')
@@ -323,7 +323,7 @@ export default function AgentCreator() {
   const [retries, setRetries] = useState(1) // уменьшил
   const [delayBetweenRetries, setDelayBetweenRetries] = useState(1) // уменьшил
   const [exponentialBackoff, setExponentialBackoff] = useState(false) // отключил
-  const [useJsonMode, setUseJsonMode] = useState(false)
+  const [useJsonMode, setUseJsonMode] = useState(true)
   const [monitoring, setMonitoring] = useState(false) // отключил
 
   // === CONTEXT SETTINGS === (ОЧИЩЕНО)
@@ -443,23 +443,19 @@ export default function AgentCreator() {
               schema: storageSchema
             }
           : undefined,
-        memory: memoryEnabled
-          ? {
-              enabled: true,
-              type: 'postgres',
-              db_url: storageDbUrl, // Используем тот же URL что и для storage
-              table_name: 'user_memories',
-              schema: storageSchema || 'public',
-              delete_memories: true,
-              clear_memories: true
-            }
-          : undefined,
-        knowledge: knowledgeEnabled
-          ? {
-              enabled: true,
-              type: 'url'
-            }
-          : undefined,
+        memory: {
+          enabled: memoryEnabled,
+          type: 'postgres',
+          db_url: storageDbUrl, // Используем тот же URL что и для storage
+          table_name: 'user_memories',
+          schema: storageSchema || 'public',
+          delete_memories: true,
+          clear_memories: true
+        },
+        knowledge: {
+          enabled: knowledgeEnabled,
+          type: 'url'
+        },
         reasoning: reasoning
           ? {
               enabled: true,
@@ -808,29 +804,46 @@ export default function AgentCreator() {
       // Load agent_config settings
       const config = (agent.agent_config || {}) as AgentConfig
 
-      // Memory settings
-      if (config.memory?.enabled) {
-        setMemoryEnabled(true)
-        setEnableAgenticMemory(Boolean(config.enable_agentic_memory))
-        setEnableUserMemories(Boolean(config.enable_user_memories))
-        setEnableSessionSummaries(Boolean(config.enable_session_summaries))
-        setAddMemoryReferences(Boolean(config.add_memory_references))
+      // Memory settings - берем значение из конфигурации агента
+      if (config.memory !== undefined) {
+        setMemoryEnabled(Boolean(config.memory.enabled))
+        if (config.memory.enabled) {
+          setEnableAgenticMemory(Boolean(config.enable_agentic_memory))
+          setEnableUserMemories(Boolean(config.enable_user_memories))
+          setEnableSessionSummaries(Boolean(config.enable_session_summaries))
+          setAddMemoryReferences(Boolean(config.add_memory_references))
+        }
+      } else {
+        // Если у агента вообще нет memory конфигурации, считаем что отключено
+        setMemoryEnabled(false)
       }
 
-      // Knowledge settings
-      if (config.knowledge?.enabled) {
-        setKnowledgeEnabled(true)
-        setAddReferences(Boolean(config.add_references))
-        setSearchKnowledge(Boolean(config.search_knowledge ?? true))
-        setUpdateKnowledge(Boolean(config.update_knowledge))
-        setReferencesFormat(String(config.references_format || 'json'))
+      // Knowledge settings - берем значение из конфигурации агента
+      if (config.knowledge !== undefined) {
+        setKnowledgeEnabled(Boolean(config.knowledge.enabled))
+        if (config.knowledge.enabled) {
+          setAddReferences(Boolean(config.add_references))
+          setSearchKnowledge(Boolean(config.search_knowledge ?? true))
+          setUpdateKnowledge(Boolean(config.update_knowledge))
+          setReferencesFormat(String(config.references_format || 'json'))
+        }
+      } else {
+        // Если у агента вообще нет knowledge конфигурации, считаем что отключено
+        setKnowledgeEnabled(false)
       }
 
-      // Storage settings
-      if (config.storage) {
-        setStorageEnabled(true)
-        setStorageTableName(String(config.storage.table_name || 'sessions'))
-        setStorageSchema(String(config.storage.schema || 'public'))
+      // Storage settings - берем значение из конфигурации агента
+      if (config.storage !== undefined) {
+        setStorageEnabled(Boolean(config.storage.enabled))
+        if (config.storage.table_name) {
+          setStorageTableName(String(config.storage.table_name))
+        }
+        if (config.storage.schema) {
+          setStorageSchema(String(config.storage.schema))
+        }
+      } else {
+        // Если у агента вообще нет storage конфигурации, считаем что отключено
+        setStorageEnabled(false)
       }
 
       // Tools settings
@@ -952,16 +965,18 @@ export default function AgentCreator() {
     // ТОЛЬКО ВКЛЮЧЕННЫЕ БЛОКИ добавляются в конфигурацию
     const agent_config: Record<string, unknown> = {}
 
-    // 1. Хранилище и сессии (ТОЛЬКО если включено)
+    // 1. Хранилище и сессии (сохраняем конфигурацию независимо от enabled)
+    agent_config.storage = {
+      enabled: storageEnabled,
+      type: storageType || 'postgres',
+      db_url: storageDbUrl,
+      table_name: storageTableName || 'sessions',
+      schema: storageSchema || 'public',
+      mode: 'agent'
+    }
+
+    // Дополнительные настройки только если storage включено
     if (storageEnabled) {
-      agent_config.storage = {
-        enabled: true,
-        type: storageType || 'postgres',
-        db_url: storageDbUrl,
-        table_name: storageTableName || 'sessions',
-        schema: storageSchema || 'public',
-        mode: 'agent'
-      }
       agent_config.cache_session = true
 
       // История (только если включено хранилище)
@@ -996,18 +1011,19 @@ export default function AgentCreator() {
       }
     }
 
-    // 3. Память v2 (ТОЛЬКО если включена)
-    if (memoryEnabled) {
-      agent_config.memory = {
-        enabled: true,
-        type: memoryType || 'postgres',
-        db_url: memoryDbUrl || storageDbUrl, // Используем URL хранилища если не задан отдельный
-        table_name: 'user_memories',
-        schema: memorySchema || 'public',
-        delete_memories: true,
-        clear_memories: true
-      }
+    // 3. Память v2 (сохраняем конфигурацию независимо от enabled)
+    agent_config.memory = {
+      enabled: memoryEnabled,
+      type: memoryType || 'postgres',
+      db_url: memoryDbUrl || storageDbUrl, // Используем URL хранилища если не задан отдельный
+      table_name: 'user_memories',
+      schema: memorySchema || 'public',
+      delete_memories: true,
+      clear_memories: true
+    }
 
+    // Дополнительные настройки только если memory включено
+    if (memoryEnabled) {
       if (enableAgenticMemory) {
         agent_config.enable_agentic_memory = true
       }
@@ -1023,14 +1039,15 @@ export default function AgentCreator() {
       }
     }
 
-    // 4. База знаний (ТОЛЬКО если включена)
-    if (knowledgeEnabled) {
-      agent_config.knowledge = {
-        enabled: true,
-        type: 'url',
-        table_name: 'knowledge'
-      }
+    // 4. База знаний (сохраняем конфигурацию независимо от enabled)
+    agent_config.knowledge = {
+      enabled: knowledgeEnabled,
+      type: 'url',
+      table_name: 'knowledge'
+    }
 
+    // Дополнительные настройки только если knowledge включено
+    if (knowledgeEnabled) {
       if (searchKnowledge) {
         agent_config.search_knowledge = true
       }
@@ -1087,6 +1104,10 @@ export default function AgentCreator() {
     }
 
     // 8. Ответы и стриминг (только если включены)
+    if (useJsonMode !== undefined) {
+      agent_config.use_json_mode = useJsonMode
+    }
+
     if (stream) {
       agent_config.stream = true
     }
@@ -1106,6 +1127,14 @@ export default function AgentCreator() {
       agent_config.monitoring = true
     }
     agent_config.telemetry = true // всегда включена для улучшения фреймворка
+
+    // Очистка параметров tool_choice, если инструменты отключены
+    if (!toolsEnabled) {
+      delete agent_config.tool_choice
+      delete agent_config.tool_call_limit
+      delete agent_config.show_tool_calls
+      delete agent_config.read_tool_call_history
+    }
 
     // 10. Команда (только если настроена)
     if (addTransferInstructions || !respondDirectly) {
@@ -1172,12 +1201,113 @@ export default function AgentCreator() {
     }
   }
 
-  // Load agent data when editing
+  // Reset form to default values for new agent creation
+  const resetToDefaults = useCallback(() => {
+    // === BASIC INFORMATION ===
+    setAgentName('')
+    setAgentPhoto('')
+    setAgentDescription('')
+    setInstructions('You are a helpful assistant')
+    setIsActive(true)
+    setIsPublic(false)
+
+    // === MODEL CONFIGURATION ===
+    setSelectedProvider('openai')
+    setSelectedModel('gpt-4.1-mini-2025-04-14')
+    setTemperature(0.7)
+    setMaxTokens(2000)
+    setTopP(0.9)
+    setFrequencyPenalty(0)
+    setPresencePenalty(0)
+    setStopSequences('')
+    setTimeout(60)
+    setMaxRetries(3)
+    setSeed('')
+
+    // === TOOLS === (отключено по умолчанию)
+    setToolsEnabled(false)
+    setSelectedDynamicTools([])
+    setSelectedCustomTools([])
+    setSelectedMcpServers([])
+    setShowToolCalls(true)
+    setToolCallLimit(10)
+    setToolChoice('auto')
+
+    // === MEMORY === (отключено по умолчанию)
+    setMemoryEnabled(false)
+    setMemoryType('postgres')
+    setMemoryDbUrl(
+      'postgresql://postgres:Ginifi51!@db.wyehpfzafbjfvyjzgjss.supabase.co:5432/postgres'
+    )
+    setMemorySchema('public')
+    setEnableAgenticMemory(false)
+    setEnableUserMemories(false)
+    setEnableSessionSummaries(false)
+    setAddMemoryReferences(false)
+
+    // === KNOWLEDGE === (отключено по умолчанию)
+    setKnowledgeEnabled(false)
+    setAddReferences(false)
+    setSearchKnowledge(true)
+    setUpdateKnowledge(false)
+    setReferencesFormat('json')
+    setKnowledgeFilters('')
+
+    // === STORAGE === (включено по умолчанию для новых агентов)
+    setStorageEnabled(true)
+    setStorageType('postgres')
+    setStorageDbUrl(
+      'postgresql://postgres:Ginifi51!@db.wyehpfzafbjfvyjzgjss.supabase.co:5432/postgres'
+    )
+    setStorageTableName('sessions')
+    setStorageSchema('public')
+    setStoreEvents(true)
+
+    // === REASONING === (отключено по умолчанию)
+    setReasoning(false)
+    setReasoningGoal('')
+    setReasoningMinSteps(1)
+    setReasoningMaxSteps(5)
+    setStreamReasoning(false)
+    setSaveReasoningSteps(false)
+
+    // === ADDITIONAL SETTINGS ===
+    setSystemMessage('')
+    setIntroduction('')
+    setDebugMode(false)
+    setStream(false)
+    setMarkdown(true)
+    setAddDatetimeToInstructions(false)
+    setReadChatHistory(true)
+    setNumHistoryRuns(3)
+    setTags('')
+    setTimezoneIdentifier('UTC')
+    setRetries(1)
+    setDelayBetweenRetries(1)
+    setExponentialBackoff(false)
+    setUseJsonMode(true)
+    setMonitoring(false)
+
+    // === CONTEXT SETTINGS ===
+    setContextPairs([])
+    setAdditionalContext('')
+    setAddContext(false)
+
+    // === TEAM SETTINGS ===
+    setTeamRole('')
+    setRespondDirectly(false)
+    setAddTransferInstructions(false)
+  }, [])
+
+  // Load agent data when editing or reset when creating new
   useEffect(() => {
     if (isEditMode) {
       loadAgentData()
+    } else {
+      // Сбрасываем к значениям по умолчанию при создании нового агента
+      resetToDefaults()
     }
-  }, [isEditMode, editingAgentId, loadAgentData])
+  }, [isEditMode, editingAgentId, loadAgentData, resetToDefaults])
 
   // Tools are now loaded automatically via useTools hook
 
@@ -1204,6 +1334,11 @@ export default function AgentCreator() {
     selectedMcpServers.length,
     validateConfiguration
   ])
+
+  // Auto-enable streamReasoning when reasoning is enabled
+  useEffect(() => {
+    setStreamReasoning(reasoning)
+  }, [reasoning])
 
   return (
     <motion.main
@@ -1249,30 +1384,45 @@ export default function AgentCreator() {
               disabled={isValidating}
               className="text-primary border-blue-400 hover:bg-blue-400/10"
             >
-              <Icon type="alert-circle" size="xs" className="mr-2" />
-              {isValidating ? 'Validating...' : 'Validation'}
+              {isValidating ? (
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+              ) : (
+                <Shield className="mr-2 h-3 w-3" />
+              )}
+              {isValidating ? 'Validating...' : 'Validate'}
             </Button>
             <Button
-              className="text-primary bg-secondary border-primary border-1 border border-dashed"
               size="sm"
               onClick={handleSave}
               disabled={isSaving}
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
             >
-              <Save className="mr-2 h-3 w-3" />
-
-              {isSaving
-                ? 'Saving...'
-                : isEditMode
-                  ? 'Update Agent'
-                  : 'Save Agent'}
+              {isSaving ? (
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-3 w-3" />
+              )}
+              {isSaving ? 'Saving...' : 'Save'}
             </Button>
+            {/* Delete Button - only in edit mode */}
+            {isEditMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+                className="border-red-400 text-red-500 hover:bg-red-400/10"
+              >
+                <Trash2 className="mr-2 h-3 w-3" />
+                Delete
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
               onClick={handleClose}
-              className="text-primary"
+              className="text-muted hover:text-primary"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3 w-3" />
             </Button>
           </div>
         </div>
@@ -1815,18 +1965,19 @@ export default function AgentCreator() {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                  <div className="bg-background-primary flex items-center justify-between rounded-lg p-3">
+                                  <div className="bg-background-primary flex items-center justify-between rounded-lg p-3 opacity-75">
                                     <div className="space-y-1">
                                       <Label className="font-dmmono text-xs font-medium uppercase">
                                         Stream Reasoning
                                       </Label>
                                       <p className="text-xs text-zinc-400">
-                                        View steps in real-time
+                                        Auto-enabled with reasoning (view steps
+                                        in real-time)
                                       </p>
                                     </div>
                                     <Switch
                                       checked={streamReasoning}
-                                      onCheckedChange={setStreamReasoning}
+                                      disabled={true}
                                     />
                                   </div>
 

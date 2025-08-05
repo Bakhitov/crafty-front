@@ -64,8 +64,6 @@ export async function GET(
       sessionUrl.searchParams.append('user_id', userId)
     }
 
-    console.log(`Agno session proxy: Fetching session from ${sessionUrl}`)
-
     try {
       // Создаем AbortController для таймаута
       const controller = new AbortController()
@@ -210,8 +208,6 @@ export async function DELETE(
     if (userId) {
       deleteUrl.searchParams.append('user_id', userId)
     }
-
-    console.log(`Agno session proxy: Deleting session at ${deleteUrl}`)
 
     try {
       // Создаем AbortController для таймаута

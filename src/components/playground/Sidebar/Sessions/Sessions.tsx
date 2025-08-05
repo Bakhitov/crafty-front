@@ -59,10 +59,10 @@ const Sessions = () => {
     selectedEndpoint,
     isEndpointLoading,
     sessionsData,
-    hydrated,
     hasStorage,
     setSessionsData,
-    isAgentSwitching
+    isAgentSwitching,
+    isSessionsLoading
   } = usePlaygroundStore()
   const [isScrolling, setIsScrolling] = useState(false)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
@@ -71,22 +71,19 @@ const Sessions = () => {
   const { getSessions } = useSessionLoader()
   const { completeAgentSwitch } = useChatActions()
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null)
-  const { isSessionsLoading } = usePlaygroundStore()
-  const { user } = useAuthContext() // Получаем user из AuthContext
+  const { user } = useAuthContext()
+  const lastLoadedAgentRef = useRef<string | null>(null)
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     setIsScrolling(true)
-
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current)
     }
-
     scrollTimeoutRef.current = setTimeout(() => {
       setIsScrolling(false)
     }, 1500)
-  }
+  }, [])
 
-  // Cleanup the scroll timeout when component unmounts
   useEffect(() => {
     return () => {
       if (scrollTimeoutRef.current) {
@@ -95,50 +92,28 @@ const Sessions = () => {
     }
   }, [])
 
+  // Загрузка сессий при смене агента
   useEffect(() => {
-    // Если идет переключение агента, не загружаем сессии
-    if (isAgentSwitching) {
-      console.log('🔄 Sessions: Skipping session loading - agent is switching')
+    if (isAgentSwitching) return
+
+    if (!selectedEndpoint || !agentId || !hasStorage) {
+      lastLoadedAgentRef.current = null
+      setSessionsData(() => null)
       return
     }
 
-    if (!selectedEndpoint || !agentId || !hasStorage) {
-      console.log('🔄 Sessions: Clearing sessions data - conditions not met:', {
-        hasSelectedEndpoint: !!selectedEndpoint,
-        hasAgentId: !!agentId,
-        hasStorage,
-        agentId,
-        isAgentSwitching
-      })
-      setSessionsData(() => null)
-      return
-    }
     if (agentId === 'new') {
-      console.log('🔄 Sessions: Setting empty sessions for new agent')
+      lastLoadedAgentRef.current = null
       setSessionsData([])
       return
     }
-    if (!isEndpointLoading) {
-      console.log(
-        '🔄 Sessions: Clearing sessions before loading new ones for agent:',
-        agentId
-      )
-      setSessionsData(() => null)
-      console.log(
-        '🔄 Sessions: Loading sessions for user:',
-        user?.id,
-        'agent:',
-        agentId,
-        'conditions:',
-        {
-          hasSelectedEndpoint: !!selectedEndpoint,
-          hasAgentId: !!agentId,
-          hasStorage,
-          isEndpointLoading,
-          userEmail: user?.email,
-          isAgentSwitching
-        }
-      )
+
+    if (
+      !isEndpointLoading &&
+      user?.id &&
+      lastLoadedAgentRef.current !== agentId
+    ) {
+      lastLoadedAgentRef.current = agentId
       getSessions(agentId)
     }
   }, [
@@ -148,21 +123,17 @@ const Sessions = () => {
     isEndpointLoading,
     hasStorage,
     setSessionsData,
-    user?.id, // Добавляем user?.id в зависимости
-    user?.email, // Добавляем user?.email в зависимости
-    isAgentSwitching // Добавляем isAgentSwitching в зависимости
+    user?.id,
+    isAgentSwitching
   ])
 
-  // Завершаем переключение агента после загрузки сессий
+  // Завершение переключения агента
   useEffect(() => {
     if (
       isAgentSwitching &&
       !isSessionsLoading &&
       (sessionsData !== null || !hasStorage)
     ) {
-      console.log(
-        '✅ Sessions: Completing agent switch after sessions loaded or no storage'
-      )
       completeAgentSwitch()
     }
   }, [
@@ -173,41 +144,14 @@ const Sessions = () => {
     completeAgentSwitch
   ])
 
-  // Load a specific session from URL only after sessions are loaded and session exists
+  // Очистка sessionId из URL при переключении агента
   useEffect(() => {
-    // ОТКЛЮЧАЕМ автоматическую загрузку сессий из URL
-    // Всегда показываем заглушку "начать новый чат" при переключении/открытии агента
-
-    // Если идет переключение агента, очищаем sessionId из URL
     if (isAgentSwitching && sessionId) {
-      console.log(
-        '🧹 Sessions: Clearing sessionId from URL - agent is switching'
-      )
       const url = new URL(window.location.href)
       url.searchParams.delete('session')
       window.history.replaceState({}, '', url.toString())
-      return
     }
-
-    // Если идет переключение агента, не загружаем сессию из URL
-    if (isAgentSwitching) {
-      console.log(
-        '📋 Sessions: Skipping URL session loading - agent is switching'
-      )
-      return
-    }
-
-    // БОЛЬШЕ НЕ ЗАГРУЖАЕМ СЕССИИ АВТОМАТИЧЕСКИ ИЗ URL
-    // Пользователь должен вручную кликнуть на сессию в сайдбаре
-  }, [
-    sessionId,
-    agentId,
-    selectedEndpoint,
-    hydrated,
-    sessionsData,
-    isSessionsLoading,
-    isAgentSwitching
-  ])
+  }, [isAgentSwitching, sessionId])
 
   useEffect(() => {
     if (sessionId) {
@@ -230,16 +174,16 @@ const Sessions = () => {
     []
   )
 
-  if (isSessionsLoading || isEndpointLoading)
-    return (
-      <div className="w-full">
+  const renderHistoryContent = () => {
+    if (isSessionsLoading || isEndpointLoading) {
+      return (
         <div className="mt-4 h-full w-full overflow-y-auto">
           <SkeletonList skeletonCount={5} />
         </div>
-      </div>
-    )
-  return (
-    <div className="h-full w-full">
+      )
+    }
+
+    return (
       <div
         className={`font-geist h-full overflow-y-auto transition-all duration-300 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar]:transition-opacity [&::-webkit-scrollbar]:duration-300 ${isScrolling ? '[&::-webkit-scrollbar-thumb]:bg-background [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:opacity-0' : '[&::-webkit-scrollbar]:opacity-100'}`}
         onScroll={handleScroll}
@@ -257,8 +201,10 @@ const Sessions = () => {
           ))}
         </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  return <div className="h-full w-full">{renderHistoryContent()}</div>
 }
 
 export default Sessions

@@ -334,19 +334,21 @@ const SidebarHeader = ({
             <Moon className="h-4 w-4" />
           )}
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-muted-foreground hover:text-primary h-8 w-8 p-0"
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <Icon
-            type="sheet"
-            size="xs"
-            className={`text-primary transform ${isCollapsed ? 'rotate-180' : 'rotate-0'}`}
-          />
-        </Button>
+        {!isCollapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsCollapsed(true)}
+            className="text-muted-foreground hover:text-primary h-8 w-8 p-0"
+            title="Collapse sidebar"
+          >
+            <Icon
+              type="sheet"
+              size="xs"
+              className="text-primary rotate-0 transform"
+            />
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -569,6 +571,25 @@ const Sidebar = () => {
       animate={{ width: isCollapsed ? '2.5rem' : '19rem' }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
+      {/* Кнопка свернуть/развернуть - всегда видима */}
+      {isCollapsed && (
+        <div className="absolute right-2 top-4 z-10">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsCollapsed(false)}
+            className="text-muted-foreground hover:text-primary h-8 w-8 p-0"
+            title="Expand sidebar"
+          >
+            <Icon
+              type="sheet"
+              size="xs"
+              className="text-primary rotate-180 transform"
+            />
+          </Button>
+        </div>
+      )}
+
       <motion.div
         className="flex h-full w-72 flex-col"
         initial={{ opacity: 0, x: -20 }}

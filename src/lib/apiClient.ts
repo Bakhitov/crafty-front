@@ -510,21 +510,30 @@ export const transformAgentToCombobox = (agent: Agent) => ({
 })
 
 // Утилита для преобразования APIAgent в ComboboxAgent
-export const transformAPIAgentToCombobox = (agent: APIAgent) => ({
-  value: agent.agent_id,
-  label: agent.name || agent.agent_id,
-  model: {
-    provider: agent.model_config?.provider || ''
-  },
-  storage: true, // Предполагаем что у всех агентов есть storage (так как сессии управляются Agno)
-  storage_config: { enabled: true }, // Включаем storage по умолчанию
-  is_public: agent.is_public,
-  company_id: agent.company_id,
-  category: agent.category,
-  photo: agent.photo,
-  description: agent.description,
-  system_instructions: agent.system_instructions
-})
+export const transformAPIAgentToCombobox = (agent: APIAgent) => {
+  // Правильно определяем storage из agent_config
+  const agentConfig = agent.agent_config as
+    | { storage?: { enabled?: boolean } }
+    | undefined
+  const hasStorage = Boolean(agentConfig?.storage?.enabled)
+
+  return {
+    value: agent.agent_id,
+    label: agent.name || agent.agent_id,
+    model: {
+      provider: agent.model_config?.provider || ''
+    },
+    storage: hasStorage,
+    storage_config: { enabled: hasStorage },
+    agent_config: agent.agent_config, // Сохраняем полный agent_config
+    is_public: agent.is_public,
+    company_id: agent.company_id,
+    category: agent.category,
+    photo: agent.photo,
+    description: agent.description,
+    system_instructions: agent.system_instructions
+  }
+}
 
 export const transformAgentsToCombobox = (agents: Agent[]) =>
   agents.map(transformAgentToCombobox)

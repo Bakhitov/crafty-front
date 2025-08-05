@@ -55,16 +55,20 @@ export async function POST(
     // Формируем URL для запуска агента
     const runsUrl = new URL(`/v1/agents/${agentId}/runs`, endpoint)
 
-    console.log(`Agno runs proxy: Forwarding request to ${runsUrl}`)
-
     try {
       // Получаем тело запроса
       let requestBody
       const contentType = request.headers.get('content-type')
 
       if (contentType?.includes('multipart/form-data')) {
-        // Для FormData передаем как есть
-        requestBody = await request.formData()
+        // Получаем FormData из запроса
+        const originalFormData = await request.formData()
+
+        // Пересоздаем FormData для правильной передачи
+        requestBody = new FormData()
+        for (const [key, value] of originalFormData.entries()) {
+          requestBody.append(key, value)
+        }
       } else if (contentType?.includes('application/json')) {
         // Для JSON парсим и передаем как string
         const json = await request.json()
@@ -84,7 +88,8 @@ export async function POST(
       }
 
       // Копируем важные заголовки из оригинального запроса
-      if (contentType) {
+      // НЕ копируем Content-Type для FormData, пусть браузер установит правильный boundary
+      if (contentType && !contentType.includes('multipart/form-data')) {
         proxyHeaders['Content-Type'] = contentType
       }
 
@@ -111,9 +116,6 @@ export async function POST(
 
       if (isStreaming) {
         // Для streaming ответов передаем поток напрямую с CORS заголовками
-        console.log(
-          'Agno runs proxy: Streaming response detected, forwarding stream'
-        )
 
         const headers = new Headers()
 
@@ -150,7 +152,6 @@ export async function POST(
         })
       } else {
         // Для обычных ответов парсим JSON и добавляем CORS заголовки
-        console.log('Agno runs proxy: Regular response detected, parsing JSON')
 
         let responseData
         try {
@@ -166,10 +167,20 @@ export async function POST(
         }
 
         if (!response.ok) {
-          console.warn(`Runs proxy failed for ${runsUrl}:`, {
+          console.warn(`❌ Runs proxy failed for ${runsUrl}:`, {
             status: response.status,
             statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
             body: responseData
+          })
+
+          // Логируем детальную информацию о запросе
+          console.warn('🔍 Request details:', {
+            url: runsUrl.toString(),
+            method: 'POST',
+            headers: proxyHeaders,
+            bodyType: typeof requestBody,
+            bodyIsFormData: requestBody instanceof FormData
           })
 
           return createCorsErrorResponse(

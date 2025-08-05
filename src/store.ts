@@ -19,6 +19,7 @@ interface AgentOption {
   storage_config?: {
     enabled?: boolean
   }
+  agent_config?: Record<string, unknown> // Добавляем agent_config для проверки memory
   is_public?: boolean
   company_id?: string
   description?: string

@@ -61,8 +61,6 @@ export async function GET(
       sessionsUrl.searchParams.append('user_id', userId)
     }
 
-    console.log(`Agno sessions proxy: Fetching sessions from ${sessionsUrl}`)
-
     try {
       // Создаем AbortController для таймаута
       const controller = new AbortController()

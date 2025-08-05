@@ -34,6 +34,7 @@ export default function useAgnoResponseStream() {
             ...headers
           },
           body: requestBody,
+          credentials: 'include', // Включаем cookies для аутентификации
           signal: abortController?.signal
         })
 

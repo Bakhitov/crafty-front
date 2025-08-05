@@ -37,7 +37,6 @@ const SessionItem = ({
   const [isDeleting, setIsDeleting] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
 
-  // Используем getSessionDisplayName для получения правильного названия
   const displayName = getSessionDisplayName({ title, session_data })
   const [newTitle, setNewTitle] = useState(displayName)
 
@@ -45,13 +44,11 @@ const SessionItem = ({
   const { user } = useAuthContext()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Обновляем newTitle при изменении данных сессии
   useEffect(() => {
     const currentDisplayName = getSessionDisplayName({ title, session_data })
     setNewTitle(currentDisplayName)
   }, [title, session_data])
 
-  // Фокусируем инпут при начале редактирования
   useEffect(() => {
     if (isRenaming && inputRef.current) {
       inputRef.current.focus()
@@ -61,15 +58,8 @@ const SessionItem = ({
 
   const handleGetSession = async () => {
     if (agentId && !isRenaming) {
-      console.log('🔄 SessionItem: Loading session:', { session_id, agentId })
-
-      // Сначала обновляем URL с новой сессией
       setSessionId(session_id)
-
-      // Затем загружаем сессию (это очистит сообщения и загрузит новые)
       await getSession(session_id, agentId)
-
-      // В конце обновляем локальное состояние для выделения
       onSessionClick()
     }
   }
@@ -101,12 +91,18 @@ const SessionItem = ({
       )
 
       if (response.ok) {
-        // Обновляем локальное состояние
         setSessionsData(
           (prevSessions) =>
             prevSessions?.map((session) =>
               session.session_id === session_id
-                ? { ...session, title: newTitle.trim() }
+                ? {
+                    ...session,
+                    title: newTitle.trim(),
+                    session_data: {
+                      ...session.session_data,
+                      session_name: newTitle.trim()
+                    }
+                  }
                 : session
             ) ?? null
         )
@@ -116,8 +112,7 @@ const SessionItem = ({
         toast.error('Failed to rename session')
         handleCancelRename()
       }
-    } catch (error) {
-      console.error('Error renaming session:', error)
+    } catch {
       toast.error('Failed to rename session')
       handleCancelRename()
     }
@@ -132,30 +127,30 @@ const SessionItem = ({
   }
 
   const handleDeleteSession = async () => {
-    if (agentId) {
-      setIsDeleting(true)
-      try {
-        const response = await deletePlaygroundSessionAPI(
-          selectedEndpoint,
-          agentId,
-          session_id,
-          user?.id
+    if (!agentId) return
+
+    setIsDeleting(true)
+    try {
+      const response = await deletePlaygroundSessionAPI(
+        selectedEndpoint,
+        agentId,
+        session_id,
+        user?.id
+      )
+      if (response.status === 200 && sessionsData) {
+        setSessionsData(
+          sessionsData.filter((session) => session.session_id !== session_id)
         )
-        if (response.status === 200 && sessionsData) {
-          setSessionsData(
-            sessionsData.filter((session) => session.session_id !== session_id)
-          )
-          clearChat()
-          toast.success('Session deleted')
-        } else {
-          toast.error('Failed to delete session')
-        }
-      } catch {
+        clearChat()
+        toast.success('Session deleted')
+      } else {
         toast.error('Failed to delete session')
-      } finally {
-        setIsDeleteModalOpen(false)
-        setIsDeleting(false)
       }
+    } catch {
+      toast.error('Failed to delete session')
+    } finally {
+      setIsDeleteModalOpen(false)
+      setIsDeleting(false)
     }
   }
 

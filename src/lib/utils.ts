@@ -1,5 +1,6 @@
-import { clsx, type ClassValue } from 'clsx'
+import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { v4 as uuidv4 } from 'uuid'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -24,7 +25,15 @@ export function getSessionDisplayName(session: {
     return session.title
   }
 
-  return 'Sessions'
+  return 'session'
+}
+
+/**
+ * Генерирует уникальный идентификатор для новой сессии
+ * Использует UUID v4 для обеспечения уникальности
+ */
+export function generateSessionId(): string {
+  return uuidv4()
 }
 
 export const truncateText = (text: string, limit: number) => {
